@@ -194,7 +194,7 @@ table.ligatbl.trend td.trendwk.last{box-shadow:inset 0 0 0 1px rgba(124,199,255,
         <div class="sub">Rendimiento y eficiencia por rider, semana y área · Incidencias y coste imputable (S&amp;L)</div>
       </div>
     </div>
-    <div class="stamp">Fleet Partner Report 2.0<br>Actualizado 24/09/2026 10:51</div>
+    <div class="stamp">Fleet Partner Report 2.0<br>Actualizado 24/09/2026 12:27</div>
   </header>
   <div class="controls" style="margin-bottom:14px">
     <div class="field">
@@ -1144,5 +1144,70 @@ render();
 })();
 </script>
 
+<style id="csv-export-extra-css">
+.perftable-cap.csvwrap{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.btn.btn-sm{font-size:11.5px;padding:5px 11px;text-transform:none;letter-spacing:0;font-family:var(--sans);font-weight:550}
+</style>
+<script id="csv-export-extra">
+(function(){
+  function txt(c){ return (c.innerText||c.textContent||'').replace(/\s+/g,' ').trim(); }
+  function tableToCSV(tbl){
+    var out=[];
+    tbl.querySelectorAll('tr').forEach(function(tr){
+      if(tr.classList.contains('grouphd')) return;
+      var cells=[].slice.call(tr.querySelectorAll('th,td'));
+      if(!cells.length) return;
+      if(cells.length===1 && cells[0].colSpan>1) return;          // fila "Sin datos"
+      out.push(cells.map(function(c){
+        var t=txt(c).replace(/\s*[\u2195\u25B2\u25BC]\s*$/,'');  // quita flechas de orden
+        return /[";\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
+      }).join(';'));
+    });
+    return out.join('\n');
+  }
+  function download(name,csv){
+    var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},1500);
+  }
+  function slug(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                     .replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
+  function active(segId){
+    var b=document.querySelector('#'+segId+' button[aria-pressed="true"]'); if(!b) return '';
+    var c=b.cloneNode(true); c.querySelectorAll('.n').forEach(function(x){x.remove();}); return txt(c);
+  }
+  function mkBtn(id,small){
+    var b=document.createElement('button'); b.type='button'; b.id=id;
+    b.className='btn'+(small?' btn-sm':''); b.textContent='Descargar CSV'; return b;
+  }
+
+  // ---- Vista Diario ----
+  var dayBody=document.getElementById('dayBody');
+  if(dayBody && !document.getElementById('dayCsvBtn')){
+    var host=document.querySelector('#viewDiario .search');
+    if(host){
+      var b1=mkBtn('dayCsvBtn',false); host.appendChild(b1);
+      b1.addEventListener('click',function(){
+        var area=active('dayAreaSeg')||active('dayAreaField')||'todas';
+        var day=active('daySeg')||'semana';
+        download('flota_diario_'+slug(area)+'_'+slug(day)+'.csv', tableToCSV(dayBody.closest('table')));
+      });
+    }
+  }
+
+  // ---- Resumen de performance ----
+  var perf=document.getElementById('perfTable'), cap=document.getElementById('perfTableCap');
+  if(perf && cap && !document.getElementById('perfCsvBtn')){
+    var wrap=document.createElement('div'); wrap.className='perftable-cap csvwrap';
+    cap.parentNode.insertBefore(wrap,cap); cap.className=''; wrap.appendChild(cap);
+    var b2=mkBtn('perfCsvBtn',true); wrap.appendChild(b2);
+    b2.addEventListener('click',function(){
+      var mode=active('perfModeSeg')||'semanal', node=active('perfNodeSeg')||'todos';
+      download('resumen_performance_'+slug(mode)+'_'+slug(node)+'.csv', tableToCSV(perf));
+    });
+  }
+})();
+</script>
 </body>
 </html>
