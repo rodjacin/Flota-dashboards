@@ -758,7 +758,7 @@ render();
     const rows = base();
     if(!rows.length) return;
 
-    const headers = ['Rider ID', 'Área', 'Día', 'Fecha', 'Entregados', 'No Entregados', 'No Show %', 'CAPU %', 'WTD>10 %', 'Reasign %', 'T. Entrega', 'WTD', 'H. Trab', 'Incidencias'];
+    const headers = ['Rider ID', 'Área', 'Día', 'Fecha', 'Entregados', 'No Entregados', 'No Show %', 'CAPU %', 'WTD>10 %', 'Reasign %', 'T. Entrega', 'WTD', 'H. Trab', 'UTR', 'Incidencias'];
     const csvRows = [headers.join(',')];
 
     rows.forEach(r => {
@@ -776,6 +776,7 @@ render();
         r.deliveryTime ?? '',
         r.wtd ?? '',
         r.workingHours ?? '',
+        r.utr != null ? r.utr.toFixed(2) : '',
         r.incidents ?? ''
       ].join(','));
     });
