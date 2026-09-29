@@ -1,0 +1,71 @@
+# Actualiza cada hora los dashboards de flota (SAB y GRA-MAD-NOM-ALC) sin depender del Mac.
+# Se puede lanzar a mano desde la pestaña Actions -> "Actualizar dashboards de flota" -> Run workflow.
+name: Actualizar dashboards de flota
+
+on:
+  schedule:
+    - cron: "17 * * * *"      # cada hora, en el minuto 17 (hora UTC; da igual para "cada hora")
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: flota-dashboards
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # historial (sin contenido antiguo) para fechar los horarios subidos
+          filter: blob:none
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: automatizacion/requirements.txt
+
+      - name: Instalar librerías
+        run: pip install -r automatizacion/requirements.txt
+
+      - name: Recuperar datos ya descargados del bucket
+        uses: actions/cache@v4
+        with:
+          path: ~/Downloads/fleet_data
+          key: fleet-data-${{ github.run_id }}
+          restore-keys: fleet-data-
+
+      - name: Generar dashboards
+        env:
+          GCP_JSON: ${{ secrets.GCP_JSON }}
+          GLOVO_KEY: ${{ secrets.GLOVO_KEY }}
+        run: bash automatizacion/ejecutar.sh
+
+      - name: Publicar si hay datos nuevos
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sab gra-mad-nom-alc index.html .nojekyll
+          if git diff --cached --quiet -I 'Actualizado'; then
+            echo "Sin cambios en los datos. Nada que publicar."; exit 0
+          fi
+          git commit -q -m "Actualización dashboards $(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M') (nube)"
+          for i in 1 2 3; do
+            git pull --rebase -q && git push -q && echo "Publicado OK." && exit 0
+            sleep 15
+          done
+          echo "No se pudo publicar"; exit 1
+
+      - name: Refrescar GitHub Pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null && echo "Pages en marcha"
