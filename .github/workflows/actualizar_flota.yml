@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: "17 * * * *"      # cada hora, en el minuto 17 (hora UTC; da igual para "cada hora")
   workflow_dispatch: {}
+  push:                       # al subir horarios/forecast o cambiar scripts se actualiza al momento
+    branches: [main]
+    paths: ["automatizacion/**"]
 
 permissions:
   contents: write
