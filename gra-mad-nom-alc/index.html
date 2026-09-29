@@ -690,12 +690,14 @@ render();
     {k:'day',h:'Día',cls:'txt',f:v=>'<span class="wk">'+v+'</span>'},
     {k:'delivered',h:'Entregados',f:int},
     {k:'undelivered',h:'No entreg.',f:int,tone:v=>v>=3?'bad':(v>=1?'warn':null)},
+    {k:'_noshows',h:'No Show %',f:pct,tone:v=>v>=0.05?'bad':null},
     {k:'capu',h:'CAPU %',f:pct,tone:v=>v>=0.03?'bad':(v>=0.01?'warn':null)},
     {k:'wtd10',h:'WTD>10 %',f:pct,tone:v=>v>=0.05?'bad':(v>=0.02?'warn':null)},
     {k:'reassign',h:'Reasign. %',f:pct,tone:v=>v==null?null:(v>=0.15?'bad':(v>=0.10?'warn':null))},
     {k:'deliveryTime',h:'T. entrega',f:v=>dec(v,1)},
     {k:'wtd',h:'WTD',f:v=>dec(v,1)},
     {k:'workingHours',h:'H. trab.',f:v=>dec(v,1)},
+    {k:'utr',h:'UTR',f:v=>dec(v,2)},
     {k:'incidents',h:'Incid.',f:int,tone:v=>v>=3?'bad':(v>=1?'warn':null)},
   ];
   window.__DAY_COLS__=COLS.map(c=>c.k);
