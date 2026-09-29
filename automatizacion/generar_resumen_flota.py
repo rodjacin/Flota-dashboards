@@ -72,6 +72,12 @@ try:
 except Exception:
     _vivo = None
 
+# --- Pestaña "Códigos postales" (impacto por CP en WTD, RR e incidencias): usa cp_impacto.py ---
+try:
+    import cp_impacto as _cpi
+except Exception:
+    _cpi = None
+
 # ==============================================================================
 #  CONFIGURACION
 # ==============================================================================
@@ -166,6 +172,7 @@ def main():
     print("Pestaña No show: " + ("ACTIVA" if _ns else "no encontrada (falta noshow_riders.py junto a este script)"))
     print("Pestaña Capacidad: " + ("ACTIVA" if _cap else "no encontrada (falta capacidad_forecast.py junto a este script)"))
     print("Pestaña En vivo: " + ("ACTIVA" if _vivo else "no encontrada (falta en_vivo.py junto a este script)"))
+    print("Pestaña Códigos postales: " + ("ACTIVA" if _cpi else "no encontrada (falta cp_impacto.py o la librería shapely)"))
     if _heat and HEAT_DESCARGAR:
         _heat.descargar()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -327,6 +334,13 @@ def main():
                 print("  + pestaña En vivo: " + vivo_res)
             except Exception as _e:
                 print("  (aviso) sin pestaña En vivo: " + str(_e))
+        if _cpi:
+            try:
+                cpi_html, cpi_res = _cpi.construir_html(cities, WEEKS_TO_SHOW, sello=False)
+                tpl = _cpi.integrar_en_dashboard(tpl, cpi_html)
+                print("  + pestaña Códigos postales: " + cpi_res)
+            except Exception as _e:
+                print("  (aviso) sin pestaña Códigos postales: " + str(_e))
         with open(os.path.join(OUTPUT_DIR, salida_nombre), "w", encoding="utf-8") as f:
             f.write(tpl)
         print("OK " + salida_nombre + ": " + str(len(recs)) + " filas semana - " +
