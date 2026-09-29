@@ -2,3 +2,4 @@ pandas
 google-cloud-storage
 openpyxl
 certifi
+shapely
