@@ -65,7 +65,7 @@ def _city(v):
 #  fichero más reciente con reservas (BOOK) de esa semana.
 # ------------------------------------------------------------------------------
 HORARIO_DIR = os.path.expanduser("~/Downloads")
-HORARIO_PATRON = re.compile(r"horario|formato\s*glo", re.I)
+HORARIO_PATRON = re.compile(r"horario|formato\s*glo|ajuste", re.I)   # también los AJUSTE… (BOOK/UNBOOK) subidos a la fleet tool
 _COLS = ("codigo_ciudad", "dia", "hora_inicio", "hora_final", "accion", "rider_id")
 
 
