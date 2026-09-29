@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consola de Flota · Resumen por Rider</title>
+<style>
+  :root{
+    --ink:#14171F; --muted:#6B7280; --faint:#9AA1AC;
+    --bg:#F6F7F9; --card:#FFFFFF; --line:#E4E7EC; --line-strong:#D3D8E0;
+    --accent:#0E5A6B; --accent-soft:#E3F0F2;
+    --good:#167C58; --good-bg:#E7F4EE;
+    --warn:#9A6B12; --warn-bg:#FBF1DD;
+    --bad:#B5342A;  --bad-bg:#FBE9E7;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1400px; margin:0 auto; padding:28px 22px 60px}
+  header.top{display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom:22px}
+  .brand{display:flex; align-items:center; gap:12px}
+  .mark{width:34px;height:34px;border-radius:8px;background:var(--accent);position:relative;flex:none}
+  .mark::before,.mark::after{content:"";position:absolute;background:#fff;border-radius:2px}
+  .mark::before{width:14px;height:3px;left:10px;top:11px}
+  .mark::after{width:3px;height:14px;left:15px;top:10px;opacity:.55}
+  h1{font-size:19px; font-weight:650; letter-spacing:-.01em; margin:0}
+  .sub{color:var(--muted); font-size:12.5px; margin-top:2px}
+  .stamp{font-family:var(--mono); font-size:11px; color:var(--faint); text-align:right; text-transform:uppercase; letter-spacing:.08em}
+  .summary{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+  .stat .k{font-family:var(--mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+  .stat .v{font-size:26px; font-weight:650; letter-spacing:-.02em; margin-top:4px; font-variant-numeric:tabular-nums}
+  .stat .v small{font-size:13px; font-weight:500; color:var(--muted); margin-left:4px}
+  /* ==== Panel "peor rider" (sustituye al resumen de totales bajo Vista) ==== */
+  .summary.worst-grid{grid-template-columns:repeat(3,1fr)}
+  .stat.worst{border-left:3px solid var(--c,var(--bad))}
+  .stat.worst .k{display:flex; align-items:center; gap:6px}
+  .stat.worst .k::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--c,var(--bad)); flex:none}
+  .stat.worst .v{font-size:21px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .stat.worst .v .worst-val{font-size:15px; font-weight:650; color:var(--bad)}
+  .stat.worst .worst-empty{color:var(--faint); font-weight:500}
+  .stat.worst .worst-sub{font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:5px; letter-spacing:.02em}
+  @media (max-width:820px){ .summary.worst-grid{grid-template-columns:1fr} }
+  /* ==== Liga de riders ==== */
+  .liganote{background:var(--card); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:12px; color:var(--muted); line-height:1.55}
+  .liganote b{color:var(--ink); font-weight:650}
+  table.ligatbl td.rankcell{font-family:var(--mono); color:var(--muted); font-weight:650}
+  table.ligatbl td.scoretot{font-weight:750}
+  table.ligatbl .ar2{opacity:.65; font-size:10px; font-family:var(--sans)}
+  table.ligatbl thead th.sortable{cursor:pointer}
+  .controls{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; display:flex; flex-direction:column; gap:14px}
+  .field{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .field > .lbl{font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); width:64px; flex:none}
+  .seg{display:inline-flex; background:var(--bg); border:1px solid var(--line); border-radius:9px; padding:3px; gap:2px; flex-wrap:wrap}
+  .seg button{font:inherit; font-size:13px; font-weight:520; border:0; background:transparent; color:var(--muted); padding:6px 13px; border-radius:6px; cursor:pointer; letter-spacing:.01em; transition:all .12s ease}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed="true"]{background:var(--accent); color:#fff; box-shadow:0 1px 2px rgba(14,90,107,.3)}
+  .seg button .n{font-family:var(--mono); font-size:11px; opacity:.7; margin-left:5px}
+  .seg button[aria-pressed="true"] .n{opacity:.85}
+  .search{margin-left:auto; display:flex; align-items:center; gap:8px}
+  .search input{font:inherit; font-size:13px; padding:8px 12px; border:1px solid var(--line-strong); border-radius:8px; width:180px; background:var(--card); color:var(--ink)}
+  .search input:focus{outline:2px solid var(--accent-soft); border-color:var(--accent)}
+  .btn{font:inherit; font-size:12.5px; font-weight:550; padding:8px 14px; border:1px solid var(--line-strong); background:var(--card); color:var(--ink); border-radius:8px; cursor:pointer; white-space:nowrap}
+  .btn:hover{border-color:var(--accent); color:var(--accent)}
+  .modebar{display:flex; align-items:center; gap:10px; margin-bottom:18px; font-size:12.5px; color:var(--muted)}
+  .modetag{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; padding:4px 10px; border-radius:6px; background:var(--accent-soft); color:var(--accent)}
+  .modetag.detail{background:#EEF0F3; color:var(--muted)}
+  .tablecard{background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  .scroll{overflow-x:auto}
+  table{border-collapse:separate; border-spacing:0; width:100%; min-width:1120px}
+  thead th{position:sticky; top:0; z-index:2; background:#F0F2F5; color:var(--muted); font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; font-weight:600; text-align:right; padding:11px 12px; border-bottom:1px solid var(--line-strong); cursor:pointer; white-space:nowrap; user-select:none}
+  thead th.lft{text-align:left}
+  thead th:hover{color:var(--ink)}
+  thead th .ar{opacity:0; margin-left:4px; font-family:var(--sans)}
+  thead th[data-dir="asc"] .ar,thead th[data-dir="desc"] .ar{opacity:1; color:var(--accent)}
+  .grouphd th{background:var(--accent); color:#fff; text-align:center; font-size:10px; letter-spacing:.1em; padding:6px 12px; border-bottom:1px solid var(--accent); position:static}
+  .grouphd th.g-id{background:var(--ink)}
+  .grouphd th.g-eff{background:#0b4753}
+  tbody td{padding:9px 12px; border-bottom:1px solid var(--line); text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:#FAFBFC}
+  td.rider{font-family:var(--mono); font-weight:600; text-align:left; color:var(--ink); font-size:13px}
+  td.txt{text-align:left; color:var(--muted); font-size:12.5px}
+  .pill{display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:5px; background:var(--bg); color:var(--muted); border:1px solid var(--line)}
+  .wk{display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:5px; background:var(--accent-soft); color:var(--accent); font-weight:600}
+  .wk.agg{background:#EEF0F3; color:var(--muted)}
+  .cell-good{color:var(--good); background:var(--good-bg)!important}
+  .cell-warn{color:var(--warn); background:var(--warn-bg)!important}
+  .cell-bad{color:var(--bad); background:var(--bad-bg)!important}
+  .dim{color:var(--faint)}
+  .empty{padding:48px 20px; text-align:center; color:var(--muted)}
+  .empty b{display:block; color:var(--ink); font-size:15px; margin-bottom:4px; font-weight:600}
+  .foot{margin-top:14px; font-family:var(--mono); font-size:11px; color:var(--faint); text-align:right}
+  @media (max-width:820px){
+    .summary{grid-template-columns:repeat(2,1fr)}
+    .search{margin-left:0; width:100%}
+    .search input{width:100%}
+    .field > .lbl{width:100%}
+  }
+  /* ==== Resumen de performance (gráfica) ==== */
+  .perfcard{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:14px}
+  .perfhead{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:12px}
+  .perftitle{font-size:15px; font-weight:650; letter-spacing:-.01em}
+  .perfsub{color:var(--muted); font-size:12px; margin-top:2px}
+  .perfchart{position:relative; margin-top:4px}
+  .chartwrap{position:relative; width:100%}
+  .chartwrap svg{display:block; width:100%; height:auto; overflow:visible}
+  .chartwrap .gl{stroke:var(--line); stroke-width:1}
+  .chartwrap .axis{stroke:var(--line-strong); stroke-width:1}
+  .chartwrap .ylab,.chartwrap .xlab{fill:var(--faint); font-family:var(--mono); font-size:10.5px}
+  .chartwrap .cross{stroke:var(--line-strong); stroke-width:1; stroke-dasharray:3 3; opacity:0}
+  .chartwrap .dot{stroke:#fff; stroke-width:1.5}
+  .chartwrap .hit{fill:transparent; cursor:crosshair}
+  .charttip{position:absolute; pointer-events:none; background:var(--ink); color:#fff; border-radius:8px; padding:8px 10px; font-size:11.5px; line-height:1.5; box-shadow:0 4px 14px rgba(0,0,0,.18); opacity:0; transform:translate(-50%,0); transition:opacity .08s; white-space:nowrap; z-index:5}
+  .charttip .tt-x{font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#cbd2da; margin-bottom:4px}
+  .charttip .tt-row{display:flex; align-items:center; gap:8px; font-variant-numeric:tabular-nums}
+  .charttip .tt-sw{width:8px;height:8px;border-radius:2px;flex:none}
+  .charttip .tt-v{margin-left:auto; font-weight:650; padding-left:8px}
+  .perflegend{display:flex; gap:18px; flex-wrap:wrap; margin-top:12px; padding-top:12px; border-top:1px solid var(--line)}
+  .perflegend .lg{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted)}
+  .perflegend .lg .sw{width:14px;height:3px;border-radius:2px}
+  .perfnote{color:var(--faint); font-size:11px; margin-top:8px; font-family:var(--mono)}
+  .chartempty{padding:44px 10px; text-align:center; color:var(--muted); font-size:13px}
+  /* KPIs numéricos del resumen */
+  .perfkpis{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:2px 0 14px}
+  .perfstat{background:var(--card); border:1px solid var(--line); border-left:3px solid var(--c,var(--accent)); border-radius:12px; padding:12px 14px}
+  .perfstat .k{font-family:var(--mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+  .perfstat .v{font-size:24px; font-weight:650; letter-spacing:-.02em; margin-top:3px; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .perfstat .v small{font-size:11.5px; font-weight:600}
+  .dlt.good{color:var(--good)} .dlt.bad{color:var(--bad)} .dlt.flat{color:var(--faint)}
+  .perf-target{font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:7px; letter-spacing:.02em; white-space:nowrap}
+  .perf-target b{color:var(--ink); font-weight:650}
+  .perf-target .gap{font-weight:650}
+  .perf-target .gap.good{color:var(--good)}
+  .perf-target .gap.bad{color:var(--bad)}
+  .perf-target .gap.flat{color:var(--faint)}
+  table.perftbl tr.perf-tgt td{color:var(--muted); font-style:italic; background:#FCFCFD; border-top:1px solid var(--line-strong)}
+  table.perftbl tr.perf-tgt td.lft, table.perftbl tr.perf-gap td.lft{font-style:normal; color:var(--ink)}
+  table.perftbl tr.perf-gap td{font-weight:650}
+  /* Tabla numérica por periodo */
+  .perftable-wrap{margin-top:14px; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .perftable-cap{font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding:9px 12px; background:#F0F2F5; border-bottom:1px solid var(--line-strong)}
+  .perftable-scroll{overflow-x:auto}
+  table.perftbl{border-collapse:separate; border-spacing:0; width:100%; min-width:420px}
+  table.perftbl th{background:#F7F8FA; color:var(--muted); font-family:var(--mono); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; font-weight:600; text-align:right; padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
+  table.perftbl th.lft{text-align:left}
+  table.perftbl td{padding:8px 12px; text-align:right; font-variant-numeric:tabular-nums; border-bottom:1px solid var(--line); white-space:nowrap}
+  table.perftbl td.lft{text-align:left; font-family:var(--mono); font-size:12px; color:var(--ink)}
+  table.perftbl tbody tr:last-child td{border-bottom:0}
+  table.perftbl tr.perf-tot td{font-weight:700; background:#FAFBFC; border-top:1px solid var(--line-strong)}
+  @media (max-width:820px){ .perfkpis{grid-template-columns:1fr} }
+  @media (max-width:820px){ .perfhead{flex-direction:column; gap:8px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"></div>
+      <div>
+        <h1>Consola de Flota · Rider</h1>
+        <div class="sub">Rendimiento y eficiencia por rider, semana y área</div>
+      </div>
+    </div>
+    <div class="stamp">Fleet Partner Report 2.0</div>
+  </header>
+  <div class="controls" style="margin-bottom:14px">
+    <div class="field">
+      <span class="lbl">Vista</span>
+      <div class="seg" id="viewSeg">
+        <button data-v="semanal" aria-pressed="true">Semanal</button>
+        <button data-v="diario" aria-pressed="false">Diario</button>
+        <button data-v="liga" aria-pressed="false">Delivery Race</button>
+      </div>
+    </div>
+  </div>
+  <div id="viewSemanal">
+
+
+  <section class="summary worst-grid" id="summary"></section>
+
+  <div class="controls">
+    <div class="field">
+      <span class="lbl">Área</span>
+      <div class="seg" id="areaSeg"></div>
+    </div>
+    <div class="field">
+      <span class="lbl">Semana</span>
+      <div class="seg" id="weekSeg"></div>
+      <div class="search">
+        <input id="riderSearch" type="search" placeholder="Buscar Rider ID…" autocomplete="off">
+        <button class="btn" id="csvBtn">Descargar CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="perfcard" id="perfSummary" style="display:none">
+    <div class="perfhead">
+      <div>
+        <div class="perftitle">Resumen de performance</div>
+        <div class="perfsub">Tendencia de WTD&gt;10&#8242; %, Reassignment % y No Show % a nivel de nodo · Gap vs Objetivo T1 (WTD% y RR%)</div>
+      </div>
+      <div class="seg" id="perfModeSeg">
+        <button data-m="weekly" aria-pressed="true">Trend semanal</button>
+        <button data-m="daily" aria-pressed="false">Semana actual &#183; día</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:6px">
+      <span class="lbl">Nodo</span>
+      <div class="seg" id="perfNodeSeg"></div>
+    </div>
+    <div class="perfkpis" id="perfKpis"></div>
+    <div class="perfchart">
+      <div class="chartwrap" id="perfChartWrap"></div>
+    </div>
+    <div class="perflegend" id="perfLegend"></div>
+    <div class="perftable-wrap" id="perfTableWrap">
+      <div class="perftable-cap" id="perfTableCap">Datos por periodo</div>
+      <div class="perftable-scroll"><table class="perftbl" id="perfTable"></table></div>
+    </div>
+    <div class="perfnote">Ratios ponderados por n&#186; de entregas &#183; Reassignment usa recuentos brutos cuando existen &#183; &#916; = variaci&#243;n del &#250;ltimo periodo vs anterior (pp), &#9660; = mejora</div>
+  </section>
+
+  <div class="modebar" id="modebar"></div>
+
+  <div class="tablecard">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr class="grouphd">
+            <th class="g-id" colspan="4">Identificación</th>
+            <th colspan="7">Rendimiento</th>
+            <th class="g-eff" colspan="5">Eficiencia</th>
+          </tr>
+          <tr id="headRow"></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="foot" id="foot"></div>
+  </div><!-- fin viewSemanal -->
+  <section id="viewDiario" style="display:none">
+    <div class="brand" style="margin-bottom:10px">
+      <div>
+        <h1 style="font-size:17px">Detalle diario · Semana en curso</h1>
+        <div class="sub">Una fila por rider y día · <b>__CWRANGE__</b></div>
+      </div>
+    </div>
+    <section class="summary" id="daySummary"></section>
+    <div class="controls">
+      <div class="field" id="dayAreaField">
+        <span class="lbl">Área</span>
+        <div class="seg" id="dayAreaSeg"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Día</span>
+        <div class="seg" id="daySeg"></div>
+        <div class="search" style="gap:8px;">
+          <input id="daySearch" type="search" placeholder="Buscar Rider ID…" autocomplete="off">
+          <button class="btn" id="dayCsvBtn">Descargar CSV</button>
+        </div>
+      </div>
+    </div>
+    <div class="tablecard"><div class="scroll">
+      <table style="min-width:1020px"><thead><tr id="dayHead"></tr></thead><tbody id="dayBody"></tbody></table>
+    </div></div>
+    <div class="foot" id="dayFoot"></div>
+  </section>
+
+  <section id="viewLiga" style="display:none">
+    <div class="brand" style="margin-bottom:10px">
+      <div>
+        <h1 style="font-size:17px">Delivery Race · Score de performance</h1>
+        <div class="sub">Media de todas las semanas en WTD&gt;10&#8242; %, RR % y No Show % · Score sobre 100</div>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="field">
+        <span class="lbl">Área</span>
+        <div class="seg" id="ligaAreaSeg"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Buscar</span>
+        <div class="search" style="margin-left:0">
+          <input id="ligaSearch" type="search" placeholder="Buscar Rider ID…" autocomplete="off">
+          <button class="btn" id="ligaCsvBtn">Descargar CSV</button>
+        </div>
+      </div>
+    </div>
+    <div class="liganote" id="ligaNote"></div>
+    <div class="tablecard"><div class="scroll">
+      <table class="ligatbl" style="min-width:900px"><thead><tr id="ligaHead"></tr></thead><tbody id="ligaBody"></tbody></table>
+    </div></div>
+    <div class="foot" id="ligaFoot"></div>
+  </section>
+
+</div>
+
+<script>
+const DATA = __DATA__;
+const WEEK_ORDER = __WEEK_ORDER__;
+const WEEK_LABEL = __WEEK_LABEL__;
+
+// agg: how each metric collapses when all weeks are selected
+// sum = total · avg = media · first = mismo valor · weeks = nº de semanas
+const COLS = [
+  {k:"rider", h:"Rider ID", grp:"id", cls:"rider", agg:"first", fmt:v=>v},
+  {k:"city",  h:"Área",     grp:"id", cls:"txt", agg:"first", fmt:v=>`<span class="pill">${v}</span>`},
+  {k:"vehicle",h:"Vehículo",grp:"id", cls:"txt", agg:"first", fmt:v=>vehShort(v)},
+  {k:"week",  h:"Semana",   grp:"id", cls:"txt", agg:"weeks", fmt:(v,agg)=> agg
+        ? `<span class="wk agg">${v} sem</span>`
+        : `<span class="wk">${WEEK_LABEL[v]||v}</span>`},
+
+  {k:"delivered",  h:"Entregados",  grp:"p", agg:"sum", fmt:v=>int(v)},
+  {k:"undelivered",h:"No entreg.",  grp:"p", agg:"sum", fmt:v=>int(v), tone:v=>v>=3?"bad":(v>=1?"warn":null), toneAgg:false},
+  {k:"_noshows", h:"No Show %", grp:"p", agg:"avg", fmt:v=>pct(v), tone:v=>v>=0.05?"bad":null, toneAgg:false},
+  {k:"capu",       h:"CAPU %",      grp:"p", agg:"avg", fmt:v=>pct(v), tone:v=>v>=0.03?"bad":(v>=0.01?"warn":null)},
+  {k:"notMoving",  h:"Sin mov.",    grp:"p", agg:"sum", fmt:v=>int(v), tone:v=>v>=4?"bad":(v>=2?"warn":null), toneAgg:false},
+  {k:"bundling",   h:"Bundling %",  grp:"p", agg:"avg", fmt:v=>pct(v)},
+  {k:"wtd10",      h:"WTD>10′ %",   grp:"p", agg:"avg", fmt:v=>pct(v), tone:v=>v>=0.05?"bad":(v>=0.02?"warn":null)},
+  {k:"reassign",   h:"Reasign. %",  grp:"p", agg:"first", fmt:v=>pct(v), tone:v=>v==null?null:(v>=0.15?"bad":(v>=0.10?"warn":null))},
+
+  {k:"deliveryTime",h:"T. entrega", grp:"e", agg:"avg", fmt:v=>dec(v,1), suf:"′"},
+  {k:"wtd",         h:"WTD",        grp:"e", agg:"avg", fmt:v=>dec(v,1)},
+  {k:"workingHours",h:"H. trab.",   grp:"e", agg:"sum", fmt:v=>dec(v,1)},
+  {k:"utr",         h:"UTR",        grp:"e", agg:"avg", fmt:v=>dec(v,2)}, 
+  {k:"ineligible",  h:"H. no eleg.",grp:"e", agg:"sum", fmt:v=>dec(v,1), tone:v=>v>=2?"warn":null, toneAgg:false},
+  {k:"efficiency",  h:"Eficiencia %",grp:"e", agg:"avg", fmt:v=>pct(v), tone:v=>v==null?null:(v>=0.80?"good":(v>=0.65?"warn":"bad"))},
+];
+
+function vehShort(v){const m={MOTORBIKE:"Moto",BICYCLE:"Bici",ELECTRIC_BICYCLE:"E-Bici"};return m[v]||v;}
+function int(v){return v==null?'<span class="dim">–</span>':Math.round(v).toLocaleString("es-ES");}
+function dec(v,d){return v==null?'<span class="dim">–</span>':v.toLocaleString("es-ES",{minimumFractionDigits:d,maximumFractionDigits:d});}
+function pct(v){return v==null?'<span class="dim">–</span>':(v*100).toLocaleString("es-ES",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";}
+
+const state = { area:"ALL", week:"ALL", q:"", sort:"rider", dir:"asc" };
+const areas = [...new Set(DATA.map(d=>d.city))].sort();
+const weeks = WEEK_ORDER.filter(w=>DATA.some(d=>d.week===w));
+const isAgg = ()=> state.week==="ALL";
+
+function buildSeg(el, items, current, onPick){
+  el.innerHTML="";
+  const all=document.createElement("button");
+  all.textContent="Todas"; all.setAttribute("aria-pressed", current==="ALL");
+  all.onclick=()=>onPick("ALL"); el.appendChild(all);
+  items.forEach(([val,label,count])=>{
+    const b=document.createElement("button");
+    b.innerHTML=`${label}<span class="n">${count}</span>`;
+    b.setAttribute("aria-pressed", current===val);
+    b.onclick=()=>onPick(val);
+    el.appendChild(b);
+  });
+}
+function refreshSegs(){
+  buildSeg(document.getElementById("areaSeg"),
+    areas.map(a=>[a,a, DATA.filter(d=>d.city===a).length]), state.area, v=>{state.area=v; render();});
+  buildSeg(document.getElementById("weekSeg"),
+    weeks.map(w=>[w, WEEK_LABEL[w], DATA.filter(d=>d.week===w).length]), state.week, v=>{state.week=v; render();});
+}
+function baseFiltered(){
+  const q=state.q.trim();
+  return DATA.filter(d=>
+    (state.area==="ALL"||d.city===state.area) &&
+    (state.week==="ALL"||d.week===state.week) &&
+    (q===""||String(d.rider).includes(q))
+  );
+}
+function aggregate(rows){
+  const groups=new Map();
+  rows.forEach(r=>{ if(!groups.has(r.rider))groups.set(r.rider,[]); groups.get(r.rider).push(r); });
+  const out=[];
+  groups.forEach(list=>{
+    const rec={};
+    COLS.forEach(c=>{
+      if(c.agg==="first"){ rec[c.k]=list[0][c.k]; }
+      else if(c.agg==="weeks"){ rec[c.k]=new Set(list.map(x=>x.week)).size; }
+      else if(c.agg==="sum"){
+        const vals=list.map(x=>x[c.k]).filter(v=>v!=null);
+        rec[c.k]=vals.length?vals.reduce((s,v)=>s+v,0):null;
+      } else if(c.agg==="avg"){
+        const vals=list.map(x=>x[c.k]).filter(v=>v!=null);
+        rec[c.k]=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:null;
+      }
+    });
+    out.push(rec);
+  });
+  return out;
+}
+function viewRows(){ const b=baseFiltered(); return isAgg()?aggregate(b):b; }
+
+function sorted(rows){
+  const {sort,dir}=state, sign=dir==="asc"?1:-1, agg=isAgg();
+  return [...rows].sort((a,b)=>{
+    let x=a[sort], y=b[sort];
+    if(sort==="week" && !agg){x=WEEK_ORDER.indexOf(a.week); y=WEEK_ORDER.indexOf(b.week);}
+    if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
+    if(sort==="rider"){return (+a.rider - +b.rider)*sign;}
+    if(typeof x==="string"){return String(x).localeCompare(String(y))*sign;}
+    return (x-y)*sign;
+  });
+}
+function buildHead(){
+  const tr=document.getElementById("headRow"); tr.innerHTML="";
+  COLS.forEach(c=>{
+    const th=document.createElement("th");
+    let label=c.h;
+    if(isAgg()){
+      if(c.k==="week")label="Semanas";
+      if(c.agg==="sum")label=c.h+" ·Σ";
+      if(c.agg==="avg" && c.grp!=="id")label=c.h+" ·x̄";
+    }
+    th.textContent=label;
+    if(c.grp==="id" && (c.k==="rider"||c.k==="city"||c.k==="vehicle")) th.classList.add("lft");
+    const arSpan=document.createElement("span"); arSpan.className="ar";
+    arSpan.textContent=state.sort===c.k?(state.dir==="asc"?"▲":"▼"):"↕";
+    if(state.sort===c.k) th.dataset.dir=state.dir;
+    th.appendChild(arSpan);
+    th.onclick=()=>{
+      if(state.sort===c.k){state.dir=state.dir==="asc"?"desc":"asc";}
+      else{state.sort=c.k; state.dir=(c.grp==="id")?"asc":"desc";}
+      render();
+    };
+    tr.appendChild(th);
+  });
+}
+function render(){
+  refreshSegs(); buildHead();
+  const agg=isAgg();
+  const rows=sorted(viewRows());
+  const tb=document.getElementById("tbody");
+  if(rows.length===0){
+    tb.innerHTML=`<tr><td colspan="${COLS.length}"><div class="empty"><b>Sin resultados</b>Prueba a quitar el filtro de área, semana o el buscador.</div></td></tr>`;
+  } else {
+    tb.innerHTML=rows.map(d=>"<tr>"+COLS.map(c=>{
+      const raw=d[c.k];
+      let cls=c.cls||"";
+      const toneOn = c.tone && (!agg || c.toneAgg!==false);
+      if(toneOn){const t=c.tone(raw); if(t)cls+=" cell-"+t;}
+      const suf=(c.suf&&raw!=null)?c.suf:"";
+      const val=(c.k==="week")?c.fmt(raw,agg):c.fmt(raw);
+      return `<td class="${cls}">${val}${suf}</td>`;
+    }).join("")+"</tr>").join("");
+  }
+  // summary
+  const base=baseFiltered();
+  // ==== Panel: rider con PEOR performance (valor más alto = peor) en WTD>10' %, RR % y No Show % ====
+  // Se agrega por rider (ponderado por entregas) sobre el filtro actual de área/semana.
+  const WORST_METRICS=[
+    {k:'wtd10',    label:"WTD>10′ %", color:'#0E5A6B'},
+    {k:'reassign', label:'RR %',           color:'#5B54B8'},
+    {k:'_noshows', label:'No Show %',      color:'#B5342A'},
+  ];
+  function riderAgg(rows, k){                 // rider -> {val ponderado por entregas, deliv total}
+    const num={},den={},dvt={};
+    for(const r of rows){
+      const v=r[k]; if(v==null) continue;
+      const dv=(typeof r.delivered==='number'&&r.delivered>0)?r.delivered:0;
+      const w=dv>0?dv:1;                       // sin entregas -> media simple
+      num[r.rider]=(num[r.rider]||0)+v*w;
+      den[r.rider]=(den[r.rider]||0)+w;
+      dvt[r.rider]=(dvt[r.rider]||0)+dv;
+    }
+    const out={};
+    for(const rid in den){ out[rid]={val:num[rid]/den[rid], deliv:dvt[rid]}; }
+    return out;
+  }
+  function worstRider(rows, k){
+    const ag=riderAgg(rows, k), rids=Object.keys(ag);
+    if(!rids.length) return null;
+    const dvs=rids.map(r=>ag[r].deliv).sort((a,b)=>a-b);
+    const med=dvs[Math.floor((dvs.length-1)/2)];
+    const thr=Math.max(5, Math.min(30, 0.5*med));   // mín. de entregas para descartar ruido
+    let elig=rids.filter(r=>ag[r].deliv>=thr);
+    if(!elig.length) elig=rids;                      // fallback si nadie supera el umbral
+    let best=elig[0];
+    for(const r of elig){ if(ag[r].val>ag[best].val) best=r; }
+    return {rider:best, val:ag[best].val, deliv:ag[best].deliv};
+  }
+  const pctW = v => v==null?'–':(v*100).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+  document.getElementById("summary").innerHTML = WORST_METRICS.map(m=>{
+    const w=worstRider(base, m.k);
+    if(!w) return `<div class="stat worst" style="--c:${m.color}"><div class="k">Peor rider · ${m.label}</div><div class="v worst-empty">–</div><div class="worst-sub">sin datos</div></div>`;
+    return `<div class="stat worst" style="--c:${m.color}"><div class="k">Peor rider · ${m.label}</div><div class="v">${w.rider} <span class="worst-val">${pctW(w.val)}</span></div><div class="worst-sub">${Math.round(w.deliv).toLocaleString('es-ES')} entregas</div></div>`;
+  }).join("");
+
+  // mode bar
+  const mb=document.getElementById("modebar");
+  if(agg){
+    mb.innerHTML=`<span class="modetag">Vista agregada</span> Una fila por rider · totales sumados (Σ) y porcentajes/tiempos promediados (x̄) sobre todas las semanas.`;
+  } else {
+    mb.innerHTML=`<span class="modetag detail">Vista semanal</span> Una fila por rider y semana (${WEEK_LABEL[state.week]||state.week}).`;
+  }
+  // foot
+  const parts=[state.area==="ALL"?"todas las áreas":state.area, agg?"todas las semanas":(WEEK_LABEL[state.week]||state.week)];
+  if(state.q.trim())parts.push(`rider «${state.q.trim()}»`);
+  document.getElementById("foot").textContent=`${rows.length} ${agg?"riders":"registros"} · ${parts.join(" · ")}`;
+}
+function exportCSV(){
+  const agg=isAgg();
+  const rows=sorted(viewRows());
+  const heads=COLS.map(c=>{
+    if(!agg)return c.h;
+    if(c.k==="week")return "Semanas";
+    if(c.agg==="sum")return c.h+" (total)";
+    if(c.agg==="avg"&&c.grp!=="id")return c.h+" (media)";
+    return c.h;
+  });
+  const lines=[heads.join(",")];
+  rows.forEach(d=>{
+    lines.push(COLS.map(c=>{
+      let v=d[c.k]; if(v==null)return "";
+      if(["capu","bundling","wtd10","reassign","efficiency"].includes(c.k)) return (v*100).toFixed(2);
+      if(typeof v==="number") return (Number.isInteger(v)?v:v.toFixed(3));
+      return `"${String(v).replace(/"/g,'""')}"`;
+    }).join(","));
+  });
+  const blob=new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`flota_${state.area}_${agg?"todas":state.week}${agg?"_agregado":""}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+document.getElementById("riderSearch").addEventListener("input",e=>{state.q=e.target.value; render();});
+document.getElementById("csvBtn").addEventListener("click",exportCSV);
+render();
+</script>
+
+<script>
+(function(){
+  // ---- Conmutador Semanal / Diario ----
+  const seg=document.getElementById('viewSeg');
+  const vs=document.getElementById('viewSemanal');
+  const vd=document.getElementById('viewDiario');
+  const vl=document.getElementById('viewLiga');
+  if(seg&&vs&&vd){
+    seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+      const v=b.dataset.v;
+      seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+      vs.style.display = (v==='semanal')?'':'none';
+      vd.style.display = (v==='diario')?'':'none';
+      if(vl) vl.style.display = (v==='liga')?'':'none';
+      if(v==='liga' && typeof window.__renderLiga==='function') window.__renderLiga();
+      window.scrollTo(0,0);
+    }));
+  }
+
+  // ---- Render de la tabla diaria ----
+  const DAILY = __DAILY__;
+  const CW = "__CWLABEL__";
+  window.__DAILY_DATA__ = DAILY;
+  window.__CW_LABEL__ = CW;
+  if(!Array.isArray(DAILY) || !DAILY.length){ return; }
+
+  const int = v => v==null?'<span class="dim">–</span>':Math.round(v).toLocaleString('es-ES');
+  const dec = (v,d) => v==null?'<span class="dim">–</span>':v.toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const pct = v => v==null?'<span class="dim">–</span>':(v*100).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+
+  const COLS=[
+    {k:'rider',h:'Rider ID',cls:'rider',f:v=>v},
+    {k:'city',h:'Área',cls:'txt',f:v=>'<span class="pill">'+v+'</span>'},
+    {k:'day',h:'Día',cls:'txt',f:v=>'<span class="wk">'+v+'</span>'},
+    {k:'delivered',h:'Entregados',f:int},
+    {k:'undelivered',h:'No entreg.',f:int,tone:v=>v>=3?'bad':(v>=1?'warn':null)},
+    {k:'_noshows',h:'No Show %',f:pct,tone:v=>v>=0.05?'bad':null},
+    {k:'capu',h:'CAPU %',f:pct,tone:v=>v>=0.03?'bad':(v>=0.01?'warn':null)},
+    {k:'wtd10',h:'WTD>10 %',f:pct,tone:v=>v>=0.05?'bad':(v>=0.02?'warn':null)},
+    {k:'reassign',h:'Reasign. %',f:pct,tone:v=>v==null?null:(v>=0.15?'bad':(v>=0.10?'warn':null))},
+    {k:'deliveryTime',h:'T. entrega',f:v=>dec(v,1)},
+    {k:'wtd',h:'WTD',f:v=>dec(v,1)},
+    {k:'workingHours',h:'H. trab.',f:v=>dec(v,1)},
+    {k:'utr',h:'UTR',f:v=>dec(v,2)},
+    {k:'incidents',h:'Incid.',f:int,tone:v=>v>=3?'bad':(v>=1?'warn':null)},
+  ];
+
+  const dateOf={}; DAILY.forEach(d=>{dateOf[d.day]=d.date;});
+  const days=[...new Set(DAILY.map(d=>d.day))].sort((a,b)=>dateOf[a]<dateOf[b]?-1:1);
+  const dayAreas=[...new Set(DAILY.map(d=>d.city).filter(Boolean))].sort();
+  const st={area:'ALL',day:'ALL',q:''};
+
+  function base(){
+    return DAILY.filter(d=>
+      (st.area==='ALL'||d.city===st.area)&&
+      (st.day==='ALL'||d.day===st.day)&&
+      (!st.q||String(d.rider).toLowerCase().includes(st.q.toLowerCase()))
+    );
+  }
+
+  function drawAreaSeg(){
+    const field = document.getElementById('dayAreaField');
+    if(!field) return;
+
+    field.style.display = 'flex';
+    field.style.marginBottom = '12px';
+
+    let h = '<span class="lbl">Área</span><div class="seg">';
+    h += '<button data-a="ALL" aria-pressed="' + (st.area === 'ALL') + '">Todas<span class="n">' + DAILY.length + '</span></button>';
+    
+    dayAreas.forEach(a => {
+      const n = DAILY.filter(x => x.city === a).length;
+      h += '<button data-a="' + a + '" aria-pressed="' + (st.area === a) + '">' + a + '<span class="n">' + n + '</span></button>';
+    });
+
+    h += '</div>';
+    field.innerHTML = h;
+
+    field.querySelectorAll('button').forEach(b => {
+      b.onclick = () => { st.area = b.dataset.a; render(); };
+    });
+  }
+
+  function drawSeg(){
+    const bData = DAILY.filter(d => st.area === 'ALL' || d.city === st.area);
+    let h = '<button data-d="ALL" aria-pressed="' + (st.day === 'ALL') + '">Toda la semana<span class="n">' + bData.length + '</span></button>';
+    
+    days.forEach(dd => {
+      const n = bData.filter(x => x.day === dd).length;
+      h += '<button data-d="' + dd + '" aria-pressed="' + (st.day === dd) + '">' + dd + '<span class="n">' + n + '</span></button>';
+    });
+
+    const el = document.getElementById('daySeg');
+    if(el){
+      el.innerHTML = h;
+      el.querySelectorAll('button').forEach(b => {
+        b.onclick = () => { st.day = b.dataset.d; render(); };
+      });
+    }
+  }
+
+  function drawSummary(){
+    const b=base(), S=k=>b.reduce((s,r)=>s+(r[k]||0),0);
+    const assign=S('_assigned'), reas=S('_reassign');
+    document.getElementById('daySummary').innerHTML=[
+      ['Entregados', Math.round(S('delivered')).toLocaleString('es-ES'), '<small>'+new Set(b.map(r=>r.rider)).size+' riders</small>'],
+      ['H. trabajadas', S('workingHours').toLocaleString('es-ES',{maximumFractionDigits:1}), ''],
+      ['% Reassignment', assign?((reas/assign*100).toFixed(1)+'%'):'–', ''],
+      ['Incidencias', Math.round(S('incidents')).toLocaleString('es-ES'), ''],
+    ].map(x=>'<div class="stat"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+(x[2]||'')+'</div></div>').join('');
+  }
+
+  function render(){
+    drawAreaSeg(); 
+    drawSeg(); 
+    drawSummary();
+
+    document.getElementById('dayHead').innerHTML=COLS.map(c=>'<th'+((c.cls==='rider'||c.cls==='txt')?' class="lft"':'')+'>'+c.h+'</th>').join('');
+    const rows=base().slice().sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:(String(a.rider)<String(b.rider)?-1:1));
+    let h='';
+    if(!rows.length){h='<tr><td colspan="'+COLS.length+'"><div class="empty"><b>Sin datos</b>No hay registros para el filtro actual.</div></td></tr>';}
+    rows.forEach(r=>{h+='<tr>'+COLS.map(c=>{let v=r[c.k];let t=(c.tone&&v!=null)?c.tone(v):null;let cls=((c.cls?c.cls+' ':'')+(t?'cell-'+t:'')).trim();return '<td'+(cls?' class="'+cls+'"':'')+'>'+c.f(v)+'</td>';}).join('')+'</tr>';});
+    
+    document.getElementById('dayBody').innerHTML=h;
+    
+    const areaTxt = st.area==='ALL' ? 'todas las áreas' : st.area;
+    const dayTxt = st.day==='ALL' ? 'toda la semana en curso' : st.day;
+    document.getElementById('dayFoot').textContent=rows.length+' registros · '+areaTxt+' · '+dayTxt+' · '+CW;
+  }
+
+  document.getElementById('daySearch').addEventListener('input',e=>{st.q=e.target.value;render();});
+  document.getElementById('dayCsvBtn').addEventListener('click', () => {
+    const rows = base();
+    if(!rows.length) return;
+
+    const headers = ['Rider ID', 'Área', 'Día', 'Fecha', 'Entregados', 'No Entregados', 'No Show %', 'CAPU %', 'WTD>10 %', 'Reasign %', 'T. Entrega', 'WTD', 'H. Trab', 'UTR', 'Incidencias'];
+    const csvRows = [headers.join(',')];
+
+    rows.forEach(r => {
+      csvRows.push([
+        r.rider,
+        `"${r.city || ''}"`,
+        `"${r.day || ''}"`,
+        `"${r.date || ''}"`,
+        r.delivered ?? '',
+        r.undelivered ?? '',
+        r._noshows != null ? (r._noshows * 100).toFixed(2) : '',
+        r.capu != null ? (r.capu * 100).toFixed(2) : '',
+        r.wtd10 != null ? (r.wtd10 * 100).toFixed(2) : '',
+        r.reassign != null ? (r.reassign * 100).toFixed(2) : '',
+        r.deliveryTime ?? '',
+        r.wtd ?? '',
+        r.workingHours ?? '',
+        r.utr != null ? r.utr.toFixed(2) : '',
+        r.incidents ?? ''
+      ].join(','));
+    });
+
+    const blob = new Blob(['\ufeff' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `flota_diario_${st.area}_${st.day}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  render();
+})();
+</script>
+
+<script>
+/* ==== Resumen de performance: WTD>10' %, Reassignment %, No Show % ==== */
+(function(){
+  const host = document.getElementById('perfSummary');
+  if(!host) return;
+
+  const WDATA  = (typeof DATA!=='undefined'       && Array.isArray(DATA))       ? DATA       : [];
+  const WORDER = (typeof WEEK_ORDER!=='undefined' && Array.isArray(WEEK_ORDER)) ? WEEK_ORDER : [];
+  const WLABEL = (typeof WEEK_LABEL!=='undefined' && WEEK_LABEL)                 ? WEEK_LABEL : {};
+  const DDATA  = Array.isArray(window.__DAILY_DATA__) ? window.__DAILY_DATA__ : [];
+
+  if(!WDATA.length && !DDATA.length){ host.style.display='none'; return; }
+  host.style.display='';
+
+  const METRICS = [
+    {k:'wtd10',    label:"WTD>10\u2032 %",     color:'#0E5A6B'},
+    {k:'reassign', label:'Reassignment %',     color:'#5B54B8'},
+    {k:'_noshows', label:'No Show %',          color:'#B5342A'},
+  ];
+
+  // ==== Gap to target: sólo Target 1 de WTD>10' % (wtd10) y Reassignment % (reassign) ====
+  // Mapeo con la tabla de objetivos: %WTd -> wtd10 · %RR -> reassign. Valores en fracción (2,29% = 0.0229).
+  const TARGETS = {
+    ALC:{wtd10:0.0270, reassign:0.0229},
+    GRA:{wtd10:0.0228, reassign:0.0390},
+    NOM:{wtd10:0.0405, reassign:0.0390},
+    SAB:{wtd10:0.0225, reassign:0.0540},
+    MAD:{wtd10:0.0315, reassign:0.0351},
+  };
+  const TARGETED = new Set(['wtd10','reassign']);
+
+  const NODES = [...new Set([...WDATA.map(d=>d.city), ...DDATA.map(d=>d.city)].filter(Boolean))].sort();
+  const cst = { node:'ALL', mode: WDATA.length ? 'weekly' : 'daily' };
+
+  // ---- agregación a nivel de nodo ----
+  function wrate(rows, key){           // media ponderada por entregas; fallback media simple
+    let num=0, den=0, sm=0, nm=0;
+    for(const r of rows){
+      const v=r[key]; if(v==null) continue;
+      const w=(typeof r.delivered==='number' && r.delivered>0)?r.delivered:0;
+      num+=v*w; den+=w; sm+=v; nm++;
+    }
+    if(den>0) return num/den;
+    return nm>0 ? sm/nm : null;
+  }
+  function reassignRate(rows){         // prioriza recuentos brutos (_reassign/_assigned)
+    let asg=0, rea=0, have=false;
+    for(const r of rows){
+      if(typeof r._assigned==='number'){ asg+=r._assigned; have=true; }
+      if(typeof r._reassign==='number'){ rea+=r._reassign; }
+    }
+    if(have && asg>0) return rea/asg;
+    return wrate(rows,'reassign');
+  }
+  const metricVal = (rows,k)=> k==='reassign' ? reassignRate(rows) : wrate(rows,k);
+
+  function series(){
+    if(cst.mode==='weekly'){
+      const keys = WORDER.filter(w=>WDATA.some(d=>d.week===w));
+      const labels = keys.map(w=>WLABEL[w]||w);
+      const rowsFor = w => WDATA.filter(d=> d.week===w && (cst.node==='ALL'||d.city===cst.node));
+      return { labels, lines: METRICS.map(m=>({m, vals: keys.map(w=>metricVal(rowsFor(w), m.k))})) };
+    } else {
+      const dateOf={}; DDATA.forEach(d=>{ dateOf[d.day]=d.date; });
+      const keys = [...new Set(DDATA.map(d=>d.day))].sort((a,b)=> (dateOf[a]<dateOf[b]?-1:1));
+      const rowsFor = dd => DDATA.filter(d=> d.day===dd && (cst.node==='ALL'||d.city===cst.node));
+      return { labels: keys.slice(), lines: METRICS.map(m=>({m, vals: keys.map(dd=>metricVal(rowsFor(dd), m.k))})) };
+    }
+  }
+
+  const fPct = v => v==null ? '\u2013' : (v*100).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+
+  const wrap   = document.getElementById('perfChartWrap');
+  const legend = document.getElementById('perfLegend');
+  let tip = null;
+
+  function poolRows(){
+    const src = cst.mode==='weekly' ? WDATA : DDATA;
+    return src.filter(d=> cst.node==='ALL' || d.city===cst.node);
+  }
+  function lastDelta(vals){
+    const idx=[]; vals.forEach((v,i)=>{ if(v!=null) idx.push(i); });
+    if(idx.length<2) return null;
+    return vals[idx[idx.length-1]] - vals[idx[idx.length-2]];
+  }
+  function deltaHtml(d){
+    if(d==null) return '';
+    if(Math.abs(d)<0.00005) return '<small class="dlt flat">0,0 pp</small>';
+    const pp=Math.abs(d*100).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
+    const worse = d>0;   // subida = peor en estas métricas
+    return `<small class="dlt ${worse?'bad':'good'}">${worse?'\u25B2':'\u25BC'} ${pp} pp</small>`;
+  }
+  const fPct2 = v => v==null ? '–' : (v*100).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+  // Target 1 aplicable al nodo actual. Nodo concreto -> su target; 'Todos' -> media ponderada por volumen.
+  function targetFor(k){
+    if(!TARGETED.has(k)) return null;
+    if(cst.node!=='ALL') return (TARGETS[cst.node]||{})[k] ?? null;
+    let num=0, den=0; const byCity={};
+    for(const r of poolRows()){
+      const c=r.city; if(!c) continue;
+      const w = (k==='reassign' && typeof r._assigned==='number' && r._assigned>0) ? r._assigned : (r.delivered||0);
+      byCity[c]=(byCity[c]||0)+w;
+    }
+    for(const c in byCity){
+      const t=(TARGETS[c]||{})[k]; if(t==null) continue;
+      num+=t*byCity[c]; den+=byCity[c];
+    }
+    return den>0 ? num/den : null;
+  }
+  // Bloque "gap to target" para la tarjeta KPI (sólo métricas con target).
+  function gapHtml(overall, k){
+    const t=targetFor(k);
+    if(t==null || overall==null) return '';
+    const gap=overall-t;                       // >0 = por encima del objetivo = peor
+    const over=gap>0.00005, under=gap<-0.00005;
+    const cls=over?'bad':(under?'good':'flat');
+    const arrow=over?'▲':(under?'▼':'–');
+    const pp=Math.abs(gap*100).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+    return `<div class="perf-target">Obj. T1 <b>${fPct2(t)}</b> · gap <span class="gap ${cls}">${arrow} ${pp} pp</span></div>`;
+  }
+  function renderNumbers(labels, lines){
+    const pool=poolRows();
+    document.getElementById('perfKpis').innerHTML = lines.map(s=>{
+      const overall=metricVal(pool, s.m.k);
+      return `<div class="stat perfstat" style="--c:${s.m.color}"><div class="k">${s.m.label}</div><div class="v">${fPct(overall)} ${deltaHtml(lastDelta(s.vals))}</div>${gapHtml(overall, s.m.k)}</div>`;
+    }).join('');
+    const cap=document.getElementById('perfTableCap');
+    cap.textContent=(cst.mode==='weekly'?'Datos por semana':'Datos por día')+(cst.node==='ALL'?' · todos los nodos':' · '+cst.node);
+    const perLbl = cst.mode==='weekly' ? 'Semana' : 'Día';
+    let h='<thead><tr><th class="lft">'+perLbl+'</th>'+lines.map(s=>'<th>'+s.m.label+'</th>').join('')+'</tr></thead><tbody>';
+    if(!labels.length){
+      h+='<tr><td class="lft" colspan="'+(lines.length+1)+'">Sin datos para este nodo.</td></tr>';
+    } else {
+      labels.forEach((lb,i)=>{ h+='<tr><td class="lft">'+String(lb)+'</td>'+lines.map(s=>'<td>'+fPct(s.vals[i])+'</td>').join('')+'</tr>'; });
+      h+='<tr class="perf-tot"><td class="lft">Global</td>'+lines.map(s=>'<td>'+fPct(metricVal(pool,s.m.k))+'</td>').join('')+'</tr>';
+      h+='<tr class="perf-tgt"><td class="lft">Objetivo T1</td>'+lines.map(s=>{const t=targetFor(s.m.k);return '<td>'+(t==null?'–':fPct2(t))+'</td>';}).join('')+'</tr>';
+      h+='<tr class="perf-gap"><td class="lft">Gap vs T1</td>'+lines.map(s=>{const t=targetFor(s.m.k),ov=metricVal(pool,s.m.k);if(t==null||ov==null)return '<td>–</td>';const g=ov-t,cls=g>0.00005?'cell-bad':(g<-0.00005?'cell-good':'');const sg=g>0?'+':'';return '<td class="'+cls+'">'+sg+(g*100).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' pp</td>';}).join('')+'</tr>';
+    }
+    h+='</tbody>';
+    document.getElementById('perfTable').innerHTML=h;
+  }
+  function draw(){
+    const {labels, lines} = series();
+    const n = labels.length;
+    legend.innerHTML = METRICS.map(m=>`<span class="lg"><span class="sw" style="background:${m.color}"></span>${m.label}</span>`).join('');
+    renderNumbers(labels, lines);
+
+    if(!n){ wrap.innerHTML='<div class="chartempty">Sin datos para este nodo.</div>'; return; }
+
+    const W=920, H=360, pad={t:20,r:22,b:54,l:54};
+    const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
+
+    let maxV=0, hasAny=false;
+    lines.forEach(s=>s.vals.forEach(v=>{ if(v!=null){ hasAny=true; if(v>maxV)maxV=v; } }));
+    if(!hasAny){ wrap.innerHTML='<div class="chartempty">Sin datos para este nodo.</div>'; return; }
+    if(maxV<=0) maxV=0.02;
+    let top=Math.ceil(maxV*50)/50; if(top<0.02) top=0.02;   // redondeo al 2% superior
+
+    const xOf = i => n<=1 ? pad.l+iw/2 : pad.l + iw*i/(n-1);
+    const yOf = v => pad.t + ih*(1-(v/top));
+
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tendencia de performance">`;
+    const yt=4;
+    for(let i=0;i<=yt;i++){
+      const val=top*i/yt, y=yOf(val);
+      svg += `<line class="gl" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"></line>`;
+      svg += `<text class="ylab" x="${pad.l-8}" y="${y+3.5}" text-anchor="end">${(val*100).toLocaleString('es-ES',{maximumFractionDigits:1})}%</text>`;
+    }
+    const rot = n>7;
+    labels.forEach((lb,i)=>{
+      const x=xOf(i);
+      svg += `<text class="xlab" x="${x}" y="${H-pad.b+18}" text-anchor="${rot?'end':'middle'}" transform="${rot?`rotate(-32 ${x} ${H-pad.b+18})`:''}">${String(lb)}</text>`;
+    });
+    svg += `<line class="axis" x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}"></line>`;
+    svg += `<line class="axis" x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}"></line>`;
+    svg += `<line class="cross" id="perfCross" x1="0" y1="${pad.t}" x2="0" y2="${H-pad.b}"></line>`;
+
+    lines.forEach(s=>{
+      let seg=[];
+      const flush=()=>{ if(seg.length>=2){ svg += `<polyline fill="none" stroke="${s.m.color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="${seg.map(p=>p[0]+','+p[1]).join(' ')}"></polyline>`; } seg=[]; };
+      s.vals.forEach((v,i)=>{ if(v==null){ flush(); } else { seg.push([xOf(i),yOf(v)]); } });
+      flush();
+      s.vals.forEach((v,i)=>{ if(v!=null) svg += `<circle class="dot" cx="${xOf(i)}" cy="${yOf(v)}" r="3.4" fill="${s.m.color}"></circle>`; });
+    });
+
+    for(let i=0;i<n;i++){
+      const x0 = n<=1 ? pad.l : pad.l+iw*(i-0.5)/(n-1);
+      const x1 = n<=1 ? W-pad.r : pad.l+iw*(i+0.5)/(n-1);
+      const cx0=Math.max(pad.l,x0), cx1=Math.min(W-pad.r,x1);
+      svg += `<rect class="hit" data-i="${i}" x="${cx0}" y="${pad.t}" width="${Math.max(1,cx1-cx0)}" height="${ih}"></rect>`;
+    }
+    svg += '</svg>';
+    wrap.innerHTML = svg;
+
+    if(!tip){ tip=document.createElement('div'); tip.className='charttip'; }
+    wrap.appendChild(tip); tip.style.opacity=0;
+
+    const svgEl = wrap.querySelector('svg');
+    const cross = wrap.querySelector('#perfCross');
+    const show = i => {
+      const x=xOf(i);
+      cross.setAttribute('x1',x); cross.setAttribute('x2',x); cross.style.opacity=1;
+      const rows = lines.map(s=>`<div class="tt-row"><span class="tt-sw" style="background:${s.m.color}"></span>${s.m.label}<span class="tt-v">${fPct(s.vals[i])}</span></div>`).join('');
+      tip.innerHTML = `<div class="tt-x">${String(labels[i])}</div>${rows}`;
+      const r=svgEl.getBoundingClientRect();
+      const px=r.width*(x/W);
+      tip.style.left=Math.max(78,Math.min(r.width-78,px))+'px';
+      tip.style.top=(r.height*(pad.t/H)+4)+'px';
+      tip.style.opacity=1;
+    };
+    const hide = ()=>{ cross.style.opacity=0; tip.style.opacity=0; };
+    wrap.querySelectorAll('.hit').forEach(h=>{
+      const i=+h.dataset.i;
+      h.addEventListener('mouseenter',()=>show(i));
+      h.addEventListener('mousemove',()=>show(i));
+    });
+    svgEl.addEventListener('mouseleave',hide);
+  }
+
+  // ---- selector de nodo ----
+  const nodeSeg = document.getElementById('perfNodeSeg');
+  function buildNodes(){
+    let h = `<button data-n="ALL" aria-pressed="${cst.node==='ALL'}">Todos</button>`;
+    NODES.forEach(nd=> h += `<button data-n="${nd}" aria-pressed="${cst.node===nd}">${nd}</button>`);
+    nodeSeg.innerHTML=h;
+    nodeSeg.querySelectorAll('button').forEach(b=> b.onclick=()=>{ cst.node=b.dataset.n; buildNodes(); draw(); });
+  }
+
+  // ---- selector de modo (semanal / diario) ----
+  const modeSeg = document.getElementById('perfModeSeg');
+  modeSeg.querySelectorAll('button').forEach(b=>{
+    const hasData = b.dataset.m==='weekly' ? WDATA.length : DDATA.length;
+    if(!hasData){ b.disabled=true; b.style.opacity=.4; b.style.cursor='not-allowed'; }
+    b.setAttribute('aria-pressed', String(b.dataset.m===cst.mode));
+    b.addEventListener('click',()=>{
+      if(b.disabled) return;
+      cst.mode=b.dataset.m;
+      modeSeg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+      draw();
+    });
+  });
+
+  buildNodes();
+  draw();
+})();
+</script>
+
+<script>
+/* ==== Liga de riders · score de performance (WTD>10' %, RR %, No Show %) ==== */
+(function(){
+  const host=document.getElementById('viewLiga');
+  if(!host) return;
+  const D    = (typeof DATA!=='undefined'       && Array.isArray(DATA))       ? DATA       : [];
+  const WLBL = (typeof WEEK_LABEL!=='undefined' && WEEK_LABEL)                 ? WEEK_LABEL : {};
+
+  // Target 1 por ciudad · %WTd -> wtd10 · %RR -> reassign (en fracción)
+  const TARGETS = {
+    ALC:{wtd10:0.0270, reassign:0.0229},
+    GRA:{wtd10:0.0228, reassign:0.0390},
+    NOM:{wtd10:0.0405, reassign:0.0390},
+    SAB:{wtd10:0.0225, reassign:0.0540},
+    MAD:{wtd10:0.0315, reassign:0.0351},
+  };
+  const FULL=33.33, HALF=16.67;                 // peso por métrica (máx 99,99 ≈ 100)
+  const st={area:'ALL', q:'', sort:'score', dir:'desc'};
+  const areasL=[...new Set(D.map(d=>d.city).filter(Boolean))].sort();
+
+  const pct = v => v==null?'<span class="dim">–</span>':(v*100).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+  const s2  = v => v==null?'–':v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const avg = a => { const v=a.filter(x=>x!=null); return v.length? v.reduce((s,x)=>s+x,0)/v.length : null; };
+
+  // nivel: 0=dentro del target · 1=hasta +20% · 2=peor (>+20%)
+  const tierTarget = (val,tgt)=>{ if(val==null||tgt==null) return null; if(val<=tgt) return 0; if(val<=tgt*1.2) return 1; return 2; };
+  const scoreTier  = t => t===0?FULL:(t===1?HALF:0);
+  const tierNoShow = val => val==null?null:(val<=1e-9?0:2);   // No Show: 0% ok, >0% peor
+  const tierCls    = t => t===0?'cell-good':(t===1?'cell-warn':(t===2?'cell-bad':''));
+  const totalCls   = s => s>=FULL*2?'cell-good':(s>=FULL?'cell-warn':'cell-bad');
+
+  function rowsData(){
+    const g={};
+    for(const r of D){
+      if(st.area!=='ALL' && r.city!==st.area) continue;
+      let o=g[r.rider]; if(!o){ o=g[r.rider]={city:r.city, weeks:new Set(), wtd:[], rr:[], ns:[]}; }
+      o.city=r.city; if(r.week!=null) o.weeks.add(r.week);
+      if(r.wtd10!=null)    o.wtd.push(r.wtd10);
+      if(r.reassign!=null) o.rr.push(r.reassign);
+      if(r._noshows!=null) o.ns.push(r._noshows);
+    }
+    let out=Object.keys(g).map(rid=>{
+      const o=g[rid], t=TARGETS[o.city]||{};
+      const wtd=avg(o.wtd), rr=avg(o.rr), ns=avg(o.ns);
+      const tW=tierTarget(wtd,t.wtd10), tR=tierTarget(rr,t.reassign), tN=tierNoShow(ns);
+      const sW=scoreTier(tW), sR=scoreTier(tR), sN=(tN===0?FULL:0);
+      return {rider:rid, city:o.city, weeks:o.weeks.size, wtd, rr, ns, tW,tR,tN, sW,sR,sN, score:sW+sR+sN};
+    });
+    const q=st.q.trim();
+    if(q) out=out.filter(r=>String(r.rider).includes(q));
+    return out;
+  }
+
+  const COLS=[
+    {k:'rank', h:'#',          lft:true,  sortable:false},
+    {k:'rider',h:'Rider ID',   lft:true,  sortable:true},
+    {k:'city', h:'Área',       lft:true,  sortable:true},
+    {k:'weeks',h:'Sem',        sortable:true},
+    {k:'wtd',  h:'WTD>10′ %',  sortable:true},
+    {k:'rr',   h:'RR %',       sortable:true},
+    {k:'ns',   h:'No Show %',  sortable:true},
+    {k:'sW',   h:'Score WTD',  sortable:true},
+    {k:'sR',   h:'Score RR',   sortable:true},
+    {k:'sN',   h:'Score NS',   sortable:true},
+    {k:'score',h:'Score /100', sortable:true},
+  ];
+
+  function sortRows(rows){
+    const {sort,dir}=st, sign=dir==='asc'?1:-1;
+    return rows.slice().sort((a,b)=>{
+      if(sort==='rider') return (+a.rider - +b.rider)*sign;
+      if(sort==='city')  return (String(a.city).localeCompare(String(b.city))*sign) || (+a.rider - +b.rider);
+      let x=a[sort], y=b[sort];
+      if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+      if(x===y) return (+a.rider - +b.rider);
+      return (x-y)*sign;
+    });
+  }
+
+  function render(){
+    if(typeof buildSeg==='function'){
+      buildSeg(document.getElementById('ligaAreaSeg'),
+        areasL.map(a=>[a,a, D.filter(d=>d.city===a).length]), st.area, v=>{st.area=v; render();});
+    }
+    const head=document.getElementById('ligaHead');
+    head.innerHTML=COLS.map(c=>{
+      const ar = c.sortable ? (st.sort===c.k?(st.dir==='asc'?'▲':'▼'):'↕') : '';
+      return '<th class="'+(c.lft?'lft':'')+(c.sortable?' sortable':'')+'" data-k="'+c.k+'">'+c.h+(ar?' <span class="ar2">'+ar+'</span>':'')+'</th>';
+    }).join('');
+    head.querySelectorAll('th.sortable').forEach(th=>{
+      th.style.cursor='pointer';
+      th.onclick=()=>{ const k=th.dataset.k;
+        if(st.sort===k){ st.dir=st.dir==='asc'?'desc':'asc'; }
+        else { st.sort=k; st.dir=(k==='rider'||k==='city')?'asc':'desc'; }
+        render();
+      };
+    });
+
+    const rows=sortRows(rowsData());
+    const body=document.getElementById('ligaBody');
+    if(!rows.length){
+      body.innerHTML='<tr><td colspan="'+COLS.length+'"><div class="empty"><b>Sin datos</b>No hay riders para este filtro.</div></td></tr>';
+    } else {
+      body.innerHTML=rows.map((r,i)=>
+        '<tr>'+
+          '<td class="lft rankcell">'+(i+1)+'</td>'+
+          '<td class="lft rider">'+r.rider+'</td>'+
+          '<td class="lft"><span class="pill">'+r.city+'</span></td>'+
+          '<td>'+r.weeks+'</td>'+
+          '<td class="'+tierCls(r.tW)+'">'+pct(r.wtd)+'</td>'+
+          '<td class="'+tierCls(r.tR)+'">'+pct(r.rr)+'</td>'+
+          '<td class="'+tierCls(r.tN)+'">'+pct(r.ns)+'</td>'+
+          '<td class="'+tierCls(r.tW)+'">'+s2(r.sW)+'</td>'+
+          '<td class="'+tierCls(r.tR)+'">'+s2(r.sR)+'</td>'+
+          '<td class="'+(r.tN===0?'cell-good':'cell-bad')+'">'+s2(r.sN)+'</td>'+
+          '<td class="scoretot '+totalCls(r.score)+'">'+s2(r.score)+'</td>'+
+        '</tr>').join('');
+    }
+    document.getElementById('ligaFoot').textContent=rows.length+' riders · '+(st.area==='ALL'?'todas las áreas':st.area)+' · media de todas las semanas';
+    const note=document.getElementById('ligaNote');
+    if(note) note.innerHTML='<b>Score /100</b> = WTD% + RR% + No Show% (33,33 c/u · máx 99,99). '+
+      'WTD% y RR% (vs Target 1 de su área): dentro del target → <b>33,33</b> · hasta +20% sobre el target → <b>16,67</b> · más de +20% → <b>0</b>. '+
+      'No Show%: 0% → <b>33,33</b> · cualquier valor &gt; 0% → <b>0</b>.';
+  }
+
+  window.__renderLiga=render;
+  render();
+
+  const sb=document.getElementById('ligaSearch');
+  if(sb) sb.addEventListener('input',e=>{ st.q=e.target.value; render(); });
+  const btn=document.getElementById('ligaCsvBtn');
+  if(btn) btn.onclick=()=>{
+    const rows=sortRows(rowsData());
+    const H=['Pos','Rider','Area','Semanas','WTD%','RR%','NoShow%','ScoreWTD','ScoreRR','ScoreNS','ScoreTotal'];
+    const lines=[H.join(',')];
+    rows.forEach((r,i)=>lines.push([i+1,r.rider,r.city,r.weeks,
+      r.wtd==null?'':(r.wtd*100).toFixed(2), r.rr==null?'':(r.rr*100).toFixed(2), r.ns==null?'':(r.ns*100).toFixed(2),
+      r.sW.toFixed(2), r.sR.toFixed(2), r.sN.toFixed(2), r.score.toFixed(2)].join(',')));
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='delivery_race.csv'; a.click(); URL.revokeObjectURL(a.href);
+  };
+})();
+</script>
+
+<style id="csv-export-extra-css">
+.perftable-cap.csvwrap{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.btn.btn-sm{font-size:11.5px;padding:5px 11px;text-transform:none;letter-spacing:0;font-family:var(--sans);font-weight:550}
+</style>
+<script id="csv-export-extra">
+(function(){
+  function txt(c){ return (c.innerText||c.textContent||'').replace(/\s+/g,' ').trim(); }
+  function tableToCSV(tbl){
+    var out=[];
+    tbl.querySelectorAll('tr').forEach(function(tr){
+      if(tr.classList.contains('grouphd')) return;
+      var cells=[].slice.call(tr.querySelectorAll('th,td'));
+      if(!cells.length) return;
+      if(cells.length===1 && cells[0].colSpan>1) return;          // fila "Sin datos"
+      out.push(cells.map(function(c){
+        var t=txt(c).replace(/\s*[\u2195\u25B2\u25BC]\s*$/,'');  // quita flechas de orden
+        return /[";\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t;
+      }).join(';'));
+    });
+    return out.join('\n');
+  }
+  function download(name,csv){
+    var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},1500);
+  }
+  function slug(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                     .replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
+  function active(segId){
+    var b=document.querySelector('#'+segId+' button[aria-pressed="true"]'); if(!b) return '';
+    var c=b.cloneNode(true); c.querySelectorAll('.n').forEach(function(x){x.remove();}); return txt(c);
+  }
+  function mkBtn(id,small){
+    var b=document.createElement('button'); b.type='button'; b.id=id;
+    b.className='btn'+(small?' btn-sm':''); b.textContent='Descargar CSV'; return b;
+  }
+
+  // ---- Vista Diario ----
+  var dayBody=document.getElementById('dayBody');
+  if(dayBody && !document.getElementById('dayCsvBtn')){
+    var host=document.querySelector('#viewDiario .search');
+    if(host){
+      var b1=mkBtn('dayCsvBtn',false); host.appendChild(b1);
+      b1.addEventListener('click',function(){
+        var area=active('dayAreaSeg')||active('dayAreaField')||'todas';
+        var day=active('daySeg')||'semana';
+        download('flota_diario_'+slug(area)+'_'+slug(day)+'.csv', tableToCSV(dayBody.closest('table')));
+      });
+    }
+  }
+
+  // ---- Resumen de performance ----
+  var perf=document.getElementById('perfTable'), cap=document.getElementById('perfTableCap');
+  if(perf && cap && !document.getElementById('perfCsvBtn')){
+    var wrap=document.createElement('div'); wrap.className='perftable-cap csvwrap';
+    cap.parentNode.insertBefore(wrap,cap); cap.className=''; wrap.appendChild(cap);
+    var b2=mkBtn('perfCsvBtn',true); wrap.appendChild(b2);
+    b2.addEventListener('click',function(){
+      var mode=active('perfModeSeg')||'semanal', node=active('perfNodeSeg')||'todos';
+      download('resumen_performance_'+slug(mode)+'_'+slug(node)+'.csv', tableToCSV(perf));
+    });
+  }
+})();
+</script>
+</body>
+</html>
