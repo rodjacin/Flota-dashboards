@@ -229,7 +229,9 @@ function cabecera(){
 cabecera();
 /* Paradas en vivo: wtd_vivo.json lo publica el muestreo cada ~10 min; se relee cada 5 min */
 function aplicarVivo(j){
-  if(!j||!j.foto||(D.foto&&j.foto<=D.foto))return;
+  if(!j||!j.foto)return;
+  const fresco=(Date.now()-new Date(j.foto).getTime())<20*60*1000;   // muestra de los últimos 20 min: manda sobre la foto horaria
+  if(D.foto&&j.foto<=D.foto&&!fresco)return;
   D.foto=j.foto;D.aviso='';
   const P=j.paradas||{},R=j.riders||{},ids=new Set(D.rows.map(r=>r.id));
   D.rows.forEach(r=>{r.p=P[r.id]||null;if(R[r.id]&&R[r.id][0])r.name=R[r.id][0];});

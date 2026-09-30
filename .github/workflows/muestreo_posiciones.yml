@@ -2,16 +2,24 @@
 # PRIVADO (caché de GitHub Actions, nunca en el repo ni en la web). Con él calcula cuánto
 # lleva cada rider parado con un pedido activo y publica SOLO esos minutos en
 # <dashboard>/wtd_vivo.json, que la pestaña WTD% relee sin regenerar el dashboard.
-# GitHub puede retrasar unos minutos las ejecuciones programadas.
+#
+# Las ejecuciones programadas de GitHub cada 10 min no son fiables (se saltan muchas), así
+# que cada ejecución se queda ~55 min en marcha tomando una muestra cada 10 min y al acabar
+# se relanza a sí misma. La programación horaria solo es un respaldo si la cadena se corta
+# (la concurrencia garantiza que nunca haya dos a la vez).
 name: Muestreo de posiciones
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "7 * * * *"
   workflow_dispatch: {}
+  push:                       # al cambiar este fichero arranca la cadena al momento
+    branches: [main]
+    paths: [".github/workflows/muestreo_posiciones.yml"]
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: muestreo-posiciones
@@ -20,7 +28,7 @@ concurrency:
 jobs:
   muestrear:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 75
     steps:
       - name: Descargar el repositorio
         uses: actions/checkout@v4
@@ -37,7 +45,7 @@ jobs:
           key: posiciones-${{ github.run_id }}
           restore-keys: posiciones-
 
-      - name: Tomar muestra
+      - name: Muestrear y publicar cada 10 min (~55 min)
         env:
           GLOVO_KEY: ${{ secrets.GLOVO_KEY }}
           TZ: Europe/Madrid
@@ -47,17 +55,34 @@ jobs:
           printf '%s\n' "$GLOVO_KEY" | tr -d '\r' > "$HOME/claves-pem/private_key.pem"
           chmod 600 "$HOME/claves-pem/private_key.pem"
           cp automatizacion/entradas/_city_ids_en_vivo.json "$HOME/Downloads/dashboards/en_vivo/city_ids.json" 2>/dev/null || true
-          python3 automatizacion/posiciones.py "$GITHUB_WORKSPACE"
-
-      - name: Publicar paradas (wtd_vivo.json)
-        run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add gra-mad-nom-alc/wtd_vivo.json sab/wtd_vivo.json 2>/dev/null || true
-          if git diff --cached --quiet; then echo "Sin cambios."; exit 0; fi
-          git commit -q -m "Paradas en vivo $(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
-          for i in 1 2 3; do
-            git pull --rebase -q && git push -q && echo "Publicado OK." && exit 0
-            sleep 10
+
+          publicar() {
+            git add gra-mad-nom-alc/wtd_vivo.json sab/wtd_vivo.json 2>/dev/null || true
+            if git diff --cached --quiet; then echo "Sin cambios."; return 0; fi
+            git commit -q -m "Paradas en vivo $(date '+%d/%m/%Y %H:%M')"
+            for i in 1 2 3; do
+              git pull --rebase -q && git push -q && echo "Publicado OK." && return 0
+              sleep 10
+            done
+            echo "No se pudo publicar esta muestra (se reintenta en la siguiente)"
+            git reset -q --hard origin/main 2>/dev/null || true
+          }
+
+          FIN=$(( $(date +%s) + 55*60 ))
+          while :; do
+            echo "==== $(date '+%H:%M:%S') muestra ===="
+            python3 automatizacion/posiciones.py "$GITHUB_WORKSPACE" || echo "fallo en la muestra (se reintenta en la siguiente)"
+            publicar
+            AHORA=$(date +%s)
+            ESPERA=$(( 600 - AHORA % 600 ))            # siguiente múltiplo de 10 min
+            [ $(( AHORA + ESPERA )) -ge $FIN ] && break
+            sleep $ESPERA
           done
-          echo "No se pudo publicar"; exit 1
+
+      - name: Relanzar el muestreo
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run muestreo_posiciones.yml --ref "${{ github.ref_name }}" && echo "Siguiente tanda lanzada"
