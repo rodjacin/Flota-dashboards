@@ -1,6 +1,7 @@
 # Toma cada 10 min la posición de los riders (Live Operations) y la guarda en un historial
-# PRIVADO (caché de GitHub Actions, nunca en el repo ni en la web). La pestaña WTD% lo usa
-# para calcular cuánto lleva cada rider parado con un pedido activo.
+# PRIVADO (caché de GitHub Actions, nunca en el repo ni en la web). Con él calcula cuánto
+# lleva cada rider parado con un pedido activo y publica SOLO esos minutos en
+# <dashboard>/wtd_vivo.json, que la pestaña WTD% relee sin regenerar el dashboard.
 # GitHub puede retrasar unos minutos las ejecuciones programadas.
 name: Muestreo de posiciones
 
@@ -10,7 +11,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: muestreo-posiciones
@@ -19,12 +20,10 @@ concurrency:
 jobs:
   muestrear:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
-      - name: Descargar los scripts
+      - name: Descargar el repositorio
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: automatizacion
 
       - name: Instalar Python
         uses: actions/setup-python@v5
@@ -48,4 +47,17 @@ jobs:
           printf '%s\n' "$GLOVO_KEY" | tr -d '\r' > "$HOME/claves-pem/private_key.pem"
           chmod 600 "$HOME/claves-pem/private_key.pem"
           cp automatizacion/entradas/_city_ids_en_vivo.json "$HOME/Downloads/dashboards/en_vivo/city_ids.json" 2>/dev/null || true
-          cd automatizacion && python3 posiciones.py
+          python3 automatizacion/posiciones.py "$GITHUB_WORKSPACE"
+
+      - name: Publicar paradas (wtd_vivo.json)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gra-mad-nom-alc/wtd_vivo.json sab/wtd_vivo.json 2>/dev/null || true
+          if git diff --cached --quiet; then echo "Sin cambios."; exit 0; fi
+          git commit -q -m "Paradas en vivo $(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
+          for i in 1 2 3; do
+            git pull --rebase -q && git push -q && echo "Publicado OK." && exit 0
+            sleep 10
+          done
+          echo "No se pudo publicar"; exit 1

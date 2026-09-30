@@ -223,11 +223,22 @@ const hhmm=s=>{if(!s)return '—';const d=new Date(s);return isNaN(d)?'—':d.to
 const U=D.umbral;
 const S={city:'ALL',par:'ALL',q:'',sort:'par',dir:-1};
 const parMin=r=>(r.p&&r.p.estado==='parado')?r.p.min:null;
-$('sub').textContent='%WTD>10′ de las 4 últimas semanas cerradas ('+D.l4.join(', ')+') y de la semana pasada ('+D.wk1+'), según el bucket GCP. Parada con pedido activo según Live Operations'+(D.foto?' · posiciones a las '+hhmm(D.foto)+' (hora de Madrid)':'')+'.';
-if(D.aviso){$('banner').hidden=false;$('banner').textContent=D.aviso;}
+function cabecera(){
+  $('sub').textContent='%WTD>10′ de las 4 últimas semanas cerradas ('+D.l4.join(', ')+') y de la semana pasada ('+D.wk1+'), según el bucket GCP. Parada con pedido activo según Live Operations'+(D.foto?' · posiciones a las '+hhmm(D.foto)+' (hora de Madrid), se actualiza cada ~10 min':'')+'.';
+  $('banner').hidden=!D.aviso;$('banner').textContent=D.aviso||'';}
+cabecera();
+/* Paradas en vivo: wtd_vivo.json lo publica el muestreo cada ~10 min; se relee cada 5 min */
+function aplicarVivo(j){
+  if(!j||!j.foto||(D.foto&&j.foto<=D.foto))return;
+  D.foto=j.foto;D.aviso='';
+  const P=j.paradas||{},R=j.riders||{},ids=new Set(D.rows.map(r=>r.id));
+  D.rows.forEach(r=>{r.p=P[r.id]||null;if(R[r.id]&&R[r.id][0])r.name=R[r.id][0];});
+  Object.keys(R).forEach(id=>{if(!ids.has(id)&&D.cities.includes(R[id][1]))D.rows.push({id,city:R[id][1],name:R[id][0],o4:0,n4:0,o1:0,n1:0,p:P[id]||null});});
+  cabecera();render();}
+function cargarVivo(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
 $('nota').innerHTML='WTD&gt;10′ % = pedidos en los que el rider pasó más de 10 min en el punto del cliente ÷ pedidos entregados. En rojo, por encima del objetivo T1 de su área. '+
  '«Parado con pedido» = minutos que lleva el rider a menos de 80 m del mismo punto mientras tiene un pedido activo, sin contar si está a menos de 100 m de un restaurante donde se ha recogido algún pedido. '+
- 'Las posiciones se muestrean cada ~10 min y el dashboard se publica cada hora, así que el dato tiene una precisión de unos 10 min y refleja el momento de la última publicación. «≥» indica que la cuenta llega al inicio del historial disponible. No se publican coordenadas.';
+ 'Las posiciones se muestrean y publican cada ~10 min (GitHub puede retrasarlo unos minutos); la pestaña se refresca sola cada 5 min sin recargar la página. «≥» indica que la cuenta llega al inicio del historial disponible. No se publican coordenadas.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
 const vcell=(o,n,city)=>{const v=pc(o,n);if(v==null)return '<span class="muted">—</span>';const t=D.t1[city];const cls=t==null?'':(v>t?'bad':'ok');
   return `<span class="v ${cls}" title="${nf(o)} de ${nf(n)} pedidos${t!=null?' · objetivo T1 '+nf(t*100,2)+' %':''}">${nf(v*100,2)} %</span><span class="cnt">${nf(n)}</span>`;};
@@ -277,6 +288,7 @@ let qT;$('fQ').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{
   document.addEventListener('mousemove',e=>{if(!tip.hidden&&e.target.closest('[data-def]'))place(e.clientX,e.clientY);});
   document.addEventListener('mouseout',e=>{const el=e.target.closest('[data-def]');if(el&&!el.contains(e.relatedTarget))tip.hidden=true;});})();
 render();
+cargarVivo();setInterval(cargarVivo,5*60*1000);
 if(window.parent!==window){const send=()=>window.parent.postMessage({wtdH:document.body.getBoundingClientRect().height},'*');
   if(window.ResizeObserver) new ResizeObserver(send).observe(document.body); send();}
 </script></body></html>

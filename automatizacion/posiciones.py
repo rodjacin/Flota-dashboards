@@ -21,6 +21,9 @@ import os, json, math, datetime as dt
 
 HIST_FILE = os.path.expanduser("~/Downloads/dashboards/posiciones/historial.json")
 DELIV_CSV = os.path.expanduser("~/Downloads/fleet_data_combinado/delivery_lv_combinado.csv")
+REST_FILE = os.path.expanduser("~/Downloads/dashboards/posiciones/restaurantes.json")
+# Dashboards publicados y sus ciudades: el muestreo escribe <carpeta>/wtd_vivo.json
+DASHBOARDS = {"gra-mad-nom-alc": ["ALC", "GRA", "MAD", "NOM"], "sab": ["SAB"]}
 CIUDADES = ["ALC", "GRA", "MAD", "NOM", "SAB"]
 NODE_ALIASES = {"NEM": "MAD"}
 
@@ -104,30 +107,59 @@ def muestrear(codigos=None):
     n = registrar(snap, en_vivo._POS)
     print("muestra %s: %d riders con posición · errores: %s" % (
         snap.get("fetched_at", "")[:16], n, "; ".join(snap.get("errors") or []) or "ninguno"))
-    return n
+    return n, snap
+
+
+def exportar(repo, snap):
+    """Escribe <repo>/<dashboard>/wtd_vivo.json con las paradas (solo minutos, sin coordenadas)."""
+    nombres = {}
+    for code, C in (snap.get("cities") or {}).items():
+        for r in C.get("riders") or []:
+            nombres[str(r.get("employee_id"))] = [r.get("name") or "", code]
+    for carpeta, cs in DASHBOARDS.items():
+        paradas, foto = quietos(cs, restaurantes(cs))
+        out = {"foto": foto or snap.get("fetched_at"), "paradas": paradas,
+               "riders": {k: v for k, v in nombres.items() if v[1] in cs}}
+        d = os.path.join(repo, carpeta)
+        if os.path.isdir(d):
+            with open(os.path.join(d, "wtd_vivo.json"), "w", encoding="utf-8") as f:
+                json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+            print("%s/wtd_vivo.json: %d riders con posición" % (carpeta, len(paradas)))
 
 
 # ------------------------------------------------------------- restaurantes
 def restaurantes(cities):
-    """Rejilla de posiciones de locales (vendor_location) de esas ciudades."""
+    """Rejilla de posiciones de locales (vendor_location) de esas ciudades.
+       Lee el bucket (delivery_lv) si está; si no (muestreo cada 10 min), usa la copia
+       guardada en REST_FILE en la última actualización horaria."""
     import csv, re
     pat = re.compile(r"POINT\(([-\d.]+) ([-\d.]+)\)")
     cs = set(cities or [])
-    pts = set()
-    try:
+    por_ciudad = {}
+    if os.path.isfile(DELIV_CSV):
         with open(DELIV_CSV, encoding="utf-8-sig") as fh:
             for r in csv.DictReader(fh):
                 c = (r.get("city_code") or "").strip()
-                if cs and NODE_ALIASES.get(c, c) not in cs:
-                    continue
+                c = NODE_ALIASES.get(c, c)
                 m = pat.search(r.get("vendor_location") or "")
                 if m:
-                    pts.add((round(float(m.group(2)), 5), round(float(m.group(1)), 5)))
-    except FileNotFoundError:
-        pass
+                    por_ciudad.setdefault(c, set()).add((round(float(m.group(2)), 5), round(float(m.group(1)), 5)))
+        try:
+            os.makedirs(os.path.dirname(REST_FILE), exist_ok=True)
+            json.dump({c: sorted(v) for c, v in por_ciudad.items()}, open(REST_FILE, "w"), separators=(",", ":"))
+        except Exception:
+            pass
+    else:
+        try:
+            por_ciudad = {c: set(map(tuple, v)) for c, v in json.load(open(REST_FILE)).items()}
+        except Exception:
+            por_ciudad = {}
     grid = {}
-    for p in pts:
-        grid.setdefault((int(p[0] * 1000), int(p[1] * 1000)), []).append(p)
+    for c, pts in por_ciudad.items():
+        if cs and c not in cs:
+            continue
+        for p in pts:
+            grid.setdefault((int(p[0] * 1000), int(p[1] * 1000)), []).append(p)
     return grid
 
 
@@ -189,4 +221,6 @@ def quietos(cities, grid=None, hist=None):
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    muestrear()
+    n, snap = muestrear()
+    if len(sys.argv) > 1 and n:          # python3 posiciones.py <carpeta del repo>  -> publica wtd_vivo.json
+        exportar(sys.argv[1], snap)
