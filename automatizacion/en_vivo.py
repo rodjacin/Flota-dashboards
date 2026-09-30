@@ -185,6 +185,34 @@ def _city_ids(codigos):
 
 _PII = ("email", "phone_number")
 
+# Posición de cada rider en la última descarga: SOLO en memoria (la usan posiciones.py y la
+# pestaña WTD% para medir paradas). Nunca se escribe en la foto publicada.
+_POS = {}
+
+
+def _coords(loc):
+    """Devuelve (lat, lng) de current_location sea cual sea su formato, o None."""
+    if not isinstance(loc, dict):
+        return None
+    for la, lo in (("latitude", "longitude"), ("lat", "lng"), ("lat", "lon")):
+        if loc.get(la) is not None and loc.get(lo) is not None:
+            try:
+                return float(loc[la]), float(loc[lo])
+            except (TypeError, ValueError):
+                return None
+    for k in ("coordinates", "location", "point"):
+        v = loc.get(k)
+        if isinstance(v, dict):
+            c = _coords(v)
+            if c:
+                return c
+        if isinstance(v, (list, tuple)) and len(v) >= 2:      # GeoJSON: [lng, lat]
+            try:
+                return float(v[1]), float(v[0])
+            except (TypeError, ValueError):
+                return None
+    return None
+
 
 def _limpiar(r, code):
     r = dict(r)
@@ -193,6 +221,12 @@ def _limpiar(r, code):
     loc = r.pop("current_location", None) or {}
     r["location_updated_at"] = loc.get("location_updated_at")
     r["city"] = code
+    c = _coords(loc)
+    if c and r.get("employee_id") is not None:
+        _POS[str(r["employee_id"])] = {"lat": c[0], "lng": c[1], "loc_at": loc.get("location_updated_at")}
+    elif loc and not _MEMO.get("aviso_coords"):
+        _MEMO["aviso_coords"] = True
+        _log("current_location sin coordenadas reconocibles (claves: %s)" % ", ".join(sorted(loc)))
     return r
 
 

@@ -78,6 +78,12 @@ try:
 except Exception:
     _cpi = None
 
+# --- Pestaña "WTD%" (WTD por rider L4W / WK-1 + paradas con pedido activo): usa wtd_riders.py ---
+try:
+    import wtd_riders as _wtdr
+except Exception:
+    _wtdr = None
+
 # ==============================================================================
 #  CONFIGURACION
 # ==============================================================================
@@ -173,6 +179,7 @@ def main():
     print("Pestaña Capacidad: " + ("ACTIVA" if _cap else "no encontrada (falta capacidad_forecast.py junto a este script)"))
     print("Pestaña En vivo: " + ("ACTIVA" if _vivo else "no encontrada (falta en_vivo.py junto a este script)"))
     print("Pestaña Códigos postales: " + ("ACTIVA" if _cpi else "no encontrada (falta cp_impacto.py o la librería shapely)"))
+    print("Pestaña WTD%: " + ("ACTIVA" if _wtdr else "no encontrada (falta wtd_riders.py junto a este script)"))
     if _heat and HEAT_DESCARGAR:
         _heat.descargar()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -341,6 +348,13 @@ def main():
                 print("  + pestaña Códigos postales: " + cpi_res)
             except Exception as _e:
                 print("  (aviso) sin pestaña Códigos postales: " + str(_e))
+        if _wtdr:
+            try:
+                wtd_html, wtd_res = _wtdr.construir_html(cities, WEEKS_TO_SHOW, sello=False)
+                tpl = _wtdr.integrar_en_dashboard(tpl, wtd_html)
+                print("  + pestaña WTD%: " + wtd_res)
+            except Exception as _e:
+                print("  (aviso) sin pestaña WTD%: " + str(_e))
         with open(os.path.join(OUTPUT_DIR, salida_nombre), "w", encoding="utf-8") as f:
             f.write(tpl)
         print("OK " + salida_nombre + ": " + str(len(recs)) + " filas semana - " +

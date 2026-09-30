@@ -1,0 +1,51 @@
+# Toma cada 10 min la posición de los riders (Live Operations) y la guarda en un historial
+# PRIVADO (caché de GitHub Actions, nunca en el repo ni en la web). La pestaña WTD% lo usa
+# para calcular cuánto lleva cada rider parado con un pedido activo.
+# GitHub puede retrasar unos minutos las ejecuciones programadas.
+name: Muestreo de posiciones
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: muestreo-posiciones
+  cancel-in-progress: false
+
+jobs:
+  muestrear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Descargar los scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: automatizacion
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Recuperar historial de posiciones
+        uses: actions/cache@v4
+        with:
+          path: ~/Downloads/dashboards/posiciones
+          key: posiciones-${{ github.run_id }}
+          restore-keys: posiciones-
+
+      - name: Tomar muestra
+        env:
+          GLOVO_KEY: ${{ secrets.GLOVO_KEY }}
+          TZ: Europe/Madrid
+        run: |
+          pip install -q certifi
+          mkdir -p "$HOME/claves-pem" "$HOME/Downloads/dashboards/en_vivo"
+          printf '%s\n' "$GLOVO_KEY" | tr -d '\r' > "$HOME/claves-pem/private_key.pem"
+          chmod 600 "$HOME/claves-pem/private_key.pem"
+          cp automatizacion/entradas/_city_ids_en_vivo.json "$HOME/Downloads/dashboards/en_vivo/city_ids.json" 2>/dev/null || true
+          cd automatizacion && python3 posiciones.py
