@@ -84,6 +84,12 @@ try:
 except Exception:
     _wtdr = None
 
+# --- Pestaña "WTD% v1" (riders parados justo después de entregar): usa wtd_v1.py + posiciones.py ---
+try:
+    import wtd_v1 as _wtdv1
+except Exception:
+    _wtdv1 = None
+
 # ==============================================================================
 #  CONFIGURACION
 # ==============================================================================
@@ -180,6 +186,7 @@ def main():
     print("Pestaña En vivo: " + ("ACTIVA" if _vivo else "no encontrada (falta en_vivo.py junto a este script)"))
     print("Pestaña Códigos postales: " + ("ACTIVA" if _cpi else "no encontrada (falta cp_impacto.py o la librería shapely)"))
     print("Pestaña WTD%: " + ("ACTIVA" if _wtdr else "no encontrada (falta wtd_riders.py junto a este script)"))
+    print("Pestaña WTD% v1: " + ("ACTIVA" if _wtdv1 else "no encontrada (falta wtd_v1.py junto a este script)"))
     if _heat and HEAT_DESCARGAR:
         _heat.descargar()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -355,6 +362,13 @@ def main():
                 print("  + pestaña WTD%: " + wtd_res)
             except Exception as _e:
                 print("  (aviso) sin pestaña WTD%: " + str(_e))
+        if _wtdv1:
+            try:
+                v1_html, v1_res = _wtdv1.construir_html(cities, WEEKS_TO_SHOW, sello=False)
+                tpl = _wtdv1.integrar_en_dashboard(tpl, v1_html)
+                print("  + pestaña WTD% v1: " + v1_res)
+            except Exception as _e:
+                print("  (aviso) sin pestaña WTD% v1: " + str(_e))
         with open(os.path.join(OUTPUT_DIR, salida_nombre), "w", encoding="utf-8") as f:
             f.write(tpl)
         print("OK " + salida_nombre + ": " + str(len(recs)) + " filas semana - " +
