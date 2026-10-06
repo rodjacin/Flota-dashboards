@@ -150,14 +150,14 @@ input[type=search]{width:200px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .ph{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}.ph p{margin:0;color:var(--ink2);font-size:12.5px}
 .bars{display:flex;align-items:flex-end;gap:5px;height:190px;padding-top:18px;overflow-x:auto}
-.bar{flex:1 0 26px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;cursor:pointer}
+.bar{flex:1 0 26px;max-width:90px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;cursor:pointer}
 .bar .stk{width:100%;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;min-height:1px}
 .bar .stk i{display:block;width:100%}
 .bar b{font-size:10.5px;font-family:ui-monospace,monospace;color:var(--ink)}
 .bar span{font-size:10px;color:var(--muted);white-space:nowrap}
 .bar.sel span{color:var(--ink);font-weight:700}.bar.cur span{color:var(--acc);font-weight:700}
 .bar:hover .stk{opacity:.85}
-#hours{gap:3px}#hours .bar{flex:1 0 13px}#hours .bar b{font-size:9.5px}
+
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2)}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%}
@@ -166,6 +166,8 @@ th{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;letter-sp
 td.n,th.n{text-align:right;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
 tbody tr:hover td{background:var(--chip)}
 tr.click{cursor:pointer}
+.flag{display:inline-block;min-width:34px;text-align:center;padding:2px 9px;border-radius:99px;font-weight:700;font-family:ui-monospace,monospace}
+.flag.amber{background:#FFF4DB;color:#8A5A00;border:1px solid #F5D9A8}.flag.red{background:#FDECEA;color:#C2362F;border:1px solid #F5C2BD}.flag.ok{color:var(--ink2)}
 .tp{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:600;color:#fff}
 .muted{color:var(--muted)}
 .empty{color:var(--muted);padding:16px 0}
@@ -177,18 +179,13 @@ tr.click{cursor:pointer}
     <div class="fg"><span>Área</span><div class="seg" id="fCity"></div></div>
     <div class="fg"><span>Semana</span><select id="fWk" aria-label="Semana"></select></div>
     <div class="fg"><span>Fecha</span><select id="fDay" aria-label="Fecha"></select></div>
-    <div class="fg"><span>Intervalo horario</span><div class="hr"><select id="fH0" aria-label="Desde"></select><span>a</span><select id="fH1" aria-label="Hasta"></select></div></div>
     <div class="fg"><span>Tipo</span><div class="seg" id="fTipo"></div></div>
     <div class="fg"><span>Buscar</span><input type="search" id="fQ" placeholder="Rider, pedido o tienda"></div>
     <div class="fg"><span>&nbsp;</span><button class="reset" id="fReset">Limpiar</button></div>
   </div>
   <section class="kpis" id="kpis"></section>
-  <div class="grid2">
-    <section class="panel"><div class="ph"><h2 id="tBars">Incidencias por semana</h2><p>Pulsa una barra para filtrar</p></div>
-      <div class="bars" id="bars"></div><div class="legend" id="leg"></div></section>
-    <section class="panel"><div class="ph"><h2>Por hora del día</h2><p>Pulsa una barra para filtrar esa hora</p></div>
-      <div class="bars" id="hours"></div></section>
-  </div>
+  <section class="panel"><div class="ph"><h2 id="tBars">Incidencias por semana</h2><p>Pulsa una barra para filtrar</p></div>
+    <div class="bars" id="bars"></div><div class="legend" id="leg"></div></section>
   <section class="panel"><div class="ph"><h2>Riders con incidencias</h2><p id="cR"></p></div>
     <div class="tw" style="max-height:460px"><table id="tR"></table></div></section>
   <section class="panel"><div class="ph"><h2>Detalle de incidencias</h2><p id="cE"></p></div>
@@ -207,13 +204,11 @@ function isoW(s){const t=new Date(s+'T00:00:00Z');const dn=(t.getUTCDay()+6)%7;t
 const dlab=s=>{const d=new Date(s+'T00:00:00Z');return DOW[d.getUTCDay()]+' '+s.slice(8,10)+'/'+s.slice(5,7);};
 const R=D.rows.map(r=>({f:r[0],id:r[1],rid:r[2],city:r[3],t:r[4],cost:r[5],store:r[6],h:r[7],pay:r[8],hh:r[7]?+r[7].slice(0,2):null,wk:isoW(r[0])}));
 const today=new Date().toISOString().slice(0,10), CUR=isoW(today);
-const S={city:'ALL',wk:'ALL',day:'ALL',h0:0,h1:23,tipo:'ALL',q:'',sr:{k:'n',d:-1},se:{k:'f',d:-1}};
+const S={city:'ALL',wk:'ALL',day:'ALL',tipo:'ALL',q:'',sr:{k:'n',d:-1},se:{k:'f',d:-1}};
 $('sub').textContent='Incidencias que Glovo imputa a la flota (informe «Fraud chargeability & incident report»): CAPU, pedido no entregado y cliente ausente. Datos del '+(R.length?dlab(R[0].f)+' al '+dlab(R[R.length-1].f):'—')+' · semana en curso '+CUR.slice(5)+' · datos extraídos el '+(D.extraido||'—')+'.';
-$('nota').innerHTML='Fuente: informes S&amp;L de Glovo (todos los recibidos, histórico y semana en curso). Coste = importe del pedido con incidencia según Glovo. «Intervalo horario» filtra por la hora de creación del pedido (ambas horas incluidas). No se publican ubicaciones de restaurante ni de cliente.';
-for(let h=0;h<24;h++){$('fH0').insertAdjacentHTML('beforeend',`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`);$('fH1').insertAdjacentHTML('beforeend',`<option value="${h}" ${h===23?'selected':''}>${String(h).padStart(2,'0')}:59</option>`);}
+$('nota').innerHTML='Fuente: informes S&amp;L de Glovo (todos los recibidos, histórico y semana en curso). Coste = importe del pedido con incidencia según Glovo. No se publican ubicaciones de restaurante ni de cliente.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
-const pH=r=>r.hh==null?(S.h0===0&&S.h1===23):(S.h0<=S.h1?(r.hh>=S.h0&&r.hh<=S.h1):(r.hh>=S.h0||r.hh<=S.h1));
-const base=()=>R.filter(r=>(S.city==='ALL'||r.city===S.city)&&(S.tipo==='ALL'||r.t===S.tipo)&&pH(r)&&(!S.q||(r.rid+' '+r.id+' '+r.store).toLowerCase().includes(S.q)));
+const base=()=>R.filter(r=>(S.city==='ALL'||r.city===S.city)&&(S.tipo==='ALL'||r.t===S.tipo)&&(!S.q||(r.rid+' '+r.id+' '+r.store).toLowerCase().includes(S.q)));
 function tabla(id,cols,rows,st,empty,lim){
   const col=cols.find(x=>x.k===st.k)||cols[0];
   const s=rows.slice().sort((a,b)=>{const x=col.v(a),y=col.v(b);return (typeof x==='string'?String(x).localeCompare(y,'es'):x-y)*st.d;}).slice(0,lim||1e9);
@@ -237,7 +232,7 @@ function render(){
   $('kpis').innerHTML=[['Incidencias',nf(B.length),S.day!=='ALL'?dlab(S.day):(S.wk!=='ALL'?S.wk.slice(5)+(S.wk===CUR?' · en curso':''):'todo el histórico')],
    ['CAPU',nf(cnt('C')),B.length?nf(cnt('C')/B.length*100,0)+' %':''],['No entregado',nf(cnt('U')),B.length?nf(cnt('U')/B.length*100,0)+' %':''],
    ['Cliente ausente',nf(cnt('A')),B.length?nf(cnt('A')/B.length*100,0)+' %':''],['Coste de los pedidos',eur(cost),'según Glovo'],
-   ['Riders con incidencias',nf(riders.size),nf(Object.values(rep).filter(x=>x>=2).length)+' con 2 o más']]
+   ['Riders con incidencias',nf(riders.size),`<span class="flag amber" style="min-width:0">${nf(Object.values(rep).filter(x=>x>=2&&x<=3).length)}</span> con 2–3 · <span class="flag red" style="min-width:0">${nf(Object.values(rep).filter(x=>x>3).length)}</span> con más de 3`]]
    .map(([e,b,s])=>`<div class="kpi"><em>${e}</em><b>${b}</b><span>${s}</span></div>`).join('');
   // barras por semana (o por día si hay semana elegida)
   const porDia=S.wk!=='ALL', key=porDia?(r=>r.f):(r=>r.wk);
@@ -249,20 +244,14 @@ function render(){
     return `<div class="bar ${sel?'sel':''} ${!porDia&&k===CUR?'cur':''}" data-k="${k}" title="${n} incidencias · CAPU ${g.C} · No entregado ${g.U} · Cliente ausente ${g.A}"><b>${n}</b><div class="stk" style="height:${n/mx*140}px">${['C','U','A'].map(t=>g[t]?`<i style="height:${g[t]/n*100}%;background:${COL[t]}"></i>`:'').join('')}</div><span>${porDia?dlab(k):k.slice(5)+(k===CUR?'*':'')}</span></div>`;}).join(''):'<span class="muted">Sin incidencias con estos filtros.</span>';
   $('bars').querySelectorAll('.bar').forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(porDia)S.day=S.day===k?'ALL':k;else{S.wk=S.wk===k?'ALL':k;S.day='ALL';}render();});
   $('leg').innerHTML=['C','U','A'].map(t=>`<span><i style="background:${COL[t]}"></i>${D.tipos[t]}</span>`).join('')+(porDia?'':'<span class="muted">* semana en curso</span>');
-  // por hora (sin filtro horario para ver el reparto)
-  const Bh=R.filter(r=>(S.city==='ALL'||r.city===S.city)&&(S.tipo==='ALL'||r.t===S.tipo)&&(S.wk==='ALL'||r.wk===S.wk)&&(S.day==='ALL'||r.f===S.day)&&(!S.q||(r.rid+' '+r.id+' '+r.store).toLowerCase().includes(S.q)));
-  const Hc=Array.from({length:24},()=>({C:0,U:0,A:0}));Bh.forEach(r=>{if(r.hh!=null)Hc[r.hh][r.t]++;});
-  const hm=Math.max(1,...Hc.map(g=>g.C+g.U+g.A));
-  $('hours').innerHTML=Hc.map((g,h)=>{const n=g.C+g.U+g.A,inr=pH({hh:h});return `<div class="bar ${inr&&!(S.h0===0&&S.h1===23)?'sel':''}" data-h="${h}" style="opacity:${inr?1:.35}" title="${String(h).padStart(2,'0')}:00–${String(h).padStart(2,'0')}:59 · ${n} incidencias"><b>${n||''}</b><div class="stk" style="height:${n/hm*140}px">${['C','U','A'].map(t=>g[t]?`<i style="height:${g[t]/n*100}%;background:${COL[t]}"></i>`:'').join('')}</div><span>${String(h).padStart(2,'0')}</span></div>`;}).join('');
-  $('hours').querySelectorAll('.bar').forEach(b=>b.onclick=()=>{const h=+b.dataset.h;if(S.h0===h&&S.h1===h){S.h0=0;S.h1=23;}else{S.h0=h;S.h1=h;}$('fH0').value=S.h0;$('fH1').value=S.h1;render();});
   // riders
   const M={};B.forEach(r=>{const m=M[r.rid]||(M[r.rid]={rid:r.rid,city:r.city,n:0,C:0,U:0,A:0,cost:0,last:''});m.n++;m[r.t]++;m.cost+=r.cost||0;if(r.f+' '+r.h>m.last)m.last=r.f+' '+r.h;});
   const nR=tabla('tR',[
     {k:'rid',h:'Rider',v:m=>Number(m.rid)||0,f:m=>esc(m.rid)},{k:'city',h:'Área',v:m=>m.city,f:m=>esc(m.city)},
-    {k:'n',h:'Incidencias',n:1,v:m=>m.n,f:m=>`<b>${m.n}</b>`},{k:'C',h:'CAPU',n:1,v:m=>m.C,f:m=>m.C||''},{k:'U',h:'No entregado',n:1,v:m=>m.U,f:m=>m.U||''},
+    {k:'n',h:'Incidencias',n:1,v:m=>m.n,f:m=>`<span class="flag ${m.n>3?'red':(m.n>=2?'amber':'ok')}" title="${m.n>3?'Más de 3 incidencias':(m.n>=2?'2 o 3 incidencias':'1 incidencia')} en el periodo filtrado">${m.n}</span>`},{k:'C',h:'CAPU',n:1,v:m=>m.C,f:m=>m.C||''},{k:'U',h:'No entregado',n:1,v:m=>m.U,f:m=>m.U||''},
     {k:'A',h:'Cliente ausente',n:1,v:m=>m.A,f:m=>m.A||''},{k:'cost',h:'Coste',n:1,v:m=>m.cost,f:m=>eur(m.cost)},{k:'last',h:'Última',v:m=>m.last,f:m=>dlab(m.last.slice(0,10))+' '+m.last.slice(11)}],
     Object.values(M),S.sr,'Ningún rider con incidencias con estos filtros.');
-  $('cR').textContent=nf(nR)+' riders · pulsa uno para ver sus incidencias';
+  $('cR').innerHTML=nf(nR)+' riders · <span class="flag amber" style="min-width:0">2–3</span> <span class="flag red" style="min-width:0">&gt;3</span> incidencias en el periodo · pulsa uno para ver sus incidencias';
   $('tR').querySelectorAll('tbody tr[data-rid]').forEach(tr=>{tr.className='click';tr.onclick=()=>{$('fQ').value=tr.dataset.rid;S.q=tr.dataset.rid.toLowerCase();render();};});
   const nE=tabla('tE',[
     {k:'f',h:'Fecha y hora',v:r=>r.f+' '+r.h,f:r=>dlab(r.f)+' '+esc(r.h)},{k:'t',h:'Tipo',v:r=>r.t,f:r=>tp(r.t)},
@@ -273,9 +262,8 @@ function render(){
 }
 $('fWk').onchange=e=>{S.wk=e.target.value;S.day='ALL';render();};
 $('fDay').onchange=e=>{S.day=e.target.value;render();};
-$('fH0').onchange=e=>{S.h0=+e.target.value;render();};$('fH1').onchange=e=>{S.h1=+e.target.value;render();};
 let qT;$('fQ').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{S.q=e.target.value.trim().toLowerCase();render();},150);});
-$('fReset').onclick=()=>{Object.assign(S,{city:'ALL',wk:'ALL',day:'ALL',h0:0,h1:23,tipo:'ALL',q:''});$('fQ').value='';$('fH0').value=0;$('fH1').value=23;render();};
+$('fReset').onclick=()=>{Object.assign(S,{city:'ALL',wk:'ALL',day:'ALL',tipo:'ALL',q:''});$('fQ').value='';render();};
 render();
 if(window.parent!==window){const send=()=>window.parent.postMessage({incH:document.body.getBoundingClientRect().height},'*');
   if(window.ResizeObserver) new ResizeObserver(send).observe(document.body); send();}
