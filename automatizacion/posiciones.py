@@ -4,7 +4,7 @@
  Historial de posiciones de los riders y cálculo de paradas con pedido activo
 ================================================================================
  · muestrear(): descarga Live Operations (en_vivo.py) y añade una observación por
-   rider al historial. Lo lanza cada 10 min el workflow "Muestreo de posiciones"
+   rider al historial. Lo lanza cada 5 min el workflow "Muestreo de posiciones"
    y también cada actualización del dashboard.
  · quietos(): minutos que lleva cada rider sin moverse (menos de MOVE_M metros)
    mientras tiene un pedido activo y no está junto a un restaurante conocido
@@ -27,7 +27,7 @@ DASHBOARDS = {"gra-mad-nom-alc": ["ALC", "GRA", "MAD", "NOM"], "sab": ["SAB"]}
 CIUDADES = ["ALC", "GRA", "MAD", "NOM", "SAB"]
 NODE_ALIASES = {"NEM": "MAD"}
 
-KEEP_HOURS = 3        # horas de historial que se guardan
+KEEP_HOURS = 24       # horas de historial que se guardan (día completo)
 MOVE_M = 80           # se considera "sin moverse" si está a menos de estos metros
 REST_M = 100          # a menos de estos metros de un restaurante conocido = esperando en el local
 MAX_GAP_MIN = 25      # si faltan muestras más tiempo que esto, se corta la cuenta
@@ -230,7 +230,7 @@ def quietos(cities, grid=None, hist=None):
 
 
 # ------------------------------------------------- parado tras entregar (WTD% v1)
-TRAS_UMBRAL_MIN = 10   # aviso: minutos parado tras entregar
+TRAS_UMBRAL_MIN = 5    # aviso: minutos parado tras entregar (rojo a partir del doble)
 
 
 HIST_V1 = "wtd_v1_hist.json"   # histórico publicado de paradas tras entrega (sin coordenadas)

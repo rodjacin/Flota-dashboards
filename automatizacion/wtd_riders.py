@@ -240,7 +240,7 @@ function aplicarVivo(j){
 function cargarVivo(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
 $('nota').innerHTML='WTD&gt;10′ % = pedidos en los que el rider pasó más de 10 min en el punto del cliente ÷ pedidos entregados. En rojo, por encima del objetivo T1 de su área. '+
  '«Parado con pedido» = minutos que lleva el rider a menos de 80 m del mismo punto mientras tiene un pedido activo, sin contar si está a menos de 100 m de un restaurante donde se ha recogido algún pedido. '+
- 'Las posiciones se muestrean y publican cada ~10 min (GitHub puede retrasarlo unos minutos); la pestaña se refresca sola cada 5 min sin recargar la página. «≥» indica que la cuenta llega al inicio del historial disponible. No se publican coordenadas.';
+ 'Las posiciones se muestrean cada ~5 min y se publican cada ~10 min (GitHub puede retrasarlo unos minutos); la pestaña se refresca sola cada 5 min sin recargar la página. «≥» indica que la cuenta llega al inicio del historial disponible. No se publican coordenadas.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
 const vcell=(o,n,city)=>{const v=pc(o,n);if(v==null)return '<span class="muted">—</span>';const t=D.t1[city];const cls=t==null?'':(v>t?'bad':'ok');
   return `<span class="v ${cls}" title="${nf(o)} de ${nf(n)} pedidos${t!=null?' · objetivo T1 '+nf(t*100,2)+' %':''}">${nf(v*100,2)} %</span><span class="cnt">${nf(n)}</span>`;};
