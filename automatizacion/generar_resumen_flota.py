@@ -86,6 +86,12 @@ try:
 except Exception:
     _wtdv1 = None
 
+# --- Secciones extra en pestañas existentes (motivos, cobertura, UTR por franja, histórico Live Ops) ---
+try:
+    import secciones_extra as _sx
+except Exception:
+    _sx = None
+
 # --- Pestaña "Incidencias" (S&L de Glovo, histórico + semana en curso): usa incidencias_sl.py ---
 try:
     import incidencias_sl as _inc
@@ -326,6 +332,11 @@ def main():
         if _utr:
             try:
                 utr_html, utr_res = _utr.construir_html(cities, WEEKS_TO_SHOW, sello=False)
+                if _sx:
+                    try:
+                        utr_html = _sx.añadir(utr_html, _sx.utr_franja(cities))
+                    except Exception as _e2:
+                        print("  (aviso) sección utr_franja: " + str(_e2))
                 tpl = _utr.integrar_en_dashboard(tpl, utr_html)
                 print("  + pestaña UTR: " + utr_res)
             except Exception as _e:
@@ -333,6 +344,11 @@ def main():
         if _ns:
             try:
                 ns_html, ns_res = _ns.construir_html(cities, WEEKS_TO_SHOW, sello=False)
+                if _sx:
+                    try:
+                        ns_html = _sx.añadir(ns_html, _sx.cobertura(cities))
+                    except Exception as _e2:
+                        print("  (aviso) sección cobertura: " + str(_e2))
                 tpl = _ns.integrar_en_dashboard(tpl, ns_html)
                 print("  + pestaña No show: " + ns_res)
             except Exception as _e:
@@ -347,6 +363,11 @@ def main():
         if _vivo:
             try:
                 vivo_html, vivo_res = _vivo.construir_html(cities, WEEKS_TO_SHOW, sello=False)
+                if _sx:
+                    try:
+                        vivo_html = _sx.añadir(vivo_html, _sx.liveops(cities))
+                    except Exception as _e2:
+                        print("  (aviso) sección liveops: " + str(_e2))
                 tpl = _vivo.integrar_en_dashboard(tpl, vivo_html)
                 print("  + pestaña En vivo: " + vivo_res)
             except Exception as _e:
@@ -375,6 +396,11 @@ def main():
         if _inc:
             try:
                 inc_html, inc_res = _inc.construir_html(cities, WEEKS_TO_SHOW, sello=False)
+                if _sx:
+                    try:
+                        inc_html = _sx.añadir(inc_html, _sx.motivos(cities))
+                    except Exception as _e2:
+                        print("  (aviso) sección motivos: " + str(_e2))
                 tpl = _inc.integrar_en_dashboard(tpl, inc_html)
                 print("  + pestaña Incidencias: " + inc_res)
             except Exception as _e:
