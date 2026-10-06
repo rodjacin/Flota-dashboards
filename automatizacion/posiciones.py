@@ -131,6 +131,11 @@ def exportar(repo, snap):
             with open(os.path.join(d, "wtd_vivo.json"), "w", encoding="utf-8") as f:
                 json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
             print("%s/wtd_vivo.json: %d riders con posición" % (carpeta, len(paradas)))
+            try:
+                n = guardar_historico(os.path.join(d, HIST_V1), episodios)
+                print("%s/%s: %d paradas tras entrega acumuladas" % (carpeta, HIST_V1, n))
+            except Exception as e:
+                print("histórico WTD%% v1 (%s): %s" % (carpeta, e))
 
 
 # ------------------------------------------------------------- restaurantes
@@ -226,6 +231,47 @@ def quietos(cities, grid=None, hist=None):
 
 # ------------------------------------------------- parado tras entregar (WTD% v1)
 TRAS_UMBRAL_MIN = 10   # aviso: minutos parado tras entregar
+
+
+HIST_V1 = "wtd_v1_hist.json"   # histórico publicado de paradas tras entrega (sin coordenadas)
+HIST_V1_DIAS = 120             # días que se conservan
+
+
+def _min_epoch(s):
+    t = _ts(s)
+    return int(t.timestamp() // 60) if t else None
+
+
+def guardar_historico(path, episodios):
+    """Acumula las paradas tras entrega en <dashboard>/wtd_v1_hist.json.
+    Fila: [rider, área, estado, entrega_ini, entrega_fin(=desde), hasta, min, max, flags]
+    (horas en minutos epoch UTC; flags: 1 en restaurante, 2 GPS congelado, 4 sin confirmar).
+    Una parada se identifica por rider + entrega_fin; si vuelve a aparecer con más
+    duración (seguía parado) se actualiza."""
+    try:
+        h = json.load(open(path, encoding="utf-8"))
+    except Exception:
+        h = {}
+    filas = {"%s|%s" % (f[0], f[4]): f for f in h.get("eps", [])}
+    for e in episodios:
+        e1 = _min_epoch(e["ent_fin"])
+        if e1 is None:
+            continue
+        fl = (1 if e.get("local") else 0) | (2 if e.get("gps_viejo") else 0) | (4 if e.get("confirmada") is None else 0)
+        f = [str(e["rid"]), e["city"], e.get("status") or "", _min_epoch(e["ent_ini"]), e1,
+             _min_epoch(e["hasta"]), e["min"], e["max"], fl]
+        k = "%s|%s" % (f[0], e1)
+        if k not in filas or (f[5] or 0) >= (filas[k][5] or 0):
+            filas[k] = f
+    lim = int(_now().timestamp() // 60) - HIST_V1_DIAS * 1440
+    eps = sorted((f for f in filas.values() if f[4] >= lim), key=lambda f: (f[4], f[0]))
+    out = {"v": 1, "updated_at": _now().isoformat(),
+           "cols": ["rider", "area", "estado", "ent_ini", "ent_fin", "hasta", "min", "max", "flags"], "eps": eps}
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, path)
+    return len(eps)
 
 
 def tras_entrega(cities, grid=None, hist=None):

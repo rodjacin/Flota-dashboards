@@ -138,6 +138,18 @@ tbody tr:hover td{background:var(--chip)}
 th[data-def],.kpi em[data-def],h2[data-def]{text-decoration:underline dotted;text-underline-offset:3px}
 #defTip{position:fixed;z-index:50;max-width:320px;background:#14171F;color:#fff;font-size:12px;line-height:1.45;padding:8px 10px;border-radius:7px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.18);text-transform:none;letter-spacing:0;font-weight:400}
 #defTip[hidden]{display:none}
+select{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.hhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.hfil{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.bars{display:flex;align-items:flex-end;gap:6px;height:170px;padding:18px 2px 0;overflow-x:auto}
+.bar{flex:1 0 34px;max-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;cursor:pointer}
+.bar i{display:block;width:100%;background:var(--acc);border-radius:4px 4px 0 0;min-height:2px}
+.bar.sel i{background:var(--bad)}
+.bar b{font-size:11px;font-family:ui-monospace,monospace;font-weight:600;color:var(--ink)}
+.bar span{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.bar:hover i{opacity:.8}
+tr.click{cursor:pointer}
+.two{display:grid;grid-template-columns:1fr;gap:16px}
 </style></head><body>
 <div class="wrap">
   <header><h1>WTD% v1 · riders parados justo después de entregar</h1><p class="sub" id="sub"></p></header>
@@ -153,6 +165,19 @@ th[data-def],.kpi em[data-def],h2[data-def]{text-decoration:underline dotted;tex
     <div class="tw" style="max-height:520px"><table id="tA"></table></div></section>
   <section class="panel"><div class="ph"><h2 id="hE" data-def="Cada vez que un rider entregó un pedido y se quedó parado al menos una muestra (~10 min) en el mismo punto sin coger otro pedido.">Paradas tras entrega</h2><p id="cntE"></p></div>
     <div class="tw" style="max-height:700px"><table id="tE"></table></div></section>
+  <section class="panel" id="hist">
+    <div class="hhead"><div><h2 data-def="Todas las paradas tras entrega detectadas desde que empezó a guardarse el histórico (se acumulan cada ~10 min). Usa los filtros de Área, Mostrar, Restaurante y Buscar de arriba.">Histórico · recurrencia</h2><p class="sub" id="hSub" style="margin-top:4px"></p></div>
+      <div class="hfil">
+        <div class="fg"><span>Semana</span><select id="hWk" aria-label="Semana"></select></div>
+        <div class="fg"><span>Fecha</span><select id="hDay" aria-label="Fecha"></select></div>
+      </div></div>
+    <section class="kpis" id="hKpis"></section>
+    <div><h2 id="hBarsT" data-def="Paradas en el periodo filtrado. Pulsa una barra para filtrar por ese día o semana.">Paradas por día</h2><div class="bars" id="hBars"></div></div>
+    <div class="ph"><h2 data-def="Una fila por rider en el periodo filtrado. Pulsa un rider para ver solo sus paradas.">Recurrencia por rider</h2><p id="hCntR"></p></div>
+    <div class="tw" style="max-height:520px"><table id="hR"></table></div>
+    <div class="ph"><h2 data-def="Detalle de cada parada del periodo filtrado (las 500 más recientes).">Detalle de paradas</h2><p id="hCntE"></p></div>
+    <div class="tw" style="max-height:520px"><table id="hDet"></table></div>
+  </section>
   <p class="note" id="nota"></p>
 </div>
 <script>
@@ -177,7 +202,7 @@ function aplicarVivo(j){
 function cargarVivo(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
 $('nota').innerHTML='Cómo se calcula: se toma una muestra de posición y pedidos de cada rider cada ~10 min. Si entre dos muestras desaparece su pedido activo, se queda sin pedido y sube su contador de entregas completadas, cuenta como <b>entrega</b> (si desaparece sin sumar entrega, es cancelación o reasignación y no se cuenta). '+
  '«Parado» = sigue a menos de 80 m del punto donde estaba tras entregar y sin coger otro pedido. Los minutos son un <b>mínimo</b> (≥): la entrega ocurrió entre las dos muestras, así que la parada real puede ser hasta ~10 min mayor. '+
- '«En restaurante» = se ha quedado a menos de 100 m de un local donde se recogen pedidos (esperando el siguiente). «GPS congelado» = su ubicación no se actualiza, puede no estar parado de verdad. Historial de las últimas '+D.horas+' h; no se publican coordenadas.';
+ '«En restaurante» = se ha quedado a menos de 100 m de un local donde se recogen pedidos (esperando el siguiente). «GPS congelado» = su ubicación no se actualiza, puede no estar parado de verdad. Las posiciones se guardan solo '+D.horas+' h; el histórico conserva únicamente cada parada (rider, horas y minutos), nunca coordenadas, durante 120 días.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
 const nombre=id=>(D.riders[id]||[])[0]||'';
 const minPill=e=>{const cls=e.min>=U*2?'alert':(e.min>=U?'mid':'');return `<span class="pill ${cls}" title="Entre ${e.min} y ${e.max} min">≥ ${e.min} min</span>`;};
@@ -227,8 +252,91 @@ function render(){
    ['Minutos medios parado',media==null?'—':nf(media,0)+' min','mínimo por parada ≥'+U+' min','Media de los minutos mínimos parado en las paradas tras entrega de al menos '+U+' min.'],
    ['Riders reincidentes',nf(Object.values(rep).filter(x=>x>=2).length),'2 o más paradas ≥'+U+' min','Riders con al menos dos paradas tras entrega de '+U+' min o más en las últimas '+D.horas+' h.'],
   ].map(([e,b,s,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s}</span></div>`).join('');
+  if(typeof renderHist==='function'&&HROWS.length)renderHist();
 }
-let qT;$('fQ').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{S.q=e.target.value.trim().toLowerCase();render();},150);});
+/* ===== Histórico (wtd_v1_hist.json, se acumula cada ~10 min) ===== */
+const HS={wk:'ALL',day:'ALL',sr:{k:'n',d:-1},se:{k:'e1',d:-1}};let HROWS=[],HUPD=null;
+const FMT=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'});
+function diaOp(min){ // día operativo en Madrid: de 05:00 a 04:59
+  const p={};FMT.formatToParts(new Date(min*60000)).forEach(x=>p[x.type]=x.value);
+  let d=new Date(Date.UTC(+p.year,+p.month-1,+p.day));if(+p.hour<5)d=new Date(d-864e5);return d;}
+function isoW(d){const t=new Date(d);const dn=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-dn+3);const y=t.getUTCFullYear();
+  const f=new Date(Date.UTC(y,0,4));return [y,1+Math.round(((t-f)/864e5-3+((f.getUTCDay()+6)%7))/7)];}
+const ymd=d=>d.toISOString().slice(0,10);
+const DOW=['dom','lun','mar','mié','jue','vie','sáb'];
+const dlab=k=>{const d=new Date(k+'T00:00:00Z');return DOW[d.getUTCDay()]+' '+k.slice(8,10)+'/'+k.slice(5,7);};
+const hm=min=>min==null?'—':hhmm(new Date(min*60000).toISOString());
+function cargarHist(){try{fetch(new URL('wtd_v1_hist.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{
+  if(!j||!j.eps)return;HUPD=j.updated_at;
+  HROWS=j.eps.filter(f=>D.cities.includes(f[1])).map(f=>{const d=diaOp(f[4]);const w=isoW(d);
+    return {rid:f[0],city:f[1],status:f[2],e0:f[3],e1:f[4],h:f[5],min:f[6],max:f[7],local:!!(f[8]&1),gps:!!(f[8]&2),sc:!!(f[8]&4),day:ymd(d),wk:w[0]+'-W'+String(w[1]).padStart(2,'0')};});
+  renderHist();}).catch(()=>{});}catch(e){}}
+function hBase(){return HROWS.filter(e=>(S.city==='ALL'||e.city===S.city)&&(S.loc==='ALL'||!e.local)&&(S.min==='ALL'||e.min>=U)&&
+  (!S.q||String(e.rid).includes(S.q)||nombre(e.rid).toLowerCase().includes(S.q)));}
+function renderHist(){
+  const B0=hBase();
+  const wks=[...new Set(HROWS.map(e=>e.wk))].sort().reverse();
+  if(HS.wk!=='ALL'&&!wks.includes(HS.wk))HS.wk='ALL';
+  $('hWk').innerHTML='<option value="ALL">Todas</option>'+wks.map(w=>`<option value="${w}" ${w===HS.wk?'selected':''}>${w.slice(5)} · ${w.slice(0,4)}</option>`).join('');
+  const B1=B0.filter(e=>HS.wk==='ALL'||e.wk===HS.wk);
+  const days=[...new Set(HROWS.filter(e=>HS.wk==='ALL'||e.wk===HS.wk).map(e=>e.day))].sort().reverse();
+  if(HS.day!=='ALL'&&!days.includes(HS.day))HS.day='ALL';
+  $('hDay').innerHTML='<option value="ALL">Todas</option>'+days.map(d=>`<option value="${d}" ${d===HS.day?'selected':''}>${dlab(d)}</option>`).join('');
+  const B=B1.filter(e=>HS.day==='ALL'||e.day===HS.day);
+  const real=B.filter(e=>!e.gps);
+  const desde=HROWS.length?HROWS.reduce((a,e)=>e.day<a?e.day:a,'9999'):null;
+  $('hSub').textContent=!HROWS.length?'Todavía no hay histórico: se empieza a acumular con el muestreo de cada ~10 min.':
+    ('Histórico desde el '+dlab(desde)+' · día operativo de 05:00 a 04:59 · actualizado a las '+hhmm(HUPD)+'.');
+  // recurrencia por rider
+  const R={};real.forEach(e=>{const r=R[e.rid]||(R[e.rid]={rid:e.rid,city:e.city,n:0,days:new Set(),wks:new Set(),tot:0,mx:0,last:0});
+    r.n++;r.days.add(e.day);r.wks.add(e.wk);r.tot+=e.min;r.mx=Math.max(r.mx,e.min);r.last=Math.max(r.last,e.e1);});
+  const RR=Object.values(R).map(r=>({...r,nd:r.days.size,nw:r.wks.size,avg:r.tot/r.n}));
+  const rein=RR.filter(r=>r.nd>=2).length;
+  const media=real.length?real.reduce((a,e)=>a+e.min,0)/real.length:null;
+  const ndias=new Set(real.map(e=>e.day)).size||1;
+  $('hKpis').innerHTML=[
+   ['Paradas',nf(real.length),nf(real.length/ndias,1)+' por día · '+nf(ndias)+' días','Paradas tras entrega en el periodo y filtros elegidos (sin GPS congelado).'],
+   ['Riders con paradas',nf(RR.length),'',"Riders distintos con al menos una parada en el periodo."],
+   ['Reincidentes',`<span style="color:${rein?'var(--bad)':'inherit'}">${nf(rein)}</span>`,RR.length?nf(rein/RR.length*100,0)+' % de los riders con paradas':'','Riders con paradas en 2 o más días distintos del periodo.'],
+   ['Minutos medios',media==null?'—':nf(media,0)+' min','mínimo por parada','Media de los minutos mínimos parado por parada.'],
+  ].map(([e,b,s2,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s2}</span></div>`).join('');
+  // barras: por día (o por semana si "Todas" y hay más de 21 días)
+  const porSem=HS.wk==='ALL'&&HS.day==='ALL'&&new Set(real.map(e=>e.day)).size>21;
+  const key=porSem?(e=>e.wk):(e=>e.day);
+  const base2=B1.filter(e=>!e.gps);
+  const G={};base2.forEach(e=>{const k=key(e);(G[k]||(G[k]={n:0,r:new Set()})).n++;G[k].r.add(e.rid);});
+  const ks=Object.keys(G).sort();const mx=Math.max(1,...ks.map(k=>G[k].n));
+  $('hBarsT').textContent=porSem?'Paradas por semana':'Paradas por día';
+  $('hBars').innerHTML=ks.length?ks.map(k=>`<div class="bar ${(!porSem&&HS.day===k)||(porSem&&HS.wk===k)?'sel':''}" data-k="${k}" title="${G[k].n} paradas · ${G[k].r.size} riders"><b>${G[k].n}</b><i style="height:${G[k].n/mx*120}px"></i><span>${porSem?k.slice(5):dlab(k)}</span></div>`).join(''):'<span class="muted">Sin paradas en el histórico con estos filtros.</span>';
+  $('hBars').querySelectorAll('.bar').forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(porSem){HS.wk=HS.wk===k?'ALL':k;}else{HS.day=HS.day===k?'ALL':k;}renderHist();});
+  const CR=[
+   {k:'rid',h:'Rider',v:r=>Number(r.rid)||r.rid,f:r=>esc(r.rid)+(nombre(r.rid)?`<span class="nm">${esc(nombre(r.rid))}</span>`:''),d:'ID del rider y nombre (si se ha conectado hoy).'},
+   {k:'city',h:'Área',v:r=>r.city,f:r=>esc(r.city),d:'Área del rider.'},
+   {k:'n',h:'Paradas',n:1,v:r=>r.n,f:r=>`<span class="pill ${r.n>=5?'alert':(r.n>=2?'mid':'')}">${r.n}</span>`,d:'Paradas tras entrega en el periodo.'},
+   {k:'nd',h:'Días',n:1,v:r=>r.nd,f:r=>nf(r.nd),d:'Días distintos con al menos una parada (recurrencia).'},
+   {k:'nw',h:'Semanas',n:1,v:r=>r.nw,f:r=>nf(r.nw),d:'Semanas distintas con al menos una parada.'},
+   {k:'tot',h:'Min totales',n:1,v:r=>r.tot,f:r=>nf(r.tot),d:'Suma de minutos mínimos parado.'},
+   {k:'avg',h:'Min medio',n:1,v:r=>r.avg,f:r=>nf(r.avg,0),d:'Minutos medios por parada.'},
+   {k:'mx',h:'Máximo',n:1,v:r=>r.mx,f:r=>nf(r.mx),d:'Parada más larga (min).'},
+   {k:'last',h:'Última',v:r=>r.last,f:r=>{const d=diaOp(r.last);return dlab(ymd(d))+' '+hm(r.last);},d:'Última parada tras entrega del rider.'},
+  ];
+  const nR=tabla('hR',CR,RR,HS.sr,'Ningún rider con paradas en este periodo.');
+  if(nR)$('hR').querySelectorAll('tbody tr').forEach((tr,i)=>{tr.className='click';tr.title='Ver solo este rider';tr.onclick=()=>{const id=tr.cells[0].firstChild.textContent;$('fQ').value=id;S.q=id;render();renderHist();};});
+  $('hCntR').textContent=nf(nR)+' riders';
+  const CEh=[CR[0],CR[1],
+   {k:'e1',h:'Día',v:e=>e.e1,f:e=>dlab(e.day),d:'Día operativo de la parada.'},
+   {k:'ent',h:'Entregó entre',v:e=>e.e1,f:e=>hm(e.e0)+' – '+hm(e.e1),d:'Muestras entre las que se entregó el pedido.'},
+   {k:'h',h:'Parado hasta',v:e=>e.h,f:e=>hm(e.h),d:'Última muestra en el mismo punto sin pedido.'},
+   {k:'min',h:'Parado',n:1,v:e=>e.min,f:minPill,d:'Minutos mínimos parado (al pasar el ratón, el rango).'},
+   {k:'status',h:'Estado Glovo',v:e=>e.status||'',f:e=>esc(ST[e.status]||e.status||'—'),d:'Estado en la última muestra parado.'},
+   {k:'fl',h:'Avisos',v:e=>(e.local?1:0)+(e.gps?2:0),f:e=>flags({local:e.local,gps_viejo:e.gps?'?':0,confirmada:e.sc?null:true}).replace('GPS congelado ? min','GPS congelado'),d:'En restaurante, GPS congelado o entrega sin confirmar.'},
+  ];
+  const nE=tabla('hDet',CEh,B.slice().sort((a,b)=>b.e1-a.e1).slice(0,500),HS.se,'Ninguna parada en este periodo.');
+  $('hCntE').textContent=nf(B.length)+' paradas'+(B.length>500?' (se muestran 500)':'');
+}
+$('hWk').onchange=e=>{HS.wk=e.target.value;HS.day='ALL';renderHist();};
+$('hDay').onchange=e=>{HS.day=e.target.value;renderHist();};
+let qT;$('fQ').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{S.q=e.target.value.trim().toLowerCase();render();renderHist();},150);});
 (function(){const tip=document.createElement('div');tip.id='defTip';tip.hidden=true;document.body.appendChild(tip);
   const place=(x,y)=>{const w=tip.offsetWidth,h=tip.offsetHeight;let l=x+12,t=y+14;if(l+w>innerWidth-8)l=Math.max(8,x-w-12);if(t+h>innerHeight-8)t=Math.max(8,y-h-12);tip.style.left=l+'px';tip.style.top=t+'px';};
   document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-def]');if(el){tip.textContent=el.dataset.def;tip.hidden=false;place(e.clientX,e.clientY);}});
@@ -236,6 +344,7 @@ let qT;$('fQ').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{
   document.addEventListener('mouseout',e=>{const el=e.target.closest('[data-def]');if(el&&!el.contains(e.relatedTarget))tip.hidden=true;});})();
 render();
 cargarVivo();setInterval(cargarVivo,5*60*1000);
+cargarHist();setInterval(cargarHist,10*60*1000);renderHist();
 if(window.parent!==window){const send=()=>window.parent.postMessage({v1H:document.body.getBoundingClientRect().height},'*');
   if(window.ResizeObserver) new ResizeObserver(send).observe(document.body); send();}
 </script></body></html>
