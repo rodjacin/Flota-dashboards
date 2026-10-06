@@ -132,6 +132,11 @@ def exportar(repo, snap):
                 json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
             print("%s/wtd_vivo.json: %d riders con posición" % (carpeta, len(paradas)))
             try:
+                n = acumular_liveops(os.path.join(d, LIVEOPS_HIST), snap, cs)
+                print("%s/%s: %d riders hoy" % (carpeta, LIVEOPS_HIST, n))
+            except Exception as e:
+                print("histórico Live Ops (%s): %s" % (carpeta, e))
+            try:
                 n = guardar_historico(os.path.join(d, HIST_V1), episodios)
                 print("%s/%s: %d paradas tras entrega acumuladas" % (carpeta, HIST_V1, n))
             except Exception as e:
@@ -231,6 +236,70 @@ def quietos(cities, grid=None, hist=None):
 
 # ------------------------------------------------- parado tras entregar (WTD% v1)
 TRAS_UMBRAL_MIN = 5    # aviso: minutos parado tras entregar (rojo a partir del doble)
+
+
+LIVEOPS_HIST = "liveops_hist.json"   # histórico diario de Live Operations por rider (sin coordenadas)
+LIVEOPS_DIAS = 60
+_ST_ES = {"working": "Trabajando", "ready": "Listo", "available": "Disponible", "late": "Con retraso", "break": "En pausa",
+          "starting": "Empezando", "ending": "Terminando", "temp_not_working": "Parado temporalmente", "not_working": "No trabajando"}
+
+
+def acumular_liveops(path, snap, cities):
+    """Suma la foto actual al histórico diario: por rider y día (hora de Madrid)
+    [área, nombre, fotos, fotos con retraso, fotos en pausa, nº pausas (máx), seg. en pausa (máx),
+     notificados (máx), aceptados (máx), tasa de aceptación (última), fotos con monedero sobre el límite,
+     saldo máximo, {estado · motivo: fotos}]"""
+    import re
+    try:
+        h = json.load(open(path, encoding="utf-8"))
+    except Exception:
+        h = {}
+    D = h.setdefault("dias", {})
+    try:
+        from zoneinfo import ZoneInfo
+        hoy = dt.datetime.now(ZoneInfo("Europe/Madrid")).date().isoformat()
+    except Exception:
+        hoy = (_now() + dt.timedelta(hours=2)).date().isoformat()
+    dia = D.setdefault(hoy, {})
+    n = 0
+    for code, C in (snap.get("cities") or {}).items():
+        if code not in cities:
+            continue
+        for r in C.get("riders") or []:
+            st = r.get("status") or ""
+            if st in ("not_working", ""):
+                continue
+            rid = str(r.get("employee_id"))
+            v = dia.get(rid) or [code, "", 0, 0, 0, 0, 0, 0, 0, None, 0, 0, {}]
+            perf = r.get("performance") or {}
+            ts = perf.get("time_spent") or {}
+            di = r.get("deliveries_info") or {}
+            wi = r.get("wallet_info") or {}
+            v[0] = code; v[1] = r.get("name") or v[1]; v[2] += 1
+            if st == "late": v[3] += 1
+            if st == "break": v[4] += 1
+            v[5] = max(v[5], int(ts.get("number_of_breaks") or 0))
+            v[6] = max(v[6], int(ts.get("break_seconds") or 0))
+            v[7] = max(v[7], int(di.get("notified_deliveries_count") or 0))
+            v[8] = max(v[8], int(di.get("accepted_deliveries_count") or 0))
+            if perf.get("acceptance_rate") is not None: v[9] = perf.get("acceptance_rate")
+            if re.search(r"hard|over|above", str(wi.get("limit_status") or ""), re.I): v[10] += 1
+            try: v[11] = max(v[11], round(float(wi.get("balance") or 0), 2))
+            except Exception: pass
+            mot = (r.get("status_metadata") or {}).get("reason")
+            if mot and st != "working":
+                k = _ST_ES.get(st, st) + " · " + str(mot)
+                v[12][k] = v[12].get(k, 0) + 1
+            dia[rid] = v
+            n += 1
+    lim = (dt.date.fromisoformat(hoy) - dt.timedelta(days=LIVEOPS_DIAS)).isoformat()
+    h["dias"] = {k: v for k, v in D.items() if k >= lim}
+    h["updated_at"] = _now().isoformat()
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(h, fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, path)
+    return len(dia)
 
 
 HIST_V1 = "wtd_v1_hist.json"   # histórico publicado de paradas tras entrega (sin coordenadas)
