@@ -3,13 +3,14 @@
 ================================================================================
  Pestaña "WTD% v1": riders parados justo después de entregar un pedido
 ================================================================================
- Usa el historial privado de posiciones (posiciones.py, muestra cada ~10 min con
- Live Operations). Una entrega se detecta cuando un pedido activo del rider
+ Usa el historial privado de posiciones (posiciones.py, muestra cada ~5 min con
+ Live Operations, 24 h). Una entrega se detecta cuando un pedido activo del rider
  desaparece entre dos muestras, el rider se queda sin pedido y sube su contador de
  entregas completadas. Desde ahí se mide cuánto sigue a menos de 80 m del mismo
  punto sin coger otro pedido.
    · Ahora: riders que siguen parados tras su última entrega.
-   · Últimas 3 h: cada parada tras entrega detectada (episodios).
+   · Hoy: cada parada tras entrega del día operativo (desde las 05:00).
+   · Histórico: todas las paradas acumuladas, con filtro de semana y fecha.
  El muestreo publica <dashboard>/wtd_vivo.json cada ~10 min y la pestaña lo relee
  sola cada 5 min. No se publican coordenadas, solo minutos.
  Lo usa generar_resumen_flota.py (igual que WTD%, UTR, No show...).
@@ -163,7 +164,7 @@ tr.click{cursor:pointer}
   <section class="kpis" id="kpis"></section>
   <section class="panel"><div class="ph"><h2 data-def="Riders que en la última muestra siguen sin moverse (menos de 80 m) y sin pedido desde que entregaron su último pedido.">Ahora · parados tras su última entrega</h2><p id="cntA"></p></div>
     <div class="tw" style="max-height:520px"><table id="tA"></table></div></section>
-  <section class="panel"><div class="ph"><h2 id="hE" data-def="Cada vez que un rider entregó un pedido y se quedó parado al menos una muestra (~10 min) en el mismo punto sin coger otro pedido.">Paradas tras entrega</h2><p id="cntE"></p></div>
+  <section class="panel"><div class="ph"><h2 id="hE" data-def="Cada vez que hoy (día operativo desde las 05:00) un rider entregó un pedido y se quedó parado al menos una muestra (~5 min) en el mismo punto sin coger otro pedido.">Paradas tras entrega</h2><p id="cntE"></p></div>
     <div class="tw" style="max-height:700px"><table id="tE"></table></div></section>
   <section class="panel" id="hist">
     <div class="hhead"><div><h2 data-def="Todas las paradas tras entrega detectadas desde que empezó a guardarse el histórico (se acumulan cada ~10 min). Usa los filtros de Área, Mostrar, Restaurante y Buscar de arriba.">Histórico · recurrencia</h2><p class="sub" id="hSub" style="margin-top:4px"></p></div>
@@ -190,9 +191,9 @@ const U=D.umbral;
 const ST={working:'Trabajando',ready:'Listo',available:'Disponible',late:'Con retraso',break:'En pausa',starting:'Empezando',ending:'Terminando',temp_not_working:'Parado temporalmente',not_working:'No trabajando'};
 const S={city:'ALL',min:'U',loc:'SIN',q:'',sa:{k:'min',d:-1},se:{k:'desde',d:-1}};
 function cabecera(){
-  $('sub').textContent='Una entrega se detecta cuando el pedido activo desaparece entre dos muestras de Live Operations y sube el contador de entregas completadas; desde ahí se mide cuánto sigue el rider en el mismo punto sin otro pedido.'+(D.foto?' Última muestra a las '+hhmm(D.foto)+' (hora de Madrid) · se actualiza cada ~10 min.':'');
+  $('sub').textContent='Una entrega se detecta cuando el pedido activo desaparece entre dos muestras de Live Operations y sube el contador de entregas completadas; desde ahí se mide cuánto sigue el rider en el mismo punto sin otro pedido.'+(D.foto?' Última muestra a las '+hhmm(D.foto)+' (hora de Madrid) · fotos cada ~5 min, se publica cada ~10 min.':'');
   $('banner').hidden=!D.aviso;$('banner').textContent=D.aviso||'';
-  $('hE').textContent='Paradas tras entrega · últimas '+D.horas+' h';}
+  $('hE').textContent='Paradas tras entrega · hoy desde las 05:00';}
 cabecera();
 function aplicarVivo(j){
   if(!j||!j.foto||!j.episodios)return;
@@ -200,15 +201,20 @@ function aplicarVivo(j){
   D.foto=j.foto;D.aviso='';D.tras_entrega=j.tras_entrega||{};D.episodios=j.episodios||[];
   Object.assign(D.riders,j.riders||{});cabecera();render();}
 function cargarVivo(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
-$('nota').innerHTML='Cómo se calcula: se toma una muestra de posición y pedidos de cada rider cada ~10 min. Si entre dos muestras desaparece su pedido activo, se queda sin pedido y sube su contador de entregas completadas, cuenta como <b>entrega</b> (si desaparece sin sumar entrega, es cancelación o reasignación y no se cuenta). '+
- '«Parado» = sigue a menos de 80 m del punto donde estaba tras entregar y sin coger otro pedido. Los minutos son un <b>mínimo</b> (≥): la entrega ocurrió entre las dos muestras, así que la parada real puede ser hasta ~10 min mayor. '+
- '«En restaurante» = se ha quedado a menos de 100 m de un local donde se recogen pedidos (esperando el siguiente). «GPS congelado» = su ubicación no se actualiza, puede no estar parado de verdad. Las posiciones se guardan solo '+D.horas+' h; el histórico conserva únicamente cada parada (rider, horas y minutos), nunca coordenadas, durante 120 días.';
+$('nota').innerHTML='Cómo se calcula: se toma una muestra de posición y pedidos de cada rider cada ~5 min (la web se publica cada ~10 min). Si entre dos muestras desaparece su pedido activo, se queda sin pedido y sube su contador de entregas completadas, cuenta como <b>entrega</b> (si desaparece sin sumar entrega, es cancelación o reasignación y no se cuenta). '+
+ '«Parado» = sigue a menos de 80 m del punto donde estaba tras entregar y sin coger otro pedido. Los minutos son un <b>mínimo</b> (≥): la entrega ocurrió entre las dos muestras, así que la parada real puede ser hasta ~5 min mayor. '+
+ '«En restaurante» = se ha quedado a menos de 100 m de un local donde se recogen pedidos (esperando el siguiente). «GPS congelado» = su ubicación no se actualiza, puede no estar parado de verdad. Las posiciones se guardan solo '+D.horas+' h (día completo); el histórico conserva únicamente cada parada (rider, horas y minutos), nunca coordenadas, durante 120 días.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
 const nombre=id=>(D.riders[id]||[])[0]||'';
 const minPill=e=>{const cls=e.min>=U*2?'alert':(e.min>=U?'mid':'');return `<span class="pill ${cls}" title="Entre ${e.min} y ${e.max} min">≥ ${e.min} min</span>`;};
 const flags=e=>(e.local?'<span class="pill" title="A menos de 100 m de un restaurante conocido">En restaurante</span>':'')+
   (e.gps_viejo?`<span class="pill mid" title="La ubicación no se actualiza desde hace ${e.gps_viejo} min">GPS congelado ${e.gps_viejo} min</span>`:'')+
   (e.confirmada===null?'<span class="pill" title="Glovo no informó el contador de entregas: podría ser una cancelación">Sin confirmar</span>':'');
+const passMin=e=>S.min==='ALL'||e.min>=(S.min==='D'?U*2:U);
+function inicioHoy(){ // 05:00 de hoy en Madrid (o de ayer si aún no son las 05:00)
+  const p={};new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).forEach(x=>p[x.type]=x.value);
+  const off=(new Date().getTime()-Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,new Date().getUTCMinutes(),new Date().getUTCSeconds(),new Date().getUTCMilliseconds()));
+  let t=Date.UTC(+p.year,+p.month-1,+p.day,5,0,0)+off; if(+p.hour<5)t-=864e5; return new Date(t);}
 const base=()=>D.episodios.filter(e=>(S.city==='ALL'||e.city===S.city)&&(S.loc==='ALL'||!e.local)&&
   (!S.q||String(e.rid).includes(S.q)||nombre(e.rid).toLowerCase().includes(S.q)));
 const CA=[
@@ -234,23 +240,24 @@ function tabla(id,cols,rows,st,empty){
 function render(){
   const all=D.episodios.filter(e=>S.city==='ALL'||e.city===S.city);
   seg('fCity',[{v:'ALL',l:'Todas'}].concat(D.cities.map(c=>({v:c,l:c,c:D.episodios.filter(e=>e.city===c&&e.min>=U&&!e.local).length}))),S.city,v=>{S.city=v;render();});
-  seg('fMin',[{v:'U',l:'Parados ≥'+U+' min'},{v:'ALL',l:'Todas las paradas'}],S.min,v=>{S.min=v;render();});
+  seg('fMin',[{v:'U',l:'Parados ≥'+U+' min'},{v:'D',l:'≥'+(U*2)+' min'},{v:'ALL',l:'Todas'}],S.min,v=>{S.min=v;render();});
   seg('fLoc',[{v:'SIN',l:'Excluir en restaurante'},{v:'ALL',l:'Incluir'}],S.loc,v=>{S.loc=v;render();});
-  const B=base().filter(e=>S.min==='ALL'||e.min>=U);
-  const now=B.filter(e=>e.en_curso);
+  const B0=base().filter(e=>passMin(e));
+  const now=B0.filter(e=>e.en_curso);
+  const hoy=inicioHoy();const B=B0.filter(e=>new Date(e.desde)>=hoy);
   const nA=tabla('tA',CA,now,S.sa,'Ningún rider parado tras su última entrega con estos filtros.');
-  const nE=tabla('tE',CE,B,S.se,'Ninguna parada tras entrega con estos filtros en las últimas '+D.horas+' h.');
+  const nE=tabla('tE',CE,B,S.se,'Ninguna parada tras entrega hoy con estos filtros.');
   $('cntA').textContent=nf(nA)+' riders';$('cntE').textContent=nf(nE)+' paradas';
-  const real=all.filter(e=>!e.local&&!e.gps_viejo);
+  const hoy0=inicioHoy();const real=all.filter(e=>!e.local&&!e.gps_viejo&&new Date(e.desde)>=hoy0);
   const sobre=real.filter(e=>e.min>=U);
   const rid=new Set(sobre.map(e=>e.rid)),rep={};sobre.forEach(e=>rep[e.rid]=(rep[e.rid]||0)+1);
   const media=sobre.length?sobre.reduce((a,e)=>a+e.min,0)/sobre.length:null;
   const ahora=real.filter(e=>e.en_curso&&e.min>=U).length;
   $('kpis').innerHTML=[
    ['Parados ahora tras entrega',`<span style="color:${ahora?'var(--bad)':'inherit'}">${nf(ahora)}</span>`,D.foto?'≥'+U+' min · a las '+hhmm(D.foto):'sin posiciones','Riders que en la última muestra llevan al menos '+U+' min sin moverse y sin pedido desde su última entrega (sin contar en restaurante ni GPS congelado).'],
-   ['Paradas ≥'+U+' min · '+D.horas+' h',nf(sobre.length),nf(rid.size)+' riders','Paradas tras entrega de al menos '+U+' min en las últimas '+D.horas+' h (sin contar en restaurante ni GPS congelado).'],
+   ['Paradas ≥'+U+' min hoy',nf(sobre.length),nf(rid.size)+' riders · '+nf(sobre.filter(e=>e.min>=U*2).length)+' de ≥'+(U*2)+' min','Paradas tras entrega de al menos '+U+' min hoy desde las 05:00 (sin contar en restaurante ni GPS congelado).'],
    ['Minutos medios parado',media==null?'—':nf(media,0)+' min','mínimo por parada ≥'+U+' min','Media de los minutos mínimos parado en las paradas tras entrega de al menos '+U+' min.'],
-   ['Riders reincidentes',nf(Object.values(rep).filter(x=>x>=2).length),'2 o más paradas ≥'+U+' min','Riders con al menos dos paradas tras entrega de '+U+' min o más en las últimas '+D.horas+' h.'],
+   ['Riders reincidentes hoy',nf(Object.values(rep).filter(x=>x>=2).length),'2 o más paradas ≥'+U+' min','Riders con al menos dos paradas tras entrega de '+U+' min o más hoy desde las 05:00.'],
   ].map(([e,b,s,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s}</span></div>`).join('');
   if(typeof renderHist==='function'&&HROWS.length)renderHist();
 }
@@ -271,7 +278,7 @@ function cargarHist(){try{fetch(new URL('wtd_v1_hist.json?t='+Date.now(),documen
   HROWS=j.eps.filter(f=>D.cities.includes(f[1])).map(f=>{const d=diaOp(f[4]);const w=isoW(d);
     return {rid:f[0],city:f[1],status:f[2],e0:f[3],e1:f[4],h:f[5],min:f[6],max:f[7],local:!!(f[8]&1),gps:!!(f[8]&2),sc:!!(f[8]&4),day:ymd(d),wk:w[0]+'-W'+String(w[1]).padStart(2,'0')};});
   renderHist();}).catch(()=>{});}catch(e){}}
-function hBase(){return HROWS.filter(e=>(S.city==='ALL'||e.city===S.city)&&(S.loc==='ALL'||!e.local)&&(S.min==='ALL'||e.min>=U)&&
+function hBase(){return HROWS.filter(e=>(S.city==='ALL'||e.city===S.city)&&(S.loc==='ALL'||!e.local)&&passMin(e)&&
   (!S.q||String(e.rid).includes(S.q)||nombre(e.rid).toLowerCase().includes(S.q)));}
 function renderHist(){
   const B0=hBase();
