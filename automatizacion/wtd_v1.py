@@ -16,9 +16,99 @@
  Lo usa generar_resumen_flota.py (igual que WTD%, UTR, No show...).
 ================================================================================
 """
-import json
+import os, csv, json, datetime as dt
 
 NODE_ALIASES = {"NEM": "MAD"}
+DELIV_CSV = os.path.expanduser("~/Downloads/fleet_data_combinado/delivery_lv_combinado.csv")
+WP_DIAS = 56          # días de pedidos que se analizan (8 semanas)
+
+
+def _ts(v):
+    try:
+        return dt.datetime.fromisoformat(str(v).strip()[:19])
+    except Exception:
+        return None
+
+
+def _f(v):
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+
+def wtd_pedidos(cities):
+    """WTD>10′ pedido a pedido (bucket delivery_lv, llega con 1 día de retraso).
+    espera = llegada a la puerta (rider_near_customer_at) -> marcado entregado (rider_dropped_off_local_at).
+    Esperado por rider = probabilidad de WTD>10′ de pedidos parecidos (misma área, tramo de distancia
+    restaurante->cliente y de peso) en el periodo; índice = real ÷ esperado."""
+    if not os.path.isfile(DELIV_CSV):
+        return None
+    cs = set(cities)
+    hoy = dt.date.today()
+    desde = (hoy - dt.timedelta(days=WP_DIAS)).isoformat()
+    P = []
+    with open(DELIV_CSV, encoding="utf-8-sig") as fh:
+        for x in csv.DictReader(fh):
+            if (x.get("delivery_status") or "") != "completed":
+                continue
+            c = NODE_ALIASES.get((x.get("city_code") or "").strip(), (x.get("city_code") or "").strip())
+            f = (x.get("fecha") or "")[:10]
+            if c not in cs or f < desde:
+                continue
+            a, b = _ts(x.get("rider_near_customer_at")), _ts(x.get("rider_dropped_off_local_at"))
+            if not a or not b:
+                continue
+            w = (b - a).total_seconds() / 60
+            if w < 0 or w > 180:
+                continue
+            ca = (x.get("is_contact_customer_absent") or "").strip().lower()
+            d = _f(x.get("pd_distance_google_km")) or _f(x.get("pd_distance_manhattan_km"))
+            kg = _f(x.get("total_weight"))
+            P.append((str(x.get("rider_id") or "").strip(), c, f, w, "S" if ca == "true" else ("N" if ca == "false" else ""),
+                      d, kg if kg and kg > 0 else None, a, b, x.get("store_name") or "", str(x.get("order_id") or "")))
+    if not P:
+        return None
+    pesos = sorted(p[6] for p in P if p[6])
+    t1 = pesos[len(pesos) // 3] if pesos else 0
+    t2 = pesos[2 * len(pesos) // 3] if pesos else 0
+    def dband(d):
+        if d is None: return 9
+        return 0 if d < 1 else 1 if d < 2 else 2 if d < 3 else 3 if d < 5 else 4
+    def wband(k):
+        if not k: return 0
+        return 1 if k <= t1 else 2 if k <= t2 else 3
+    tot = {}
+    for p in P:
+        k = (p[1], dband(p[5]), wband(p[6]))
+        t = tot.setdefault(k, [0, 0]); t[0] += 1; t[1] += p[3] > 10
+    city_rate = {}
+    for (c, _, _), (n, n10) in tot.items():
+        z = city_rate.setdefault(c, [0, 0]); z[0] += n; z[1] += n10
+    def prob(p):
+        n, n10 = tot[(p[1], dband(p[5]), wband(p[6]))]
+        if n >= 30:
+            return n10 / n
+        cn, c10 = city_rate[p[1]]
+        return (n10 + 30 * c10 / cn) / (n + 30)          # suavizado hacia la media del área
+    AG, DET = {}, []
+    for p in P:
+        k = (p[0], p[1], p[2])
+        g = AG.setdefault(k, [0, 0, 0, 0, 0, 0.0, 0.0, 0.0, 0, 0.0, 0])
+        # n, n10, n10 con contacto, n10 sin contacto, n10 sin dato, esperado, suma espera, suma km, n km, suma kg, n kg
+        g[0] += 1; g[5] += prob(p); g[6] += p[3]
+        if p[5] is not None: g[7] += p[5]; g[8] += 1
+        if p[6]: g[9] += p[6]; g[10] += 1
+        if p[3] > 10:
+            g[1] += 1
+            g[2 if p[4] == "S" else 3 if p[4] == "N" else 4] += 1
+            DET.append([p[2], p[0], p[1], p[7].strftime("%H:%M"), p[8].strftime("%H:%M"), round(p[3], 1), p[4],
+                        None if p[5] is None else round(p[5], 2), None if not p[6] else round(p[6], 1), p[9], p[10]])
+    ag = [[k[0], k[1], k[2], g[0], g[1], g[2], g[3], g[4], round(g[5], 3), round(g[6], 1), round(g[7], 2), g[8], round(g[9], 1), g[10]]
+          for k, g in AG.items()]
+    DET.sort(key=lambda r: (r[0], r[3]), reverse=True)
+    return {"hasta": max(p[2] for p in P), "desde": min(p[2] for p in P), "ag": ag, "det": DET,
+            "contacto_desde": min((p[2] for p in P if p[4]), default=None)}
 
 
 def construir_html(cities=None, semanas=None, sello=True):
@@ -44,7 +134,11 @@ def construir_html(cities=None, semanas=None, sello=True):
         aviso = (aviso + " · " if aviso else "") + "No se pudo calcular la parada tras entrega: " + str(e)[:200]
     if not foto and not aviso:
         aviso = "Sin posiciones recientes de Live Operations: la pestaña se rellenará con el muestreo de cada ~10 min."
-    data = {"cities": cities, "foto": foto, "aviso": aviso, "umbral": posiciones.TRAS_UMBRAL_MIN,
+    try:
+        wp = wtd_pedidos(cities)
+    except Exception as e:
+        wp = None; print("  (aviso) WTD por pedido: " + str(e)[:200])
+    data = {"cities": cities, "foto": foto, "aviso": aviso, "umbral": posiciones.TRAS_UMBRAL_MIN, "wp": wp,
             "horas": posiciones.KEEP_HOURS, "tras_entrega": ahora_te, "episodios": eps,
             "riders": {k: v for k, v in nombres.items() if v[1] in cities}}
     html = HTML.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
@@ -132,6 +226,7 @@ tbody tr:hover td{background:var(--chip)}
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;background:var(--chip);color:var(--ink2);margin-right:4px}
 .pill.alert{background:var(--badbg);color:var(--bad);font-weight:600}
 .pill.mid{background:var(--warnbg);color:var(--warn)}
+.pill.ok2{background:#E7F6EC;color:var(--good);font-weight:600}
 .live{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-weight:600}
 .live .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bad);margin-right:6px;vertical-align:middle;animation:blink 1.2s infinite}
 @keyframes blink{50%{opacity:.25}}
@@ -170,6 +265,18 @@ tr.click{cursor:pointer}
     <div class="tw" style="max-height:520px"><table id="tA"></table></div></section>
   <section class="panel"><div class="ph"><h2 id="hE" data-def="Cada vez que hoy (día operativo desde las 05:00) un rider entregó un pedido y se quedó parado al menos una muestra (~5 min) en el mismo punto sin coger otro pedido.">Paradas tras entrega</h2><p id="cntE"></p></div>
     <div class="tw" style="max-height:700px"><table id="tE"></table></div></section>
+  <section class="panel" id="wp">
+    <div class="hhead"><div><h2 data-def="Análisis pedido a pedido con los datos del bucket de Glovo (llegan con 1 día de retraso). Espera en cliente = desde que el rider llega a la puerta hasta que marca el pedido como entregado.">WTD&gt;10′ por pedido · ¿espera del cliente o del rider?</h2><p class="sub" id="wpSub" style="margin-top:4px"></p></div>
+      <div class="hfil">
+        <div class="fg"><span>Semana</span><select id="wpWk" aria-label="Semana"></select></div>
+        <div class="fg"><span>Fecha</span><select id="wpDay" aria-label="Fecha"></select></div>
+      </div></div>
+    <section class="kpis" id="wpKpis"></section>
+    <div class="ph"><h2 data-def="Índice = WTD>10′ real ÷ esperado. El esperado es la tasa de WTD>10′ de pedidos parecidos (misma área, mismo tramo de distancia restaurante→cliente y de peso). Índice >1,3 en rojo: el rider espera más de lo que justifican sus repartos; <0,8 en verde.">Riders · WTD&gt;10′ ajustado por distancia y peso</h2><p id="wpCntR"></p></div>
+    <div class="tw" style="max-height:480px"><table id="wpR"></table></div>
+    <div class="ph"><h2 data-def="Cada pedido con más de 10 min entre la llegada a la puerta y el marcado de entrega (los 600 más recientes del filtro).">Pedidos con WTD&gt;10′</h2><p id="wpCntE"></p></div>
+    <div class="tw" style="max-height:480px"><table id="wpE"></table></div>
+  </section>
   <section class="panel" id="hist">
     <div class="hhead"><div><h2 data-def="Todas las paradas tras entrega detectadas desde que empezó a guardarse el histórico (se acumulan cada ~10 min). Usa los filtros de Área, Mostrar, Restaurante y Buscar de arriba.">Histórico · recurrencia</h2><p class="sub" id="hSub" style="margin-top:4px"></p></div>
       <div class="hfil">
@@ -271,7 +378,72 @@ function render(){
    ['Riders reincidentes hoy',nf(Object.values(rep).filter(x=>x>=2).length),'2 o más paradas ≥'+U+' min','Riders con al menos dos paradas tras entrega de '+U+' min o más hoy desde las 05:00.'],
   ].map(([e,b,s,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s}</span></div>`).join('');
   if(typeof renderHist==='function'&&HROWS.length)renderHist();
+  if(typeof renderWP==='function')renderWP();
 }
+/* ===== WTD>10′ por pedido (bucket delivery_lv) ===== */
+const WS={wk:'ALL',day:'ALL',sr:{k:'n10',d:-1},se:{k:'f',d:-1}};
+const WP=D.wp?{ag:D.wp.ag.map(r=>({rid:r[0],city:r[1],f:r[2],n:r[3],n10:r[4],c:r[5],s:r[6],u:r[7],exp:r[8],ws:r[9],ds:r[10],dn:r[11],ks:r[12],kn:r[13]})),
+  det:D.wp.det.map(r=>({f:r[0],rid:r[1],city:r[2],h0:r[3],h1:r[4],w:r[5],c:r[6],d:r[7],kg:r[8],store:r[9],oid:r[10]}))}:null;
+function wpWeek(f){const d=new Date(f+'T00:00:00Z');return isoW(d);}
+function renderWP(){
+  if(!WP){$('wp').style.display='none';return;}
+  WP.ag.forEach(r=>{if(!r.wk){const w=isoW(new Date(r.f+'T00:00:00Z'));r.wk=w[0]+'-W'+String(w[1]).padStart(2,'0');}});
+  WP.det.forEach(r=>{if(!r.wk){const w=isoW(new Date(r.f+'T00:00:00Z'));r.wk=w[0]+'-W'+String(w[1]).padStart(2,'0');}});
+  const wks=[...new Set(WP.ag.map(r=>r.wk))].sort().reverse();
+  $('wpWk').innerHTML='<option value="ALL">Todas</option>'+wks.map(w=>`<option value="${w}" ${w===WS.wk?'selected':''}>${w.slice(5)} · ${w.slice(0,4)}</option>`).join('');
+  const days=[...new Set(WP.ag.filter(r=>WS.wk==='ALL'||r.wk===WS.wk).map(r=>r.f))].sort().reverse();
+  if(WS.day!=='ALL'&&!days.includes(WS.day))WS.day='ALL';
+  $('wpDay').innerHTML='<option value="ALL">Todas</option>'+days.map(d=>`<option value="${d}" ${d===WS.day?'selected':''}>${dlab(d)}</option>`).join('');
+  const ok=r=>(S.city==='ALL'||r.city===S.city)&&(WS.wk==='ALL'||r.wk===WS.wk)&&(WS.day==='ALL'||r.f===WS.day)&&(!S.q||String(r.rid).includes(S.q)||nombre(r.rid).toLowerCase().includes(S.q));
+  const A=WP.ag.filter(ok), E=WP.det.filter(ok);
+  const sm=k=>A.reduce((a,r)=>a+r[k],0);
+  const n=sm('n'),n10=sm('n10'),c=sm('c'),s_=sm('s'),u=sm('u'),exp=sm('exp');
+  $('wpSub').textContent='Datos del bucket de Glovo del '+dlab(D.wp.desde)+' al '+dlab(D.wp.hasta)+' (llegan con 1 día de retraso). «Contactó al cliente» lo informa Glovo desde el '+(D.wp.contacto_desde?dlab(D.wp.contacto_desde):'—')+'; en pedidos anteriores aparece como «sin dato».';
+  const idx=exp?n10/exp:null;
+  $('wpKpis').innerHTML=[
+   ['WTD>10′',n?nf(n10/n*100,2)+' %':'—',nf(n10)+' de '+nf(n)+' pedidos','Pedidos con más de 10 min entre llegar a la puerta y marcar entregado ÷ pedidos completados.'],
+   ['Espera media en puerta',n?nf(sm('ws')/n,1)+' min':'—','todas las entregas','Media de minutos entre la llegada a la puerta y el marcado de entrega.'],
+   ['Con contacto al cliente',(c+s_)?nf(c/(c+s_)*100,0)+' %':'—',nf(c)+' de '+nf(c+s_)+' WTD>10′ con dato','WTD>10′ en los que el rider contactó al cliente ausente: espera justificada por el cliente.'],
+   ['Sin contacto registrado',nf(s_),'posible marcado tardío o espera no declarada','WTD>10′ sin contacto al cliente: el rider no avisó de cliente ausente; revisar si marca tarde la entrega.'],
+   ['Índice ajustado',idx==null?'—':nf(idx,2),'real ÷ esperado por distancia y peso','1,00 = lo esperable para pedidos de esa distancia y peso en su área.'],
+  ].map(([e,b,s2,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s2}</span></div>`).join('');
+  const M={};A.forEach(r=>{const m=M[r.rid]||(M[r.rid]={rid:r.rid,city:r.city,n:0,n10:0,c:0,s:0,u:0,exp:0,ws:0,ds:0,dn:0,ks:0,kn:0});
+    ['n','n10','c','s','u','exp','ws','ds','dn','ks','kn'].forEach(k=>m[k]+=r[k]);});
+  const RR=Object.values(M).filter(m=>m.n>=5).map(m=>({...m,p:m.n10/m.n,pe:m.exp/m.n,ix:m.exp?m.n10/m.exp:null}));
+  const ixc=v=>v==null?'':(v>1.3?'alert':(v<0.8?'ok2':''));
+  const cols=[
+   {k:'rid',h:'Rider',v:m=>Number(m.rid)||0,f:m=>esc(m.rid)+(nombre(m.rid)?`<span class="nm">${esc(nombre(m.rid))}</span>`:''),d:'Rider (mínimo 5 pedidos en el filtro).'},
+   {k:'city',h:'Área',v:m=>m.city,f:m=>esc(m.city),d:'Área.'},
+   {k:'n',h:'Pedidos',n:1,v:m=>m.n,f:m=>nf(m.n),d:'Pedidos completados.'},
+   {k:'n10',h:'WTD>10′',n:1,v:m=>m.n10,f:m=>nf(m.n10)+` <span class="muted">(${nf(m.p*100,1)} %)</span>`,d:'Pedidos con WTD>10′ y su %.'},
+   {k:'pe',h:'Esperado',n:1,v:m=>m.pe,f:m=>nf(m.pe*100,1)+' %',d:'% de WTD>10′ esperable para pedidos de la misma área, distancia y peso.'},
+   {k:'ix',h:'Índice',n:1,v:m=>m.ix??-1,f:m=>m.ix==null?'—':`<span class="pill ${ixc(m.ix)}">${nf(m.ix,2)}</span>`,d:'Real ÷ esperado. Rojo >1,3: espera más de lo que justifican sus repartos. Verde <0,8.'},
+   {k:'c',h:'Con contacto',n:1,v:m=>m.c,f:m=>m.c||'',d:'WTD>10′ en los que contactó al cliente ausente.'},
+   {k:'s',h:'Sin contacto',n:1,v:m=>m.s,f:m=>m.s?`<b>${m.s}</b>`:'',d:'WTD>10′ sin contacto al cliente (con dato de Glovo).'},
+   {k:'ws',h:'Espera media',n:1,v:m=>m.ws/m.n,f:m=>nf(m.ws/m.n,1)+' min',d:'Minutos medios en puerta.'},
+   {k:'ds',h:'Km último tramo',n:1,v:m=>m.dn?m.ds/m.dn:0,f:m=>m.dn?nf(m.ds/m.dn,1):'—',d:'Distancia media restaurante → cliente (km).'},
+   {k:'ks',h:'Peso medio',n:1,v:m=>m.kn?m.ks/m.kn:0,f:m=>m.kn?nf(m.ks/m.kn,1):'—',d:'Peso medio de los pedidos que lo informan.'},
+  ];
+  const nR=tabla('wpR',cols,RR,WS.sr,'Ningún rider con al menos 5 pedidos en este filtro.');
+  $('wpCntR').textContent=nf(nR)+' riders con 5 o más pedidos';
+  const ce=[
+   {k:'f',h:'Día',v:e=>e.f+e.h0,f:e=>dlab(e.f),d:'Día del pedido.'},
+   {k:'rid',h:'Rider',v:e=>Number(e.rid)||0,f:e=>esc(e.rid)+(nombre(e.rid)?`<span class="nm">${esc(nombre(e.rid))}</span>`:''),d:'Rider.'},
+   {k:'city',h:'Área',v:e=>e.city,f:e=>esc(e.city),d:'Área.'},
+   {k:'h0',h:'Llega a la puerta',v:e=>e.h0,f:e=>esc(e.h0),d:'Hora en que el rider llega junto al cliente.'},
+   {k:'h1',h:'Marca entregado',v:e=>e.h1,f:e=>esc(e.h1),d:'Hora en que marca el pedido como entregado.'},
+   {k:'w',h:'Espera',n:1,v:e=>e.w,f:e=>`<span class="pill ${e.w>=20?'alert':'mid'}">${nf(e.w,1)} min</span>`,d:'Minutos entre llegar a la puerta y marcar entregado.'},
+   {k:'c',h:'Contactó al cliente',v:e=>e.c,f:e=>e.c==='S'?'<span class="pill ok2">Sí</span>':(e.c==='N'?'<span class="pill alert">No</span>':'<span class="muted">sin dato</span>'),d:'Si el rider contactó al cliente ausente antes de entregar.'},
+   {k:'d',h:'Km',n:1,v:e=>e.d??-1,f:e=>e.d==null?'—':nf(e.d,1),d:'Distancia restaurante → cliente.'},
+   {k:'kg',h:'Peso',n:1,v:e=>e.kg??-1,f:e=>e.kg==null?'—':nf(e.kg,1),d:'Peso del pedido (si Glovo lo informa).'},
+   {k:'store',h:'Tienda',v:e=>e.store,f:e=>esc(e.store),d:'Restaurante.'},
+  ];
+  tabla('wpE',ce,E.slice().sort((a,b)=>(b.f+b.h0).localeCompare(a.f+a.h0)).slice(0,600),WS.se,'Ningún pedido con WTD>10′ en este filtro.');
+  $('wpCntE').textContent=nf(E.length)+' pedidos'+(E.length>600?' (se muestran 600)':'');
+}
+$('wpWk').onchange=e=>{WS.wk=e.target.value;WS.day='ALL';renderWP();};
+$('wpDay').onchange=e=>{WS.day=e.target.value;renderWP();};
+
 /* ===== Histórico (wtd_v1_hist.json, se acumula cada ~10 min) ===== */
 const HS={wk:'ALL',day:'ALL',sr:{k:'n',d:-1},se:{k:'e1',d:-1}};let HROWS=[],HUPD=null;
 const FMT=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'});
@@ -366,7 +538,7 @@ cargarVivo();setInterval(cargarVivo,60*1000);
 setInterval(()=>{document.querySelectorAll('.live[data-desde]').forEach(el=>{const sec=(Date.now()-new Date(el.dataset.desde).getTime())/1000;
   const m=sec/60;el.classList.toggle('alert',m>=U*2);el.classList.toggle('mid',m>=U&&m<U*2);const d=el.querySelector('.dot');el.textContent='≥ '+fmtDur(sec);if(d)el.prepend(d);});},1000);
 setInterval(render,60*1000);
-cargarHist();setInterval(cargarHist,10*60*1000);renderHist();
+cargarHist();setInterval(cargarHist,10*60*1000);renderHist();renderWP();
 if(window.parent!==window){const send=()=>window.parent.postMessage({v1H:document.body.getBoundingClientRect().height},'*');
   if(window.ResizeObserver) new ResizeObserver(send).observe(document.body); send();}
 </script></body></html>
