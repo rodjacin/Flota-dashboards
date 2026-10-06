@@ -73,16 +73,12 @@ except Exception:
     _vivo = None
 
 # --- Pestaña "Códigos postales" (impacto por CP en WTD, RR e incidencias): usa cp_impacto.py ---
-try:
-    import cp_impacto as _cpi
-except Exception:
-    _cpi = None
+# (desactivada el 06/10/2026 a petición: el módulo se conserva por si se quiere recuperar)
+_cpi = None
 
 # --- Pestaña "WTD%" (WTD por rider L4W / WK-1 + paradas con pedido activo): usa wtd_riders.py ---
-try:
-    import wtd_riders as _wtdr
-except Exception:
-    _wtdr = None
+# (desactivada el 06/10/2026 a petición: el módulo se conserva por si se quiere recuperar)
+_wtdr = None
 
 # --- Pestaña "WTD% v1" (riders parados justo después de entregar): usa wtd_v1.py + posiciones.py ---
 try:
@@ -190,8 +186,8 @@ def main():
     print("Pestaña No show: " + ("ACTIVA" if _ns else "no encontrada (falta noshow_riders.py junto a este script)"))
     print("Pestaña Capacidad: " + ("ACTIVA" if _cap else "no encontrada (falta capacidad_forecast.py junto a este script)"))
     print("Pestaña En vivo: " + ("ACTIVA" if _vivo else "no encontrada (falta en_vivo.py junto a este script)"))
-    print("Pestaña Códigos postales: " + ("ACTIVA" if _cpi else "no encontrada (falta cp_impacto.py o la librería shapely)"))
-    print("Pestaña WTD%: " + ("ACTIVA" if _wtdr else "no encontrada (falta wtd_riders.py junto a este script)"))
+    print("Pestaña Códigos postales: desactivada")
+    print("Pestaña WTD%: desactivada")
     print("Pestaña WTD% v1: " + ("ACTIVA" if _wtdv1 else "no encontrada (falta wtd_v1.py junto a este script)"))
     print("Pestaña Incidencias: " + ("ACTIVA" if _inc else "no encontrada (falta incidencias_sl.py junto a este script)"))
     if _heat and HEAT_DESCARGAR:
