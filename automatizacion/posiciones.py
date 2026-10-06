@@ -84,7 +84,7 @@ def registrar(snap, pos, cuando=None):
             act = [str(x) for x in (d.get("active_delivery_ids") or [])]
             activo = bool(act or d.get("has_active_deliveries") or d.get("has_active_delivery"))
             obs = [t.isoformat(), round(p["lat"], 6), round(p["lng"], 6), p.get("loc_at"), 1 if activo else 0,
-                   act, code, r.get("status")]
+                   act, code, r.get("status"), d.get("completed_deliveries_count")]
             lst = R.setdefault(rid, [])
             if lst and lst[-1][0] == obs[0]:
                 lst[-1] = obs
@@ -117,8 +117,14 @@ def exportar(repo, snap):
         for r in C.get("riders") or []:
             nombres[str(r.get("employee_id"))] = [r.get("name") or "", code]
     for carpeta, cs in DASHBOARDS.items():
-        paradas, foto = quietos(cs, restaurantes(cs))
+        grid = restaurantes(cs)
+        paradas, foto = quietos(cs, grid)
+        try:
+            ahora_te, episodios = tras_entrega(cs, grid)
+        except Exception as e:
+            print("tras_entrega (%s): %s" % (carpeta, e)); ahora_te, episodios = {}, []
         out = {"foto": foto or snap.get("fetched_at"), "paradas": paradas,
+               "tras_entrega": ahora_te, "episodios": episodios,
                "riders": {k: v for k, v in nombres.items() if v[1] in cs}}
         d = os.path.join(repo, carpeta)
         if os.path.isdir(d):
@@ -216,6 +222,84 @@ def quietos(cities, grid=None, hist=None):
             res["gps_viejo"] = round((tc - la).total_seconds() / 60)
         out[rid] = res
     return out, (ultima.isoformat() if ultima else None)
+
+
+# ------------------------------------------------- parado tras entregar (WTD% v1)
+TRAS_UMBRAL_MIN = 10   # aviso: minutos parado tras entregar
+
+
+def tras_entrega(cities, grid=None, hist=None):
+    """Paradas justo después de entregar un pedido, en el historial disponible (KEEP_HOURS).
+
+    Una entrega se detecta entre dos muestras seguidas cuando un pedido activo desaparece,
+    el rider se queda sin pedido y (si Glovo lo informa) sube su contador de entregas
+    completadas. Desde la primera muestra sin pedido se cuenta cuánto sigue a menos de
+    MOVE_M metros del mismo punto sin coger otro pedido.
+
+    Devuelve (ahora, episodios):
+      ahora     rider_id -> episodio en curso en la última muestra (sigue parado ahora)
+      episodios lista de episodios con al menos una muestra parado (>= ~10 min) o en curso
+    Cada episodio: rid, city, status, ent_ini/ent_fin (entre qué muestras entregó), desde,
+    hasta, min (mínimo parado: la parada real empezó en la entrega, antes de 'desde'),
+    max (cota superior: desde la última muestra con el pedido), en_curso, local (junto a un
+    restaurante), confirmada (subió el contador de completadas), gps_viejo. Sin coordenadas.
+    """
+    h = hist if hist is not None else cargar()
+    grid = grid if grid is not None else restaurantes(cities)
+    cs = set(cities or [])
+    ahora = _now()
+    actual, eps = {}, []
+    for rid, obs in (h.get("riders") or {}).items():
+        if len(obs) < 2:
+            continue
+        T = [_ts(o[0]) for o in obs]
+        n = len(obs)
+        fresco = T[-1] is not None and (ahora - T[-1]).total_seconds() <= FRESH_MIN * 60
+        i = 1
+        while i < n:
+            p, c = obs[i - 1], obs[i]
+            if (T[i] is None or T[i - 1] is None or (cs and c[6] not in cs)
+                    or (T[i] - T[i - 1]).total_seconds() > MAX_GAP_MIN * 60
+                    or not p[4] or c[4]):
+                i += 1
+                continue
+            idos = set(p[5] or []) - set(c[5] or [])
+            if p[5] and not idos:
+                i += 1
+                continue
+            cp = p[8] if len(p) > 8 else None
+            cc = c[8] if len(c) > 8 else None
+            confirmada = None
+            if cp is not None and cc is not None:
+                if cc <= cp:          # desapareció sin sumar entrega: cancelado o reasignado
+                    i += 1
+                    continue
+                confirmada = True
+            ancla = (c[1], c[2])
+            j = i
+            while j + 1 < n:
+                o = obs[j + 1]
+                if (o[4] or T[j + 1] is None or (T[j + 1] - T[j]).total_seconds() > MAX_GAP_MIN * 60
+                        or _dist((o[1], o[2]), ancla) > MOVE_M):
+                    break
+                j += 1
+            en_curso = (j == n - 1) and fresco
+            mins = round((T[j] - T[i]).total_seconds() / 60)
+            if j > i or en_curso:
+                ep = {"rid": rid, "city": c[6], "status": obs[j][7],
+                      "ent_ini": obs[i - 1][0], "ent_fin": c[0], "desde": c[0], "hasta": obs[j][0],
+                      "min": mins, "max": round((T[j] - T[i - 1]).total_seconds() / 60),
+                      "en_curso": en_curso, "local": _junto_a_local(ancla, grid),
+                      "confirmada": confirmada}
+                la = _ts(obs[j][3])
+                if la and (T[j] - la).total_seconds() > 15 * 60:
+                    ep["gps_viejo"] = round((T[j] - la).total_seconds() / 60)
+                eps.append(ep)
+                if en_curso:
+                    actual[rid] = ep
+            i = j + 1
+    eps.sort(key=lambda e: e["desde"], reverse=True)
+    return actual, eps
 
 
 if __name__ == "__main__":
