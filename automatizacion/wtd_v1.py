@@ -132,6 +132,10 @@ tbody tr:hover td{background:var(--chip)}
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;background:var(--chip);color:var(--ink2);margin-right:4px}
 .pill.alert{background:var(--badbg);color:var(--bad);font-weight:600}
 .pill.mid{background:var(--warnbg);color:var(--warn)}
+.live{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-weight:600}
+.live .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bad);margin-right:6px;vertical-align:middle;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+.sub2{display:block;color:var(--muted);font-size:11px;font-weight:400;margin-top:2px}
 .muted{color:var(--muted)}
 .empty{color:var(--muted);padding:16px 0}
 .note{color:var(--muted);font-size:12px;line-height:1.55;margin:0}
@@ -202,15 +206,22 @@ function aplicarVivo(j){
   Object.assign(D.riders,j.riders||{});cabecera();render();}
 function cargarVivo(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
 $('nota').innerHTML='Cómo se calcula: se toma una muestra de posición y pedidos de cada rider cada ~5 min (la web se publica cada ~10 min). Si entre dos muestras desaparece su pedido activo, se queda sin pedido y sube su contador de entregas completadas, cuenta como <b>entrega</b> (si desaparece sin sumar entrega, es cancelación o reasignación y no se cuenta). '+
- '«Parado» = sigue a menos de 80 m del punto donde estaba tras entregar y sin coger otro pedido. Los minutos son un <b>mínimo</b> (≥): la entrega ocurrió entre las dos muestras, así que la parada real puede ser hasta ~5 min mayor. '+
+ '«Parado» = sigue a menos de 80 m del punto donde estaba tras entregar y sin coger otro pedido. El contador <b>en vivo</b> (punto rojo) cuenta desde la primera foto sin pedido tras la entrega y avanza cada segundo mientras el rider siga parado en la última foto; si el rider no aparece en la última foto (desconectado) o no llega foto nueva en 20 min, el contador se congela. Es un <b>mínimo</b> (≥): la entrega ocurrió entre dos fotos, así que la parada real puede ser hasta ~5 min mayor. '+
  '«En restaurante» = se ha quedado a menos de 100 m de un local donde se recogen pedidos (esperando el siguiente). «GPS congelado» = su ubicación no se actualiza, puede no estar parado de verdad. Las posiciones se guardan solo '+D.horas+' h (día completo); el histórico conserva únicamente cada parada (rider, horas y minutos), nunca coordenadas, durante 120 días.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
 const nombre=id=>(D.riders[id]||[])[0]||'';
-const minPill=e=>{const cls=e.min>=U*2?'alert':(e.min>=U?'mid':'');return `<span class="pill ${cls}" title="Entre ${e.min} y ${e.max} min">≥ ${e.min} min</span>`;};
+const minPill=e=>{const m=liveMin(e),cls=m>=U*2?'alert':(m>=U?'mid':'');
+  if(vivo(e))return `<span class="pill ${cls} live" data-desde="${e.desde}" title="Tiempo parado desde la primera foto sin pedido tras la entrega (${hhmm(e.desde)}). Puede ser hasta ~5 min más: la entrega fue entre ${hhmm(e.ent_ini)} y ${hhmm(e.ent_fin)}."><span class="dot"></span>≥ ${fmtDur(liveSec(e))}</span><span class="sub2">última foto ${hhmm(e.hasta)}</span>`;
+  return `<span class="pill ${cls}" title="Entre ${e.min} y ${e.max} min">≥ ${e.min} min</span>`+(e.en_curso?`<span class="sub2">sin foto desde ${hhmm(e.hasta)}</span>`:'');};
 const flags=e=>(e.local?'<span class="pill" title="A menos de 100 m de un restaurante conocido">En restaurante</span>':'')+
   (e.gps_viejo?`<span class="pill mid" title="La ubicación no se actualiza desde hace ${e.gps_viejo} min">GPS congelado ${e.gps_viejo} min</span>`:'')+
   (e.confirmada===null?'<span class="pill" title="Glovo no informó el contador de entregas: podría ser una cancelación">Sin confirmar</span>':'');
-const passMin=e=>S.min==='ALL'||e.min>=(S.min==='D'?U*2:U);
+const STALE_MIN=20;   // sin foto nueva del rider en más de 20 min: se congela el contador
+const vivo=e=>e.en_curso&&D.foto&&Math.abs(new Date(e.hasta)-new Date(D.foto))<90000&&(Date.now()-new Date(e.hasta).getTime())<STALE_MIN*60000;  // sigue en la última foto
+const liveSec=e=>vivo(e)?Math.max(0,(Date.now()-new Date(e.desde).getTime())/1000):e.min*60;
+const liveMin=e=>liveSec(e)/60;
+const fmtDur=sec=>{sec=Math.floor(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s2=sec%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s2).padStart(2,'0');};
+const passMin=e=>S.min==='ALL'||liveMin(e)>=(S.min==='D'?U*2:U);
 function inicioHoy(){ // 05:00 de hoy en Madrid (o de ayer si aún no son las 05:00)
   const p={};new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).forEach(x=>p[x.type]=x.value);
   const off=(new Date().getTime()-Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,new Date().getUTCMinutes(),new Date().getUTCSeconds(),new Date().getUTCMilliseconds()));
@@ -221,13 +232,13 @@ const CA=[
  {k:'rid',h:'Rider',v:e=>Number(e.rid)||e.rid,f:e=>esc(e.rid)+(nombre(e.rid)?`<span class="nm">${esc(nombre(e.rid))}</span>`:''),d:'ID del rider en Glovo y nombre.'},
  {k:'city',h:'Área',v:e=>e.city,f:e=>esc(e.city),d:'Área (nodo) del rider.'},
  {k:'ent',h:'Entregó entre',v:e=>e.ent_fin,f:e=>hhmm(e.ent_ini)+' – '+hhmm(e.ent_fin),d:'Muestras entre las que desapareció el pedido entregado (hora de Madrid).'},
- {k:'min',h:'Parado',n:1,v:e=>e.min,f:minPill,d:'Minutos mínimos sin moverse y sin pedido desde la entrega. Al pasar el ratón: rango mínimo–máximo.'},
+ {k:'min',h:'Parado (en vivo)',n:1,v:e=>liveMin(e),f:minPill,d:'Tiempo que lleva parado y sin pedido desde que entregó, contado en vivo (min:seg) desde la primera foto sin pedido. Es un mínimo: la entrega ocurrió entre dos fotos, hasta ~5 min antes. Debajo, la hora de la última foto que lo confirma.'},
  {k:'status',h:'Estado Glovo',v:e=>e.status||'',f:e=>esc(ST[e.status]||e.status||'—'),d:'Estado del rider en Live Operations en la última muestra parado.'},
  {k:'fl',h:'Avisos',v:e=>(e.local?1:0)+(e.gps_viejo?2:0),f:flags,d:'En restaurante, GPS congelado o entrega sin confirmar.'},
 ];
 const CE=[CA[0],CA[1],CA[2],
  {k:'desde',h:'Parado desde',v:e=>e.desde,f:e=>hhmm(e.desde),d:'Primera muestra tras la entrega, ya sin pedido.'},
- {k:'hasta',h:'Hasta',v:e=>e.hasta,f:e=>e.en_curso?'<span class="pill alert">Sigue parado</span>':hhmm(e.hasta),d:'Última muestra en el mismo punto sin pedido. «Sigue parado» si es la muestra más reciente.'},
+ {k:'hasta',h:'Hasta',v:e=>e.hasta,f:e=>vivo(e)?'<span class="pill alert">Sigue parado</span>':(e.en_curso?hhmm(e.hasta)+'<span class="sub2">sin foto nueva</span>':hhmm(e.hasta)),d:'Última muestra en el mismo punto sin pedido. «Sigue parado» si es la muestra más reciente.'},
  CA[3],CA[4],CA[5]];
 function tabla(id,cols,rows,st,empty){
   const col=cols.find(x=>x.k===st.k)||cols[0];
@@ -249,10 +260,10 @@ function render(){
   const nE=tabla('tE',CE,B,S.se,'Ninguna parada tras entrega hoy con estos filtros.');
   $('cntA').textContent=nf(nA)+' riders';$('cntE').textContent=nf(nE)+' paradas';
   const hoy0=inicioHoy();const real=all.filter(e=>!e.local&&!e.gps_viejo&&new Date(e.desde)>=hoy0);
-  const sobre=real.filter(e=>e.min>=U);
+  const sobre=real.filter(e=>liveMin(e)>=U);
   const rid=new Set(sobre.map(e=>e.rid)),rep={};sobre.forEach(e=>rep[e.rid]=(rep[e.rid]||0)+1);
   const media=sobre.length?sobre.reduce((a,e)=>a+e.min,0)/sobre.length:null;
-  const ahora=real.filter(e=>e.en_curso&&e.min>=U).length;
+  const ahora=real.filter(e=>vivo(e)&&liveMin(e)>=U).length;
   $('kpis').innerHTML=[
    ['Parados ahora tras entrega',`<span style="color:${ahora?'var(--bad)':'inherit'}">${nf(ahora)}</span>`,D.foto?'≥'+U+' min · a las '+hhmm(D.foto):'sin posiciones','Riders que en la última muestra llevan al menos '+U+' min sin moverse y sin pedido desde su última entrega (sin contar en restaurante ni GPS congelado).'],
    ['Paradas ≥'+U+' min hoy',nf(sobre.length),nf(rid.size)+' riders · '+nf(sobre.filter(e=>e.min>=U*2).length)+' de ≥'+(U*2)+' min','Paradas tras entrega de al menos '+U+' min hoy desde las 05:00 (sin contar en restaurante ni GPS congelado).'],
@@ -350,7 +361,11 @@ let qT;$('fQ').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{
   document.addEventListener('mousemove',e=>{if(!tip.hidden&&e.target.closest('[data-def]'))place(e.clientX,e.clientY);});
   document.addEventListener('mouseout',e=>{const el=e.target.closest('[data-def]');if(el&&!el.contains(e.relatedTarget))tip.hidden=true;});})();
 render();
-cargarVivo();setInterval(cargarVivo,5*60*1000);
+cargarVivo();setInterval(cargarVivo,60*1000);
+/* contador en vivo: cada segundo actualiza los tiempos; cada minuto re-renderiza (orden y colores) */
+setInterval(()=>{document.querySelectorAll('.live[data-desde]').forEach(el=>{const sec=(Date.now()-new Date(el.dataset.desde).getTime())/1000;
+  const m=sec/60;el.classList.toggle('alert',m>=U*2);el.classList.toggle('mid',m>=U&&m<U*2);const d=el.querySelector('.dot');el.textContent='≥ '+fmtDur(sec);if(d)el.prepend(d);});},1000);
+setInterval(render,60*1000);
 cargarHist();setInterval(cargarHist,10*60*1000);renderHist();
 if(window.parent!==window){const send=()=>window.parent.postMessage({v1H:document.body.getBoundingClientRect().height},'*');
   if(window.ResizeObserver) new ResizeObserver(send).observe(document.body); send();}
