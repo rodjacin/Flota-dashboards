@@ -88,6 +88,8 @@ def registrar(snap, pos, cuando=None):
             lst = R.setdefault(rid, [])
             if lst and lst[-1][0] == obs[0]:
                 lst[-1] = obs
+            elif len(lst) >= 2 and lst[-1][1:] == obs[1:] and lst[-2][1:] == obs[1:]:
+                lst[-1] = obs          # tramo sin cambios: se conserva su primera y su última muestra
             else:
                 lst.append(obs)
             n += 1
@@ -132,12 +134,16 @@ def exportar(repo, snap):
                 json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
             print("%s/wtd_vivo.json: %d riders con posición" % (carpeta, len(paradas)))
             try:
+                if _ts(snap.get("fetched_at") or "") and _ts(snap["fetched_at"]).minute % 5 != 0:
+                    raise StopIteration      # el histórico de Live Ops cuenta fotos de 5 min
                 n = acumular_liveops(os.path.join(d, LIVEOPS_HIST), snap, cs)
                 print("%s/%s: %d riders hoy" % (carpeta, LIVEOPS_HIST, n))
+            except StopIteration:
+                pass
             except Exception as e:
                 print("histórico Live Ops (%s): %s" % (carpeta, e))
             try:
-                n = guardar_historico(os.path.join(d, HIST_V1), episodios)
+                n = guardar_historico(os.path.join(d, HIST_V1), [e for e in episodios if e.get("conf", True)])
                 print("%s/%s: %d paradas tras entrega acumuladas" % (carpeta, HIST_V1, n))
             except Exception as e:
                 print("histórico WTD%% v1 (%s): %s" % (carpeta, e))
@@ -215,17 +221,26 @@ def quietos(cities, grid=None, hist=None):
         elif _junto_a_local(pc, grid):
             res["estado"] = "local"
         else:
-            desde, prev_t, inicio = tc, tc, True
+            # Glovo actualiza la ubicación de cada rider cada ~5 min: entre dos actualizaciones repite
+            # la misma posición aunque el rider se mueva. Por eso la parada se confirma solo cuando hay
+            # al menos dos ubicaciones distintas (loc_at) en el mismo punto, y se cuenta desde la primera.
+            primera, prev_t, inicio = tc, tc, True
+            locs = {cur[3]} if cur[3] else set()
             for o in reversed(obs[:-1]):
                 to = _ts(o[0])
                 if (not o[4] or _dist((o[1], o[2]), pc) > MOVE_M
                         or (prev_t - to).total_seconds() > MAX_GAP_MIN * 60):
                     inicio = False
                     break
-                desde = prev_t = to
+                primera = prev_t = to
+                if o[3]:
+                    locs.add(o[3])
+            lts = sorted(t for t in (_ts(x) for x in locs) if t)
+            desde = max(primera, lts[0]) if lts else primera     # no antes de tener el pedido
+            conf = len(lts) >= 2 and lts[-1] > desde
             res.update(estado="parado", min=round((tc - desde).total_seconds() / 60),
                        desde=desde.isoformat(), desde_inicio=inicio and len(obs) > 1,
-                       n_muestras=len(obs))
+                       n_muestras=len(obs), conf=conf)
         # GPS congelado: la posición no se ha actualizado en más de 15 min
         la = _ts(cur[3])
         if la and (tc - la).total_seconds() > 15 * 60:
@@ -400,12 +415,13 @@ def tras_entrega(cities, grid=None, hist=None):
                 j += 1
             en_curso = (j == n - 1) and fresco
             mins = round((T[j] - T[i]).total_seconds() / 60)
-            if j > i or en_curso:
+            conf = len({o[3] for o in obs[i:j + 1] if o[3]}) >= 2     # se actualizó la ubicación y sigue ahí
+            if (j > i and conf) or en_curso:
                 ep = {"rid": rid, "city": c[6], "status": obs[j][7],
                       "ent_ini": obs[i - 1][0], "ent_fin": c[0], "desde": c[0], "hasta": obs[j][0],
                       "min": mins, "max": round((T[j] - T[i - 1]).total_seconds() / 60),
                       "en_curso": en_curso, "local": _junto_a_local(ancla, grid),
-                      "confirmada": confirmada}
+                      "confirmada": confirmada, "conf": conf}
                 la = _ts(obs[j][3])
                 if la and (T[j] - la).total_seconds() > 15 * 60:
                     ep["gps_viejo"] = round((T[j] - la).total_seconds() / 60)
