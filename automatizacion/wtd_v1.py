@@ -114,7 +114,7 @@ def wtd_pedidos(cities):
 def construir_html(cities=None, semanas=None, sello=True):
     import posiciones
     cities = sorted(set(NODE_ALIASES.get(c, c) for c in (cities or [])))
-    nombres, aviso, foto = {}, "", None
+    nombres, aviso, foto, paradas = {}, "", None, {}
     ahora_te, eps = {}, []
     try:
         import en_vivo
@@ -128,7 +128,7 @@ def construir_html(cities=None, semanas=None, sello=True):
         aviso = "No se pudo leer Live Operations: " + str(e)[:200]
     try:
         grid = posiciones.restaurantes(cities)
-        _, foto = posiciones.quietos(cities, grid)
+        paradas, foto = posiciones.quietos(cities, grid)
         ahora_te, eps = posiciones.tras_entrega(cities, grid)
     except Exception as e:
         aviso = (aviso + " · " if aviso else "") + "No se pudo calcular la parada tras entrega: " + str(e)[:200]
@@ -140,6 +140,7 @@ def construir_html(cities=None, semanas=None, sello=True):
         wp = None; print("  (aviso) WTD por pedido: " + str(e)[:200])
     data = {"cities": cities, "foto": foto, "aviso": aviso, "umbral": posiciones.TRAS_UMBRAL_MIN, "wp": wp,
             "horas": posiciones.KEEP_HOURS, "tras_entrega": ahora_te, "episodios": eps,
+            "paradas": {k: v for k, v in (paradas or {}).items() if v.get("estado") == "parado"},
             "riders": {k: v for k, v in nombres.items() if v[1] in cities}}
     html = HTML.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     n_ahora = sum(1 for e in ahora_te.values() if e["min"] >= posiciones.TRAS_UMBRAL_MIN and not e["local"])
@@ -212,7 +213,7 @@ _ALERT_JS = r'''<style>
 #v1Alert .ft button.p{background:#C2362F;border-color:#C2362F;color:#fff}
 </style>
 <div id="v1Alert" role="alertdialog" aria-live="assertive" aria-labelledby="v1AlertT">
-  <div class="hd"><b id="v1AlertT">Rider parado tras entregar</b><button class="x" id="v1AlertX" aria-label="Cerrar">×</button></div>
+  <div class="hd"><b id="v1AlertT">Rider parado con pedido</b><button class="x" id="v1AlertX" aria-label="Cerrar">×</button></div>
   <ul id="v1AlertL"></ul>
   <div class="ft"><button class="p" id="v1AlertVer">Ver en WTD% v1</button><button id="v1AlertSnd"></button><button id="v1AlertNot"></button></div>
 </div>
@@ -238,10 +239,10 @@ _ALERT_JS = r'''<style>
       o.start(a.currentTime+t);o.stop(a.currentTime+t+0.24);});setTimeout(()=>a.close(),1200);}catch(e){} }
   function pintar(){
     if(!act.length){box.classList.remove('on');document.title=T0;return;}
-    document.getElementById('v1AlertT').textContent=act.length===1?'1 rider parado ≥'+U+' min tras entregar':act.length+' riders parados ≥'+U+' min tras entregar';
+    document.getElementById('v1AlertT').textContent=act.length===1?'1 rider parado ≥'+U+' min con pedido':act.length+' riders parados ≥'+U+' min con pedido';
     act.sort((a,b)=>new Date(a.desde)-new Date(b.desde));
     L.innerHTML=act.map(r=>{const s=(Date.now()-new Date(r.desde).getTime())/1000;
-      return `<li class="${nuevosIds.has(r.rid)?'nw':''}"><div><b>${esc(r.name||r.rid)}</b><span>${esc(r.rid)} · ${esc(r.city)} · entregó entre ${hhmm(r.ent_ini)} y ${hhmm(r.ent_fin)}</span></div><i class="${s>=U*120?'d':''}" data-desde="${esc(r.desde)}">≥ ${dur(s)}</i></li>`;}).join('');
+      return `<li class="${nuevosIds.has(r.rid)?'nw':''}"><div><b>${esc(r.name||r.rid)}</b><span>${esc(r.rid)} · ${esc(r.city)} · ${r.txt?esc(r.txt):'entregó entre '+hhmm(r.ent_ini)+' y '+hhmm(r.ent_fin)}</span></div><i class="${s>=U*120?'d':''}" data-desde="${esc(r.desde)}">≥ ${dur(s)}</i></li>`;}).join('');
     document.title='('+act.length+') ⚠ Parados · '+T0;
     if(!cerrado) box.classList.add('on');}
   window.addEventListener('message',e=>{
@@ -249,15 +250,15 @@ _ALERT_JS = r'''<style>
     const m=e.data.v1Alert; U=m.umbral||U; act=m.activos||[];
     if((m.nuevos||[]).length){ nuevosIds=new Set(m.nuevos.map(r=>r.rid)); cerrado=false; pitar();
       if('Notification' in window&&Notification.permission==='granted'){
-        try{const n=new Notification(m.nuevos.length===1?'Rider parado tras entregar':m.nuevos.length+' riders parados tras entregar',
-          {body:m.nuevos.map(r=>(r.name||r.rid)+' ('+r.city+') · ≥'+(r.nivel===2?U*2:U)+' min parado tras entregar').join('\n'),tag:'wtdv1-'+Date.now(),requireInteraction:true});
+        try{const n=new Notification(m.nuevos.length===1?'Rider parado con pedido asignado':m.nuevos.length+' riders parados con pedido asignado',
+          {body:m.nuevos.map(r=>(r.name||r.rid)+' ('+r.city+') · ≥'+(r.nivel===2?U*2:U)+' min parado con pedido').join('\n'),tag:'wtdv1-'+Date.now(),requireInteraction:true});
           n.onclick=()=>{window.focus();document.getElementById('v1AlertVer').click();n.close();};}catch(err){} } }
     pintar();});
   setInterval(()=>box.querySelectorAll('i[data-desde]').forEach(el=>{const s=(Date.now()-new Date(el.dataset.desde).getTime())/1000;
     el.textContent='≥ '+dur(s);el.classList.toggle('d',s>=U*120);}),1000);
   document.getElementById('v1AlertX').onclick=()=>{cerrado=true;box.classList.remove('on');};
   document.getElementById('v1AlertVer').onclick=()=>{const b=document.querySelector('#viewSeg button[data-v="wtdv1"]');
-    if(b&&b.getAttribute('aria-pressed')!=='true') b.click(); setTimeout(()=>fr.scrollIntoView({behavior:'smooth'}),50);};
+    if(b&&b.getAttribute('aria-pressed')!=='true') b.click(); setTimeout(()=>{fr.scrollIntoView({behavior:'smooth'});try{const t=fr.contentDocument.getElementById('secPP');if(t)window.scrollTo({top:fr.getBoundingClientRect().top+window.scrollY+t.offsetTop-10,behavior:'smooth'});}catch(e){}},80);};
   document.getElementById('v1AlertSnd').onclick=()=>{sonido=!sonido;try{localStorage.setItem('wtdv1_sonido',sonido?'1':'0');}catch(e){}botones();if(sonido)pitar();};
   document.getElementById('v1AlertNot').onclick=()=>{try{Notification.requestPermission().then(botones);}catch(e){}};
   // el navegador solo deja pedir permiso tras un clic: se pide con el primer clic en cualquier parte del dashboard
@@ -342,6 +343,8 @@ tr.click{cursor:pointer}
     <div class="fg"><span>Buscar</span><input type="search" id="fQ" placeholder="ID o nombre de rider" aria-label="Buscar rider"></div>
   </div>
   <section class="kpis" id="kpis"></section>
+  <section class="panel" id="secPP"><div class="ph"><h2 data-def="Riders que en la última muestra llevan al menos el umbral sin moverse (menos de 80 m) con un pedido asignado, fuera de un restaurante (sin contar GPS congelado). Son los que saltan en el aviso emergente.">Ahora · parados con pedido asignado</h2><p id="cntP"></p></div>
+    <div class="tw" style="max-height:420px"><table id="tP"></table></div></section>
   <section class="panel"><div class="ph"><h2 data-def="Riders que en la última muestra siguen sin moverse (menos de 80 m) y sin pedido desde que entregaron su último pedido.">Ahora · parados tras su última entrega</h2><p id="cntA"></p></div>
     <div class="tw" style="max-height:520px"><table id="tA"></table></div></section>
   <section class="panel"><div class="ph"><h2 id="hE" data-def="Cada vez que hoy (día operativo desde las 05:00) un rider entregó un pedido y se quedó parado al menos una muestra (~5 min) en el mismo punto sin coger otro pedido.">Paradas tras entrega</h2><p id="cntE"></p></div>
@@ -391,6 +394,7 @@ function aplicarVivo(j){
   if(!j||!j.foto||!j.episodios)return;
   if(D.foto&&j.foto<D.foto)return;
   D.foto=j.foto;D.aviso='';D.tras_entrega=j.tras_entrega||{};D.episodios=j.episodios||[];
+  D.paradas=Object.fromEntries(Object.entries(j.paradas||{}).filter(([k,v])=>v&&v.estado==='parado'));
   Object.assign(D.riders,j.riders||{});cabecera();render();}
 function cargarVivo(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
 $('nota').innerHTML='Cómo se calcula: se toma una muestra de posición y pedidos de cada rider cada ~5 min (la web se publica cada ~10 min). Si entre dos muestras desaparece su pedido activo, se queda sin pedido y sube su contador de entregas completadas, cuenta como <b>entrega</b> (si desaparece sin sumar entrega, es cancelación o reasignación y no se cuenta). '+
@@ -460,14 +464,31 @@ function render(){
   ].map(([e,b,s,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s}</span></div>`).join('');
   if(typeof renderHist==='function'&&HROWS.length)renderHist();
   if(typeof renderWP==='function')renderWP();
+  renderPP();
   revisarAlertas();
 }
-/* ===== Pop-up: rider parado ≥U min tras entregar (mismo criterio que «Parados ahora tras entrega») ===== */
+/* ===== Parados con pedido asignado (estado «parado» de la foto: quieto <80 m con pedido activo, fuera de restaurante) ===== */
+D.paradas=D.paradas||{};
+const SP={k:'min',d:-1};
+const ciudadR=rid=>(D.riders[rid]||[])[1]||'';
+const pVivo=p=>!!(D.foto&&p.t&&Math.abs(new Date(p.t)-new Date(D.foto))<90000&&(Date.now()-new Date(p.t).getTime())<STALE_MIN*60000);
+const pSec=p=>pVivo(p)?Math.max(0,(Date.now()-new Date(p.desde).getTime())/1000):(p.min||0)*60;
+function conPedido(){return Object.entries(D.paradas).map(([rid,p])=>({rid,city:ciudadR(rid),...p}))
+  .filter(p=>p.estado==='parado'&&!p.gps_viejo&&pVivo(p)&&pSec(p)/60>=U&&D.cities.includes(p.city)&&(S.city==='ALL'||p.city===S.city)&&
+    (!S.q||String(p.rid).includes(S.q)||nombre(p.rid).toLowerCase().includes(S.q)));}
+const CP=[CA[0],CA[1],
+ {k:'desde',h:'Parado desde',v:p=>p.desde,f:p=>hhmm(p.desde)+(p.desde_inicio?'<span class="sub2">o antes</span>':''),d:'Primera muestra en la que ya estaba quieto en ese punto con el pedido.'},
+ {k:'min',h:'Parado con pedido (en vivo)',n:1,v:p=>pSec(p),f:p=>{const m=pSec(p)/60,c=m>=U*2?'alert':'mid';return `<span class="pill ${c} live" data-desde="${p.desde}"><span class="dot"></span>≥ ${fmtDur(pSec(p))}</span><span class="sub2">última foto ${hhmm(p.t)}</span>`;},d:'Tiempo quieto con un pedido asignado, en vivo desde la primera muestra parado. Es un mínimo (fotos cada ~5 min).'},
+];
+function renderPP(){const L=conPedido();const n=tabla('tP',CP,L,SP,'Ningún rider parado ≥'+U+' min con un pedido asignado ahora.');$('cntP').textContent=nf(n)+' riders';}
+/* ===== Pop-up: rider parado ≥U min con pedido asignado ===== */
 const AL_SEEN=(()=>{try{return JSON.parse(sessionStorage.getItem('wtdv1_alertas')||'{}');}catch(e){return {};}})();
 function revisarAlertas(){
-  const act=D.episodios.filter(e=>vivo(e)&&!e.local&&!e.gps_viejo&&liveMin(e)>=U&&(S.city==='ALL'||e.city===S.city));
-  const info=e=>({rid:e.rid,name:nombre(e.rid),city:e.city,desde:e.desde,ent_ini:e.ent_ini,ent_fin:e.ent_fin,nivel:liveMin(e)>=U*2?2:1});
-  const nuevos=act.filter(e=>{const k=e.rid+'|'+e.desde+'|'+(liveMin(e)>=U*2?2:1);if(AL_SEEN[k])return false;AL_SEEN[k]=Date.now();return true;});
+  const act=Object.entries(D.paradas).map(([rid,p])=>({rid,city:ciudadR(rid),...p}))
+    .filter(p=>p.estado==='parado'&&!p.gps_viejo&&pVivo(p)&&pSec(p)/60>=U&&D.cities.includes(p.city)&&(S.city==='ALL'||p.city===S.city));
+  const lvl=p=>pSec(p)/60>=U*2?2:1;
+  const info=p=>({rid:p.rid,name:nombre(p.rid),city:p.city,desde:p.desde,nivel:lvl(p),txt:'con pedido asignado · quieto desde las '+hhmm(p.desde)});
+  const nuevos=act.filter(p=>{const k='P|'+p.rid+'|'+p.desde+'|'+lvl(p);if(AL_SEEN[k])return false;AL_SEEN[k]=Date.now();return true;});
   try{const lim=Date.now()-864e5;for(const k in AL_SEEN)if(AL_SEEN[k]<lim)delete AL_SEEN[k];sessionStorage.setItem('wtdv1_alertas',JSON.stringify(AL_SEEN));}catch(e){}
   const msg={v1Alert:{umbral:U,nuevos:nuevos.map(info),activos:act.map(info)}};
   if(window.parent!==window){try{window.parent.postMessage(msg,'*');}catch(e){}}
