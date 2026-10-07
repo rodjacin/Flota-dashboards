@@ -21,7 +21,7 @@ jobs:
           cd automatizacion && python3 - <<'PY'
           import time, statistics, collections, en_vivo
           last, cambios, durs, errs, quietos_falsos = {}, [], [], collections.Counter(), 0
-          fin = time.time() + 12*60
+          fin = time.time() + 8*60
           while time.time() < fin:
               t0 = time.time(); en_vivo._POS.clear()
               snap = en_vivo._descargar(["ALC","GRA","MAD","NOM","SAB"])
@@ -37,11 +37,11 @@ jobs:
                   last[rid] = la
               time.sleep(max(0, 30 - (time.time() - t0)))
           c = sorted(cambios); n = len(c)
-          print("muestras:", len(durs), "· duración por muestra (s): media %.1f, máx %.1f" % (statistics.mean(durs), max(durs)))
-          print("errores:", dict(errs) or "ninguno")
-          print("riders con posición:", len(last), "· cambios de ubicación observados:", n)
+          print("::notice::muestras:", len(durs), "· duración por muestra (s): media %.1f, máx %.1f" % (statistics.mean(durs), max(durs)))
+          print("::notice::errores:", dict(errs) or "ninguno")
+          print("::notice::riders con posición:", len(last), "· cambios de ubicación observados:", n)
           if n:
-              print("intervalo entre actualizaciones de ubicación (min) p10/p25/p50/p75/p90:",
+              print("::notice::intervalo entre actualizaciones de ubicación (min) p10/p25/p50/p75/p90:",
                     [round(c[int(n*q)], 2) for q in (.1, .25, .5, .75, .9)])
-              print("histograma (min):", sorted(collections.Counter(min(int(x), 10) for x in c).items()))
+              print("::notice::histograma (min):", sorted(collections.Counter(min(int(x), 10) for x in c).items()))
           PY
