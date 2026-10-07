@@ -183,9 +183,86 @@ def integrar_en_dashboard(dash_html, v1_html):
           "  }));\n"
           "  window.addEventListener('message',e=>{ if(e.source===fr.contentWindow && e.data && e.data.v1H){\n"
           "    fr.style.height=Math.max(600,Math.ceil(e.data.v1H)+20)+'px'; } });\n"
-          "})();\n</script>\n")
+          "})();\n</script>\n" + _ALERT_JS)
     i = dash_html.rindex("</body>")
     return dash_html[:i] + js + dash_html[i:]
+
+
+# Pop-up en la página principal (fuera del iframe, para que se vea aunque se haga scroll):
+# la pestaña WTD% v1 envía {v1Alert:{nuevos, activos}} cada minuto; aquí se muestra el aviso,
+# suena un pitido y, si se activan, salta una notificación del navegador con la pestaña en segundo plano.
+_ALERT_JS = r'''<style>
+#v1Alert{position:fixed;right:16px;bottom:16px;z-index:9999;width:340px;max-width:calc(100vw - 32px);background:#fff;color:#14171F;
+  border:1px solid #F1B8B3;border-left:5px solid #C2362F;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);
+  font:13px/1.45 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:none}
+#v1Alert.on{display:block;animation:v1In .25s ease-out}
+@keyframes v1In{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+#v1Alert .hd{display:flex;align-items:center;gap:8px;padding:11px 12px 6px 12px}
+#v1Alert .hd b{font-size:14px;flex:1}
+#v1Alert .x{border:0;background:transparent;font-size:18px;line-height:1;cursor:pointer;color:#6B7280;padding:2px 4px}
+#v1Alert ul{list-style:none;margin:0;padding:0 12px;max-height:260px;overflow:auto}
+#v1Alert li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #EEF1F4}
+#v1Alert li span{color:#6B7280;font-size:12px;display:block}
+#v1Alert li i{font-style:normal;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-weight:700;color:#8A5A00;white-space:nowrap}
+#v1Alert li i.d{color:#C2362F}
+#v1Alert li.nw{background:#FFF4F3}
+#v1Alert .ft{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px 12px}
+#v1Alert .ft button{font:inherit;font-size:12px;border:1px solid #E4E7EC;background:#F6F7F9;color:#14171F;border-radius:8px;padding:6px 10px;cursor:pointer}
+#v1Alert .ft button.p{background:#C2362F;border-color:#C2362F;color:#fff}
+</style>
+<div id="v1Alert" role="alertdialog" aria-live="assertive" aria-labelledby="v1AlertT">
+  <div class="hd"><b id="v1AlertT">Rider parado tras entregar</b><button class="x" id="v1AlertX" aria-label="Cerrar">×</button></div>
+  <ul id="v1AlertL"></ul>
+  <div class="ft"><button class="p" id="v1AlertVer">Ver en WTD% v1</button><button id="v1AlertSnd"></button><button id="v1AlertNot"></button></div>
+</div>
+<script>
+/* ==== Pop-up WTD% v1: riders parados tras entregar ==== */
+(function(){
+  const box=document.getElementById('v1Alert'),L=document.getElementById('v1AlertL');
+  const fr=document.getElementById('wtdV1Frame'); if(!box||!fr) return;
+  const T0=document.title; let act=[],nuevosIds=new Set(),U=5,cerrado=false;
+  let sonido=true; try{sonido=localStorage.getItem('wtdv1_sonido')!=='0';}catch(e){}
+  const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const dur=s=>{s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+  const hhmm=s=>new Date(s).toLocaleTimeString('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'});
+  function botones(){
+    document.getElementById('v1AlertSnd').textContent=sonido?'🔔 Sonido activado':'🔕 Sonido desactivado';
+    const n=document.getElementById('v1AlertNot');
+    if(!('Notification' in window)){n.style.display='none';return;}
+    n.textContent=Notification.permission==='granted'?'Notificaciones activadas':(Notification.permission==='denied'?'Notificaciones bloqueadas':'Avisarme también en otra pestaña');
+    n.disabled=Notification.permission!=='default';}
+  function pitar(){ if(!sonido) return; try{const C=window.AudioContext||window.webkitAudioContext;const a=new C();
+    [0,0.28].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.value=880;o.connect(g);g.connect(a.destination);
+      g.gain.setValueAtTime(0.0001,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.25,a.currentTime+t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+t+0.22);
+      o.start(a.currentTime+t);o.stop(a.currentTime+t+0.24);});setTimeout(()=>a.close(),1200);}catch(e){} }
+  function pintar(){
+    if(!act.length){box.classList.remove('on');document.title=T0;return;}
+    document.getElementById('v1AlertT').textContent=act.length===1?'1 rider parado ≥'+U+' min tras entregar':act.length+' riders parados ≥'+U+' min tras entregar';
+    act.sort((a,b)=>new Date(a.desde)-new Date(b.desde));
+    L.innerHTML=act.map(r=>{const s=(Date.now()-new Date(r.desde).getTime())/1000;
+      return `<li class="${nuevosIds.has(r.rid)?'nw':''}"><div><b>${esc(r.name||r.rid)}</b><span>${esc(r.rid)} · ${esc(r.city)} · entregó entre ${hhmm(r.ent_ini)} y ${hhmm(r.ent_fin)}</span></div><i class="${s>=U*120?'d':''}" data-desde="${esc(r.desde)}">≥ ${dur(s)}</i></li>`;}).join('');
+    document.title='('+act.length+') ⚠ Parados · '+T0;
+    if(!cerrado) box.classList.add('on');}
+  window.addEventListener('message',e=>{
+    if(e.source!==fr.contentWindow||!e.data||!e.data.v1Alert) return;
+    const m=e.data.v1Alert; U=m.umbral||U; act=m.activos||[];
+    if((m.nuevos||[]).length){ nuevosIds=new Set(m.nuevos.map(r=>r.rid)); cerrado=false; pitar();
+      if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+        try{const n=new Notification(m.nuevos.length===1?'Rider parado tras entregar':m.nuevos.length+' riders parados tras entregar',
+          {body:m.nuevos.map(r=>(r.name||r.rid)+' ('+r.city+') · ≥'+(r.nivel===2?U*2:U)+' min').join('\n'),tag:'wtdv1',renotify:true});
+          n.onclick=()=>{window.focus();document.getElementById('v1AlertVer').click();n.close();};}catch(err){} } }
+    pintar();});
+  setInterval(()=>box.querySelectorAll('i[data-desde]').forEach(el=>{const s=(Date.now()-new Date(el.dataset.desde).getTime())/1000;
+    el.textContent='≥ '+dur(s);el.classList.toggle('d',s>=U*120);}),1000);
+  document.getElementById('v1AlertX').onclick=()=>{cerrado=true;box.classList.remove('on');};
+  document.getElementById('v1AlertVer').onclick=()=>{const b=document.querySelector('#viewSeg button[data-v="wtdv1"]');
+    if(b&&b.getAttribute('aria-pressed')!=='true') b.click(); setTimeout(()=>fr.scrollIntoView({behavior:'smooth'}),50);};
+  document.getElementById('v1AlertSnd').onclick=()=>{sonido=!sonido;try{localStorage.setItem('wtdv1_sonido',sonido?'1':'0');}catch(e){}botones();if(sonido)pitar();};
+  document.getElementById('v1AlertNot').onclick=()=>{try{Notification.requestPermission().then(botones);}catch(e){}};
+  botones();
+})();
+</script>
+'''
 
 
 HTML = r'''<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WTD% v1 · parados tras entregar</title>
@@ -379,6 +456,17 @@ function render(){
   ].map(([e,b,s,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s}</span></div>`).join('');
   if(typeof renderHist==='function'&&HROWS.length)renderHist();
   if(typeof renderWP==='function')renderWP();
+  revisarAlertas();
+}
+/* ===== Pop-up: rider parado ≥U min tras entregar (mismo criterio que «Parados ahora tras entrega») ===== */
+const AL_SEEN=(()=>{try{return JSON.parse(sessionStorage.getItem('wtdv1_alertas')||'{}');}catch(e){return {};}})();
+function revisarAlertas(){
+  const act=D.episodios.filter(e=>vivo(e)&&!e.local&&!e.gps_viejo&&liveMin(e)>=U&&(S.city==='ALL'||e.city===S.city));
+  const info=e=>({rid:e.rid,name:nombre(e.rid),city:e.city,desde:e.desde,ent_ini:e.ent_ini,ent_fin:e.ent_fin,nivel:liveMin(e)>=U*2?2:1});
+  const nuevos=act.filter(e=>{const k=e.rid+'|'+e.desde+'|'+(liveMin(e)>=U*2?2:1);if(AL_SEEN[k])return false;AL_SEEN[k]=Date.now();return true;});
+  try{const lim=Date.now()-864e5;for(const k in AL_SEEN)if(AL_SEEN[k]<lim)delete AL_SEEN[k];sessionStorage.setItem('wtdv1_alertas',JSON.stringify(AL_SEEN));}catch(e){}
+  const msg={v1Alert:{umbral:U,nuevos:nuevos.map(info),activos:act.map(info)}};
+  if(window.parent!==window){try{window.parent.postMessage(msg,'*');}catch(e){}}
 }
 /* ===== WTD>10′ por pedido (bucket delivery_lv) ===== */
 const WS={wk:'ALL',day:'ALL',sr:{k:'n10',d:-1},se:{k:'f',d:-1}};
