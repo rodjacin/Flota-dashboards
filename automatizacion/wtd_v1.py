@@ -386,7 +386,7 @@ const U=D.umbral;
 const ST={working:'Trabajando',ready:'Listo',available:'Disponible',late:'Con retraso',break:'En pausa',starting:'Empezando',ending:'Terminando',temp_not_working:'Parado temporalmente',not_working:'No trabajando'};
 const S={city:'ALL',min:'U',loc:'SIN',q:'',sa:{k:'min',d:-1},se:{k:'desde',d:-1}};
 function cabecera(){
-  $('sub').textContent='Una entrega se detecta cuando el pedido activo desaparece entre dos muestras de Live Operations y sube el contador de entregas completadas; desde ahí se mide cuánto sigue el rider en el mismo punto sin otro pedido.'+(D.foto?' Última muestra a las '+hhmm(D.foto)+' (hora de Madrid) · fotos cada ~5 min, se publica cada ~10 min.':'');
+  $('sub').textContent='Una entrega se detecta cuando el pedido activo desaparece entre dos muestras de Live Operations y sube el contador de entregas completadas; desde ahí se mide cuánto sigue el rider en el mismo punto sin otro pedido.'+(D.foto?' Última muestra a las '+hhmm(D.foto)+' (hora de Madrid) · muestras cada minuto; Glovo actualiza la ubicación de cada rider cada ~5 min.':'');
   $('banner').hidden=!D.aviso;$('banner').textContent=D.aviso||'';
   $('hE').textContent='Paradas tras entrega · hoy desde las 05:00';}
 cabecera();
@@ -396,8 +396,20 @@ function aplicarVivo(j){
   D.foto=j.foto;D.aviso='';D.tras_entrega=j.tras_entrega||{};D.episodios=j.episodios||[];
   D.paradas=Object.fromEntries(Object.entries(j.paradas||{}).filter(([k,v])=>v&&v.estado==='parado'));
   Object.assign(D.riders,j.riders||{});cabecera();render();}
-function cargarVivo(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
-$('nota').innerHTML='Cómo se calcula: se toma una muestra de posición y pedidos de cada rider cada ~5 min (la web se publica cada ~10 min). Si entre dos muestras desaparece su pedido activo, se queda sin pedido y sube su contador de entregas completadas, cuenta como <b>entrega</b> (si desaparece sin sumar entrega, es cancelación o reasignación y no se cuenta). '+
+/* Datos en vivo: primero la rama «vivo» del repositorio (una muestra por minuto, un fichero por minuto
+   para esquivar la caché de 5 min de raw.githubusercontent); si no está, el wtd_vivo.json de la web (cada ~10 min). */
+const RAW_VIVO='https://raw.githubusercontent.com/rodjacin/Flota-dashboards/vivo/';
+const CARPETA=(()=>{try{const s=new URL(document.baseURI).pathname.split('/').filter(x=>x&&!/\.html?$/i.test(x));return s[s.length-1]||'';}catch(e){return '';}})();
+let vivoM=0;
+async function cargarRapido(){
+  if(!/^(sab|gra-mad-nom-alc)$/.test(CARPETA)||!window.fetch) return false;
+  const now=Date.now(),M=Math.floor(now/60000),k0=(now%60000)<25000?1:0;   // el minuto en curso se publica a los ~15 s
+  for(let k=k0;k<9;k++){const m=M-k; if(m<=vivoM) return true;
+    try{const r=await fetch(RAW_VIVO+CARPETA+'/m/'+m+'.json'); if(r.ok){const j=await r.json(); vivoM=m; aplicarVivo(j); return true;}}catch(e){return false;}}
+  return false;}
+function cargarWeb(){try{fetch(new URL('wtd_vivo.json?t='+Date.now(),document.baseURI),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(aplicarVivo).catch(()=>{});}catch(e){}}
+function cargarVivo(){cargarRapido().then(ok=>{if(!ok)cargarWeb();}).catch(cargarWeb);}
+$('nota').innerHTML='Cómo se calcula: se toma una muestra de posición y pedidos de cada rider cada minuto y llega a esta pestaña en 1–2 min (Glovo actualiza la ubicación de cada rider cada ~5 min, así que una parada se confirma cuando dos ubicaciones seguidas están en el mismo punto). Si entre dos muestras desaparece su pedido activo, se queda sin pedido y sube su contador de entregas completadas, cuenta como <b>entrega</b> (si desaparece sin sumar entrega, es cancelación o reasignación y no se cuenta). '+
  '«Parado» = sigue a menos de 80 m del punto donde estaba tras entregar y sin coger otro pedido. El contador <b>en vivo</b> (punto rojo) cuenta desde la primera foto sin pedido tras la entrega y avanza cada segundo mientras el rider siga parado en la última foto; si el rider no aparece en la última foto (desconectado) o no llega foto nueva en 20 min, el contador se congela. Es un <b>mínimo</b> (≥): la entrega ocurrió entre dos fotos, así que la parada real puede ser hasta ~5 min mayor. '+
  '«En restaurante» = se ha quedado a menos de 100 m de un local donde se recogen pedidos (esperando el siguiente). «GPS congelado» = su ubicación no se actualiza, puede no estar parado de verdad. Las posiciones se guardan solo '+D.horas+' h (día completo); el histórico conserva únicamente cada parada (rider, horas y minutos), nunca coordenadas, durante 120 días.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
@@ -409,7 +421,7 @@ const flags=e=>(e.local?'<span class="pill" title="A menos de 100 m de un restau
   (e.gps_viejo?`<span class="pill mid" title="La ubicación no se actualiza desde hace ${e.gps_viejo} min">GPS congelado ${e.gps_viejo} min</span>`:'')+
   (e.confirmada===null?'<span class="pill" title="Glovo no informó el contador de entregas: podría ser una cancelación">Sin confirmar</span>':'');
 const STALE_MIN=20;   // sin foto nueva del rider en más de 20 min: se congela el contador
-const vivo=e=>e.en_curso&&D.foto&&Math.abs(new Date(e.hasta)-new Date(D.foto))<90000&&(Date.now()-new Date(e.hasta).getTime())<STALE_MIN*60000;  // sigue en la última foto
+const vivo=e=>e.en_curso&&e.conf!==false&&D.foto&&Math.abs(new Date(e.hasta)-new Date(D.foto))<90000&&(Date.now()-new Date(e.hasta).getTime())<STALE_MIN*60000;  // sigue en la última foto
 const liveSec=e=>vivo(e)?Math.max(0,(Date.now()-new Date(e.desde).getTime())/1000):e.min*60;
 const liveMin=e=>liveSec(e)/60;
 const fmtDur=sec=>{sec=Math.floor(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s2=sec%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(s2).padStart(2,'0');};
@@ -472,7 +484,7 @@ D.paradas=D.paradas||{};
 const SP={k:'min',d:-1};
 const ciudadR=rid=>(D.riders[rid]||[])[1]||'';
 // confirmado = quieto en al menos dos fotos seguidas (con una sola foto no se sabe si estaba parado o pasando)
-const pConf=p=>p.t&&p.desde&&(new Date(p.t)-new Date(p.desde))>=4*60000;
+const pConf=p=>p.conf!==undefined?!!p.conf:!!(p.t&&p.desde&&(new Date(p.t)-new Date(p.desde))>=4*60000);
 const pVivo=p=>!!(pConf(p)&&D.foto&&Math.abs(new Date(p.t)-new Date(D.foto))<90000&&(Date.now()-new Date(p.t).getTime())<STALE_MIN*60000);
 const pSec=p=>pVivo(p)?Math.max(0,(Date.now()-new Date(p.desde).getTime())/1000):(p.min||0)*60;
 function conPedido(){return Object.entries(D.paradas).map(([rid,p])=>({rid,city:ciudadR(rid),...p}))
@@ -648,7 +660,7 @@ let qT;$('fQ').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{
   document.addEventListener('mousemove',e=>{if(!tip.hidden&&e.target.closest('[data-def]'))place(e.clientX,e.clientY);});
   document.addEventListener('mouseout',e=>{const el=e.target.closest('[data-def]');if(el&&!el.contains(e.relatedTarget))tip.hidden=true;});})();
 render();
-cargarVivo();setInterval(cargarVivo,60*1000);
+cargarVivo();setInterval(cargarVivo,30*1000);
 /* contador en vivo: cada segundo actualiza los tiempos; cada minuto re-renderiza (orden y colores) */
 setInterval(()=>{document.querySelectorAll('.live[data-desde]').forEach(el=>{const sec=(Date.now()-new Date(el.dataset.desde).getTime())/1000;
   const m=sec/60;el.classList.toggle('alert',m>=U*2);el.classList.toggle('mid',m>=U&&m<U*2);const d=el.querySelector('.dot');el.textContent='≥ '+fmtDur(sec);if(d)el.prepend(d);});},1000);

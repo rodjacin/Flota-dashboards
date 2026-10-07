@@ -1,11 +1,13 @@
-# Toma cada 5 min la posición de los riders (Live Operations) y la guarda en un historial
+# Toma cada minuto la posición de los riders (Live Operations) y la guarda en un historial
 # PRIVADO (caché de GitHub Actions, nunca en el repo ni en la web). Con él calcula cuánto
 # lleva cada rider parado con un pedido activo y publica SOLO esos minutos en
 # <dashboard>/wtd_vivo.json, que la pestaña WTD% relee sin regenerar el dashboard.
 #
 # Las ejecuciones programadas de GitHub cada pocos min no son fiables (se saltan muchas), así
-# que cada ejecución se queda ~55 min en marcha tomando una muestra cada 5 min (publica cada
-# 10 min: GitHub Pages admite ~10 publicaciones por hora) y al acabar
+# que cada ejecución se queda ~55 min en marcha tomando una muestra cada minuto. Cada muestra se
+# publica al momento en la rama «vivo» (solo los JSON en vivo, un fichero por minuto, sin historial:
+# no pasa por GitHub Pages) y la pestaña WTD% v1 la lee de raw.githubusercontent.com; además se
+# publica en la web cada 10 min (GitHub Pages admite ~10 publicaciones por hora) y al acabar
 # se relanza a sí misma. La programación horaria solo es un respaldo si la cadena se corta
 # (la concurrencia garantiza que nunca haya dos a la vez).
 name: Muestreo de posiciones
@@ -46,9 +48,10 @@ jobs:
           key: posiciones-${{ github.run_id }}
           restore-keys: posiciones-
 
-      - name: Muestrear cada 5 min y publicar cada 10 min (~55 min)
+      - name: Muestrear cada minuto, publicar en «vivo» al momento y en la web cada 10 min (~55 min)
         env:
           GLOVO_KEY: ${{ secrets.GLOVO_KEY }}
+          GH_TOKEN: ${{ github.token }}
           TZ: Europe/Madrid
         run: |
           pip install -q certifi
@@ -73,14 +76,32 @@ jobs:
             git reset -q --hard origin/main 2>/dev/null || true
           }
 
+          # Rama «vivo»: un commit huérfano que se reescribe en cada muestra con los últimos ~15 min.
+          # Un nombre de fichero por minuto (<dashboard>/m/<minuto epoch>.json) porque raw.githubusercontent
+          # guarda cada URL 5 min en caché: así cada minuto es una URL nueva y llega al momento.
+          VIVO="$RUNNER_TEMP/vivo"; mkdir -p "$VIVO"
+          REMOTO="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          publicar_vivo() {
+            local M=$1
+            for c in gra-mad-nom-alc sab; do
+              [ -f "$c/wtd_vivo.json" ] || continue
+              mkdir -p "$VIVO/$c/m"; cp "$c/wtd_vivo.json" "$VIVO/$c/m/$M.json"
+              find "$VIVO/$c/m" -name '*.json' -mmin +15 -delete
+            done
+            ( cd "$VIVO" && rm -rf .git && git init -q -b vivo && git add -A \
+              && git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "vivo $M" \
+              && git push -qf "$REMOTO" vivo ) && echo "vivo $M publicado" || echo "no se pudo publicar en vivo $M"
+          }
+
           FIN=$(( $(date +%s) + 55*60 ))
           while :; do
+            M=$(( $(date +%s) / 60 ))
             echo "==== $(date '+%H:%M:%S') muestra ===="
-            python3 automatizacion/posiciones.py "$GITHUB_WORKSPACE" || echo "fallo en la muestra (se reintenta en la siguiente)"
-            # publica en las muestras de los minutos 0-4 de cada decena (cada ~10 min)
-            [ $(( 10#$(date +%M) % 10 )) -lt 5 ] && publicar
+            if python3 automatizacion/posiciones.py "$GITHUB_WORKSPACE"; then publicar_vivo $M; else echo "fallo en la muestra (se reintenta en la siguiente)"; fi
+            # publica en la web en la muestra del minuto 0 de cada decena (cada ~10 min)
+            [ $(( 10#$(date +%M) % 10 )) -eq 0 ] && publicar
             AHORA=$(date +%s)
-            ESPERA=$(( 300 - AHORA % 300 ))            # siguiente múltiplo de 5 min
+            ESPERA=$(( 60 - AHORA % 60 ))              # siguiente minuto en punto
             [ $(( AHORA + ESPERA )) -ge $FIN ] && break
             sleep $ESPERA
           done
