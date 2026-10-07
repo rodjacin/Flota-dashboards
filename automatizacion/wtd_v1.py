@@ -471,7 +471,9 @@ function render(){
 D.paradas=D.paradas||{};
 const SP={k:'min',d:-1};
 const ciudadR=rid=>(D.riders[rid]||[])[1]||'';
-const pVivo=p=>!!(D.foto&&p.t&&Math.abs(new Date(p.t)-new Date(D.foto))<90000&&(Date.now()-new Date(p.t).getTime())<STALE_MIN*60000);
+// confirmado = quieto en al menos dos fotos seguidas (con una sola foto no se sabe si estaba parado o pasando)
+const pConf=p=>p.t&&p.desde&&(new Date(p.t)-new Date(p.desde))>=4*60000;
+const pVivo=p=>!!(pConf(p)&&D.foto&&Math.abs(new Date(p.t)-new Date(D.foto))<90000&&(Date.now()-new Date(p.t).getTime())<STALE_MIN*60000);
 const pSec=p=>pVivo(p)?Math.max(0,(Date.now()-new Date(p.desde).getTime())/1000):(p.min||0)*60;
 function conPedido(){return Object.entries(D.paradas).map(([rid,p])=>({rid,city:ciudadR(rid),...p}))
   .filter(p=>p.estado==='parado'&&!p.gps_viejo&&pVivo(p)&&pSec(p)/60>=U&&D.cities.includes(p.city)&&(S.city==='ALL'||p.city===S.city)&&
