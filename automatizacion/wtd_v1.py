@@ -183,6 +183,7 @@ def integrar_en_dashboard(dash_html, v1_html):
           "  }));\n"
           "  window.addEventListener('message',e=>{ if(e.source===fr.contentWindow && e.data && e.data.v1H){\n"
           "    fr.style.height=Math.max(600,Math.ceil(e.data.v1H)+20)+'px'; } });\n"
+          "  setTimeout(()=>{ if(!loaded){ fr.srcdoc=V1_HTML; loaded=true; } },1500);  // avisos activos desde que se abre el dashboard\n"
           "})();\n</script>\n" + _ALERT_JS)
     i = dash_html.rindex("</body>")
     return dash_html[:i] + js + dash_html[i:]
@@ -229,7 +230,7 @@ _ALERT_JS = r'''<style>
     document.getElementById('v1AlertSnd').textContent=sonido?'🔔 Sonido activado':'🔕 Sonido desactivado';
     const n=document.getElementById('v1AlertNot');
     if(!('Notification' in window)){n.style.display='none';return;}
-    n.textContent=Notification.permission==='granted'?'Notificaciones activadas':(Notification.permission==='denied'?'Notificaciones bloqueadas':'Avisarme también en otra pestaña');
+    n.textContent=Notification.permission==='granted'?'Notificaciones activadas':(Notification.permission==='denied'?'Notificaciones bloqueadas':'Activar avisos en el escritorio');
     n.disabled=Notification.permission!=='default';}
   function pitar(){ if(!sonido) return; try{const C=window.AudioContext||window.webkitAudioContext;const a=new C();
     [0,0.28].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.value=880;o.connect(g);g.connect(a.destination);
@@ -247,9 +248,9 @@ _ALERT_JS = r'''<style>
     if(e.source!==fr.contentWindow||!e.data||!e.data.v1Alert) return;
     const m=e.data.v1Alert; U=m.umbral||U; act=m.activos||[];
     if((m.nuevos||[]).length){ nuevosIds=new Set(m.nuevos.map(r=>r.rid)); cerrado=false; pitar();
-      if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+      if('Notification' in window&&Notification.permission==='granted'){
         try{const n=new Notification(m.nuevos.length===1?'Rider parado tras entregar':m.nuevos.length+' riders parados tras entregar',
-          {body:m.nuevos.map(r=>(r.name||r.rid)+' ('+r.city+') · ≥'+(r.nivel===2?U*2:U)+' min').join('\n'),tag:'wtdv1',renotify:true});
+          {body:m.nuevos.map(r=>(r.name||r.rid)+' ('+r.city+') · ≥'+(r.nivel===2?U*2:U)+' min parado tras entregar').join('\n'),tag:'wtdv1-'+Date.now(),requireInteraction:true});
           n.onclick=()=>{window.focus();document.getElementById('v1AlertVer').click();n.close();};}catch(err){} } }
     pintar();});
   setInterval(()=>box.querySelectorAll('i[data-desde]').forEach(el=>{const s=(Date.now()-new Date(el.dataset.desde).getTime())/1000;
@@ -259,6 +260,9 @@ _ALERT_JS = r'''<style>
     if(b&&b.getAttribute('aria-pressed')!=='true') b.click(); setTimeout(()=>fr.scrollIntoView({behavior:'smooth'}),50);};
   document.getElementById('v1AlertSnd').onclick=()=>{sonido=!sonido;try{localStorage.setItem('wtdv1_sonido',sonido?'1':'0');}catch(e){}botones();if(sonido)pitar();};
   document.getElementById('v1AlertNot').onclick=()=>{try{Notification.requestPermission().then(botones);}catch(e){}};
+  // el navegador solo deja pedir permiso tras un clic: se pide con el primer clic en cualquier parte del dashboard
+  document.addEventListener('click',function pedir(){ document.removeEventListener('click',pedir,true);
+    try{ if('Notification' in window&&Notification.permission==='default') Notification.requestPermission().then(botones); }catch(e){} },true);
   botones();
 })();
 </script>
