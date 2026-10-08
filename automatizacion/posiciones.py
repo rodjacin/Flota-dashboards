@@ -165,8 +165,12 @@ def exportar(repo, snap):
             except Exception as e:
                 print("histórico WTD%% v1 (%s): %s" % (carpeta, e))
             try:
-                n = guardar_historico_pp(os.path.join(d, HIST_PP), paradas, nombres)
-                print("%s/%s: %d paradas con pedido acumuladas" % (carpeta, HIST_PP, n))
+                n, recientes = guardar_historico_pp(os.path.join(d, HIST_PP), paradas, nombres)
+                out["pp_fin"] = recientes
+                out["umbral_pp"] = PP_UMBRAL_MIN
+                with open(os.path.join(d, "wtd_vivo.json"), "w", encoding="utf-8") as f:
+                    json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+                print("%s/%s: %d paradas con pedido acumuladas · %d terminadas recientes" % (carpeta, HIST_PP, n, len(recientes)))
             except Exception as e:
                 print("histórico paradas con pedido (%s): %s" % (carpeta, e))
 
@@ -382,18 +386,53 @@ def guardar_historico(path, episodios):
 
 HIST_PP = "wtd_pp_hist.json"   # histórico publicado de paradas con pedido asignado (sin coordenadas)
 PP_MIN_GUARDAR = 3             # solo se guardan paradas confirmadas de al menos estos minutos
+PP_UMBRAL_MIN = 10             # el aviso de «parado con pedido» salta a partir de estos minutos
+                               # (la espera normal en la puerta del cliente es de ~4-5 min)
+PP_FIN_HORAS = 3               # paradas terminadas que se publican en wtd_vivo.json (pp_fin)
 
 
-def guardar_historico_pp(path, paradas, nombres):
+def fin_parada(obs, d0, d1):
+    """Cómo terminó una parada con pedido (rider quieto de d0 a d1, minutos epoch UTC), mirando la
+    primera muestra posterior del historial privado:
+      'E' = el pedido desapareció y subió su contador de entregas -> terminó en ENTREGA
+            (lo más probable es que estuviera esperando en la puerta del cliente);
+      'S' = siguió con el mismo pedido -> se movió con él (parada fuera de la puerta);
+      None = aún no se sabe (sigue parado o no hay muestra posterior)."""
+    j = None
+    for i, o in enumerate(obs):
+        m = _min_epoch(o[0])
+        if m is not None and m <= d1:
+            j = i
+    if j is None or j + 1 >= len(obs):
+        return None
+    oh, on = obs[j], obs[j + 1]
+    th, tn = _ts(oh[0]), _ts(on[0])
+    if not th or not tn or (tn - th).total_seconds() > MAX_GAP_MIN * 60:
+        return None
+    ih, inn = set(map(str, oh[5] or [])), set(map(str, on[5] or []))
+    try:
+        ch, cn = int(oh[8] or 0), int(on[8] or 0)
+    except Exception:
+        ch, cn = 0, 0
+    if (ih - inn) and cn > ch:
+        return "E"
+    if ih & inn and _dist((oh[1], oh[2]), (on[1], on[2])) > MOVE_M:
+        return "S"
+    return None
+
+
+def guardar_historico_pp(path, paradas, nombres, hist=None):
     """Acumula las paradas con pedido asignado (estado «parado» de quietos()) en
-    <dashboard>/wtd_pp_hist.json. Fila: [rider, área, desde, hasta, min] (minutos epoch UTC).
+    <dashboard>/wtd_pp_hist.json. Fila: [rider, área, desde, hasta, min, fin] (minutos epoch UTC;
+    fin = 'E' terminó en entrega, 'S' siguió con el pedido, null aún no se sabe; ver fin_parada).
     Una parada se identifica por rider + desde; mientras siga parado se alarga su «hasta».
-    Al generar el dashboard se cruza con delivery_lv para saber si estaba en la puerta del cliente."""
+    Al generar el dashboard se cruza con delivery_lv para saber si estaba en la puerta del cliente.
+    Devuelve (nº de paradas, paradas terminadas en las últimas PP_FIN_HORAS horas)."""
     try:
         h = json.load(open(path, encoding="utf-8"))
     except Exception:
         h = {}
-    filas = {"%s|%s" % (f[0], f[2]): f for f in h.get("eps", [])}
+    filas = {"%s|%s" % (f[0], f[2]): (list(f) + [None])[:6] for f in h.get("eps", [])}
     for rid, p in (paradas or {}).items():
         if p.get("estado") != "parado" or not p.get("conf") or p.get("gps_viejo"):
             continue
@@ -402,18 +441,25 @@ def guardar_historico_pp(path, paradas, nombres):
         d0, d1 = _min_epoch(p.get("desde")), _min_epoch(p.get("t"))
         if d0 is None or d1 is None:
             continue
-        f = [str(rid), (nombres.get(str(rid)) or ["", ""])[1], d0, d1, p.get("min")]
+        f = [str(rid), (nombres.get(str(rid)) or ["", ""])[1], d0, d1, p.get("min"), None]
         k = "%s|%s" % (f[0], d0)
         if k not in filas or f[3] >= filas[k][3]:
             filas[k] = f
-    lim = int(_now().timestamp() // 60) - HIST_V1_DIAS * 1440
+    # cómo terminó cada parada reciente (solo con el historial privado de posiciones, 24 h)
+    R = ((hist if hist is not None else cargar()).get("riders") or {})
+    ahora = int(_now().timestamp() // 60)
+    for f in filas.values():
+        if f[5] is None and f[3] >= ahora - KEEP_HOURS * 60 and f[0] in R:
+            f[5] = fin_parada(R[f[0]], f[2], f[3])
+    lim = ahora - HIST_V1_DIAS * 1440
     eps = sorted((f for f in filas.values() if f[2] >= lim), key=lambda f: (f[2], f[0]))
-    out = {"v": 1, "updated_at": _now().isoformat(), "cols": ["rider", "area", "desde", "hasta", "min"], "eps": eps}
+    out = {"v": 2, "updated_at": _now().isoformat(), "cols": ["rider", "area", "desde", "hasta", "min", "fin"], "eps": eps}
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, path)
-    return len(eps)
+    recientes = [f for f in eps if f[5] and f[3] >= ahora - PP_FIN_HORAS * 60]
+    return len(eps), recientes
 
 
 def tras_entrega(cities, grid=None, hist=None):
