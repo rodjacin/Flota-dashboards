@@ -137,7 +137,8 @@ def clasificar_pp(cities, eps=None, deliv_csv=None):
     de delivery_lv del mismo rider: si la parada cae en la ventana en la que el rider estaba en la
     puerta del cliente (rider_near_customer_at -> rider_dropped_off_local_at, hora de Madrid, con
     PP_TOL_MIN de holgura) al menos la mitad de su duración, la parada fue «en la puerta del cliente».
-    Fila: [rider, área, desde, hasta, min, clase, espera_puerta_min, pedido, tienda]
+    Fila: [rider, área, desde, hasta, min, clase, espera_puerta_min, pedido, tienda, fin]
+    (fin = cómo terminó según el muestreo: 'E' en entrega, 'S' siguió con el pedido, None no se sabe)
     clase: 'P' en la puerta del cliente · 'F' fuera de la puerta · 'N' pendiente (aún sin delivery_lv)."""
     from zoneinfo import ZoneInfo
     eps = _hist_pp(cities) if eps is None else eps
@@ -171,6 +172,7 @@ def clasificar_pp(cities, eps=None, deliv_csv=None):
     rows = []
     for e in eps:
         rid, area, d0, d1, mn = str(e[0]), e[1], e[2], e[3], e[4]
+        fin = e[5] if len(e) > 5 else None
         dur = max(d1 - d0, 1)
         best = None
         for a, b, oid, tienda in puertas.get(rid, []):
@@ -178,11 +180,11 @@ def clasificar_pp(cities, eps=None, deliv_csv=None):
             if ov >= dur * 0.5 and (best is None or ov > best[0]):
                 best = (ov, b - a, oid, tienda)
         if best:
-            rows.append([rid, area, d0, d1, mn, "P", best[1], best[2], best[3]])
+            rows.append([rid, area, d0, d1, mn, "P", best[1], best[2], best[3], fin])
         elif hasta and dia_local(d0) <= hasta:
-            rows.append([rid, area, d0, d1, mn, "F", None, "", ""])
+            rows.append([rid, area, d0, d1, mn, "F", None, "", "", fin])
         else:
-            rows.append([rid, area, d0, d1, mn, "N", None, "", ""])
+            rows.append([rid, area, d0, d1, mn, "N", None, "", "", fin])
     return {"rows": rows, "hasta": hasta}
 
 
@@ -217,7 +219,7 @@ def construir_html(cities=None, semanas=None, sello=True):
         pph = clasificar_pp(cities)
     except Exception as e:
         pph = {"rows": [], "hasta": None}; print("  (aviso) paradas con pedido en puerta: " + str(e)[:200])
-    data = {"cities": cities, "foto": foto, "aviso": aviso, "umbral": posiciones.TRAS_UMBRAL_MIN, "wp": wp, "pph": pph,
+    data = {"cities": cities, "foto": foto, "aviso": aviso, "umbral": posiciones.TRAS_UMBRAL_MIN, "wp": wp, "pph": pph, "umbral_pp": getattr(posiciones, "PP_UMBRAL_MIN", 10), "pp_fin": [],
             "horas": posiciones.KEEP_HOURS, "tras_entrega": ahora_te, "episodios": eps,
             "paradas": {k: v for k, v in (paradas or {}).items() if v.get("estado") == "parado"},
             "riders": {k: v for k, v in nombres.items() if v[1] in cities}}
@@ -287,6 +289,10 @@ _ALERT_JS = r'''<style>
 #v1Alert li i{font-style:normal;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-weight:700;color:#8A5A00;white-space:nowrap}
 #v1Alert li i.d{color:#C2362F}
 #v1Alert li.nw{background:#FFF4F3}
+#v1Alert li.fin{opacity:.92}
+#v1Alert li.fin em{display:block;font-style:normal;font-size:12px;font-weight:600;margin-top:2px}
+#v1Alert li.fin em.E{color:#0A7A3E}
+#v1Alert li.fin em.S{color:#C2362F}
 #v1Alert .ft{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px 12px}
 #v1Alert .ft button{font:inherit;font-size:12px;border:1px solid #E4E7EC;background:#F6F7F9;color:#14171F;border-radius:8px;padding:6px 10px;cursor:pointer}
 #v1Alert .ft button.p{background:#C2362F;border-color:#C2362F;color:#fff}
@@ -301,7 +307,7 @@ _ALERT_JS = r'''<style>
 (function(){
   const box=document.getElementById('v1Alert'),L=document.getElementById('v1AlertL');
   const fr=document.getElementById('wtdV1Frame'); if(!box||!fr) return;
-  const T0=document.title; let act=[],nuevosIds=new Set(),U=5,cerrado=false;
+  const T0=document.title; let act=[],fin=[],nuevosIds=new Set(),U=10,cerrado=false;
   let sonido=true; try{sonido=localStorage.getItem('wtdv1_sonido')!=='0';}catch(e){}
   const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const dur=s=>{s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
@@ -317,16 +323,18 @@ _ALERT_JS = r'''<style>
       g.gain.setValueAtTime(0.0001,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.25,a.currentTime+t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+t+0.22);
       o.start(a.currentTime+t);o.stop(a.currentTime+t+0.24);});setTimeout(()=>a.close(),1200);}catch(e){} }
   function pintar(){
-    if(!act.length){box.classList.remove('on');document.title=T0;return;}
-    document.getElementById('v1AlertT').textContent=act.length===1?'1 rider parado ≥'+U+' min con pedido':act.length+' riders parados ≥'+U+' min con pedido';
+    if(!act.length&&!fin.length){box.classList.remove('on');document.title=T0;return;}
+    document.getElementById('v1AlertT').textContent=!act.length?'Paradas avisadas ya terminadas':(act.length===1?'1 rider parado ≥'+U+' min con pedido':act.length+' riders parados ≥'+U+' min con pedido');
     act.sort((a,b)=>new Date(a.desde)-new Date(b.desde));
     L.innerHTML=act.map(r=>{const s=(Date.now()-new Date(r.desde).getTime())/1000;
       return `<li class="${nuevosIds.has(r.rid)?'nw':''}"><div><b>${esc(r.name||r.rid)}</b><span>${esc(r.rid)} · ${esc(r.city)} · ${r.txt?esc(r.txt):'entregó entre '+hhmm(r.ent_ini)+' y '+hhmm(r.ent_fin)}</span></div><i class="${s>=U*120?'d':''}" data-desde="${esc(r.desde)}">≥ ${dur(s)}</i></li>`;}).join('');
-    document.title='('+act.length+') ⚠ Parados · '+T0;
+    L.innerHTML+=fin.map(r=>`<li class="fin"><div><b>${esc(r.name||r.rid)}</b><span>${esc(r.rid)} · ${esc(r.city)} · parado con pedido de ${hhmm(r.desde)} a ${hhmm(r.hasta)} (≥ ${r.min} min)</span>`+
+      (r.fin==='E'?'<em class="E">✓ Terminó en entrega: probablemente esperaba en la puerta del cliente</em>':'<em class="S">✗ Siguió con el pedido: parada fuera de la puerta</em>')+'</div></li>').join('');
+    document.title=act.length?'('+act.length+') ⚠ Parados · '+T0:T0;
     if(!cerrado) box.classList.add('on');}
   window.addEventListener('message',e=>{
     if(e.source!==fr.contentWindow||!e.data||!e.data.v1Alert) return;
-    const m=e.data.v1Alert; U=m.umbral||U; act=m.activos||[];
+    const m=e.data.v1Alert; U=m.umbral||U; act=m.activos||[]; fin=m.fin||[];
     if((m.nuevos||[]).length){ nuevosIds=new Set(m.nuevos.map(r=>r.rid)); cerrado=false; pitar();
       if('Notification' in window&&Notification.permission==='granted'){
         try{const n=new Notification(m.nuevos.length===1?'Rider parado con pedido asignado':m.nuevos.length+' riders parados con pedido asignado',
@@ -487,7 +495,7 @@ tr.click{cursor:pointer}
     <div class="fg"><span>Buscar</span><input type="search" id="fQ" placeholder="ID o nombre de rider" aria-label="Buscar rider"></div>
   </div>
   <section class="kpis" id="kpis"></section>
-  <section class="panel" id="secPP"><div class="ph"><h2 data-def="Riders que en la última muestra llevan al menos el umbral sin moverse (menos de 80 m) con un pedido asignado, fuera de un restaurante (sin contar GPS congelado). Son los que saltan en el aviso emergente.">Ahora · parados con pedido asignado</h2><p id="cntP"></p></div>
+  <section class="panel" id="secPP"><div class="ph"><h2 data-def="Riders que en la última muestra llevan al menos el umbral sin moverse (menos de 80 m) con un pedido asignado, fuera de un restaurante (sin contar GPS congelado). El aviso emergente salta a partir de 10 min, porque la espera normal en la puerta del cliente es de unos 4-5 min.">Ahora · parados con pedido asignado</h2><p id="cntP"></p></div>
     <div class="tw" style="max-height:420px"><table id="tP"></table></div></section>
   <section class="panel" id="secPPH">
     <div class="hhead"><div><h2 data-def="Paradas con pedido asignado ya terminadas, cruzadas con los datos de entregas de Glovo (delivery_lv, llegan con 1 día de retraso). «En la puerta del cliente» = la parada coincide con el tiempo entre que el rider llegó a la dirección del cliente y marcó la entrega (espera del WTD). «Fuera de la puerta» = el rider estaba parado con el pedido en otro sitio.">Histórico · ¿parados con pedido en la puerta del cliente?</h2><p class="sub" id="phSub" style="margin-top:4px"></p></div>
@@ -545,6 +553,7 @@ function aplicarVivo(j){
   if(D.foto&&j.foto<D.foto)return;
   D.foto=j.foto;D.aviso='';D.tras_entrega=j.tras_entrega||{};D.episodios=j.episodios||[];
   if(Array.isArray(j.retrasos)){D.retrasos=j.retrasos;D.retrasos_foto=j.retrasos_foto||j.foto;}
+  if(Array.isArray(j.pp_fin))D.pp_fin=j.pp_fin; if(j.umbral_pp)D.umbral_pp=j.umbral_pp;
   D.paradas=Object.fromEntries(Object.entries(j.paradas||{}).filter(([k,v])=>v&&v.estado==='parado'));
   Object.assign(D.riders,j.riders||{});cabecera();render();}
 /* Datos en vivo: primero la rama «vivo» del repositorio (una muestra por minuto, un fichero por minuto
@@ -655,11 +664,11 @@ const phDay=m=>PHFMT.format(new Date(m*60000));
 const phLab=k=>{const d=new Date(k+'T00:00:00Z');return PHDOW[d.getUTCDay()]+' '+k.slice(8,10)+'/'+k.slice(5,7);};
 const phHm=m=>hhmm(new Date(m*60000).toISOString());
 const PHCLS={P:['En la puerta del cliente','pill'],F:['Fuera de la puerta','pill alert'],N:['Pendiente','pill mid']};
-const PHROWS=((D.pph||{}).rows||[]).map(r=>({rid:r[0],city:r[1],d0:r[2],d1:r[3],min:r[4],cls:r[5],esp:r[6],oid:r[7],tienda:r[8],day:phDay(r[2])}));
+const PHROWS=((D.pph||{}).rows||[]).map(r=>({rid:r[0],city:r[1],d0:r[2],d1:r[3],min:r[4],cls:r[5],esp:r[6],oid:r[7],tienda:r[8],fin:r[9]||null,day:phDay(r[2])}));
 const CPH=[CA[0],CA[1],
  {k:'d0',h:'Fecha y hora',v:e=>e.d0,f:e=>phLab(e.day)+'<span class="sub2">'+phHm(e.d0)+' – '+phHm(e.d1)+'</span>',d:'Día y tramo en el que estuvo parado con el pedido (hora de Madrid, según las muestras de posición).'},
  {k:'min',h:'Parado con pedido',n:1,v:e=>e.min,f:e=>`<span class="pill ${e.min>=U*2?'alert':'mid'}">≥ ${nf(e.min)} min</span>`,d:'Minutos parado con el pedido asignado (mínimo, fotos cada ~5 min).'},
- {k:'cls',h:'Dónde',v:e=>e.cls,f:e=>`<span class="${PHCLS[e.cls][1]}">${PHCLS[e.cls][0]}</span>`,d:'En la puerta del cliente: la parada coincide con su espera en la dirección de entrega. Fuera de la puerta: parado con el pedido en otro sitio. Pendiente: aún no hay datos de entregas de ese día.'},
+ {k:'cls',h:'Dónde',v:e=>e.cls,f:e=>`<span class="${PHCLS[e.cls][1]}">${PHCLS[e.cls][0]}</span>`+(e.cls==='N'&&e.fin?`<span class="sub2">${e.fin==='E'?'terminó en entrega: probablemente en la puerta':'siguió con el pedido: probablemente fuera'}</span>`:''),d:'En la puerta del cliente: la parada coincide con su espera en la dirección de entrega. Fuera de la puerta: parado con el pedido en otro sitio. Pendiente: aún no hay datos de entregas de ese día.'},
  {k:'esp',h:'Pedido · espera en puerta',v:e=>e.esp,f:e=>e.cls==='P'?esc(e.tienda||'—')+'<span class="sub2">pedido '+esc(e.oid||'—')+' · '+nf(e.esp)+' min en la puerta</span>':'—',d:'Pedido que estaba entregando, tienda y minutos entre llegar a la dirección del cliente y marcar la entrega (WTD).'},
 ];
 function renderPPH(){
@@ -688,13 +697,20 @@ function renderPPH(){
 /* ===== Pop-up: rider parado ≥U min con pedido asignado ===== */
 const AL_SEEN=(()=>{try{return JSON.parse(sessionStorage.getItem('wtdv1_alertas')||'{}');}catch(e){return {};}})();
 function revisarAlertas(){
+  // el aviso salta a partir de UP min (la espera normal en la puerta del cliente es de ~4-5 min)
+  const UP=D.umbral_pp||10;
   const act=Object.entries(D.paradas).map(([rid,p])=>({rid,city:ciudadR(rid),...p}))
-    .filter(p=>p.estado==='parado'&&!p.gps_viejo&&pVivo(p)&&pSec(p)/60>=U&&D.cities.includes(p.city)&&(S.city==='ALL'||p.city===S.city));
-  const lvl=p=>pSec(p)/60>=U*2?2:1;
+    .filter(p=>p.estado==='parado'&&!p.gps_viejo&&pVivo(p)&&pSec(p)/60>=UP&&D.cities.includes(p.city)&&(S.city==='ALL'||p.city===S.city));
+  const lvl=p=>pSec(p)/60>=UP*2?2:1;
   const info=p=>({rid:p.rid,name:nombre(p.rid),city:p.city,desde:p.desde,nivel:lvl(p),txt:'con pedido asignado · quieto desde las '+hhmm(p.desde)});
   const nuevos=act.filter(p=>{const k='P|'+p.rid+'|'+p.desde+'|'+lvl(p);if(AL_SEEN[k])return false;AL_SEEN[k]=Date.now();return true;});
+  // paradas avisadas: al terminar, el muestreo dice si fue en entrega (probablemente en la puerta) o siguió con el pedido
+  act.forEach(p=>{const k='A|'+p.rid+'|'+Math.floor(Date.parse(p.desde)/60000);if(!AL_SEEN[k])AL_SEEN[k]=Date.now();});
   try{const lim=Date.now()-864e5;for(const k in AL_SEEN)if(AL_SEEN[k]<lim)delete AL_SEEN[k];sessionStorage.setItem('wtdv1_alertas',JSON.stringify(AL_SEEN));}catch(e){}
-  const msg={v1Alert:{umbral:U,nuevos:nuevos.map(info),activos:act.map(info)}};
+  const vivos=new Set(act.map(p=>p.rid)), lim30=Math.floor(Date.now()/60000)-30;
+  const fin=(D.pp_fin||[]).filter(f=>AL_SEEN['A|'+f[0]+'|'+f[2]]&&f[3]>=lim30&&!vivos.has(String(f[0]))&&D.cities.includes(f[1])&&(S.city==='ALL'||f[1]===S.city))
+    .map(f=>({rid:String(f[0]),name:nombre(String(f[0])),city:f[1],desde:new Date(f[2]*60000).toISOString(),hasta:new Date(f[3]*60000).toISOString(),min:f[4],fin:f[5]}));
+  const msg={v1Alert:{umbral:UP,nuevos:nuevos.map(info),activos:act.map(info),fin}};
   if(window.parent!==window){try{window.parent.postMessage(msg,'*');}catch(e){}}
   revisarRetrasos();
 }
