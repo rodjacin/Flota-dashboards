@@ -112,6 +112,21 @@ def muestrear(codigos=None):
     return n, snap
 
 
+def retrasos(snap, cities):
+    """Riders en estado «late» de la foto: su turno ya ha empezado y no se han conectado.
+    Cada uno: [rid, ciudad, inicio turno, fin turno, punto de inicio] (sin coordenadas)."""
+    out = []
+    for code, C in (snap.get("cities") or {}).items():
+        if code not in cities:
+            continue
+        for r in C.get("riders") or []:
+            if (r.get("status") or "") != "late":
+                continue
+            out.append([str(r.get("employee_id")), code, r.get("active_shift_started_at"),
+                        r.get("active_shift_ended_at"), (r.get("starting_point") or {}).get("name") or ""])
+    return sorted(out, key=lambda x: (x[2] or "", x[0]))
+
+
 def exportar(repo, snap):
     """Escribe <repo>/<dashboard>/wtd_vivo.json con las paradas (solo minutos, sin coordenadas)."""
     nombres = {}
@@ -127,6 +142,8 @@ def exportar(repo, snap):
             print("tras_entrega (%s): %s" % (carpeta, e)); ahora_te, episodios = {}, []
         out = {"foto": foto or snap.get("fetched_at"), "paradas": paradas,
                "tras_entrega": ahora_te, "episodios": episodios,
+               "retrasos": retrasos(snap, cs),
+               "retrasos_foto": snap.get("fetched_at"),
                "riders": {k: v for k, v in nombres.items() if v[1] in cs}}
         d = os.path.join(repo, carpeta)
         if os.path.isdir(d):

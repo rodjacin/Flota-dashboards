@@ -267,6 +267,71 @@ _ALERT_JS = r'''<style>
   botones();
 })();
 </script>
+<style>
+#lateAlert{position:fixed;right:16px;bottom:16px;z-index:9998;width:340px;max-width:calc(100vw - 32px);background:#fff;color:#14171F;
+  border:1px solid #F3D9A4;border-left:5px solid #B7791F;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);
+  font:13px/1.45 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:none}
+#lateAlert.on{display:block;animation:v1In .25s ease-out}
+#lateAlert .hd{display:flex;align-items:center;gap:8px;padding:11px 12px 6px 12px}
+#lateAlert .hd b{font-size:14px;flex:1}
+#lateAlert .x{border:0;background:transparent;font-size:18px;line-height:1;cursor:pointer;color:#6B7280;padding:2px 4px}
+#lateAlert ul{list-style:none;margin:0;padding:0 12px;max-height:220px;overflow:auto}
+#lateAlert li{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid #EEF1F4}
+#lateAlert li span{color:#6B7280;font-size:12px;display:block}
+#lateAlert li i{font-style:normal;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-weight:700;color:#8A5A00;white-space:nowrap}
+#lateAlert li i.d{color:#C2362F}
+#lateAlert li.nw{background:#FFF8EB}
+#lateAlert .ft{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px 12px}
+#lateAlert .ft button{font:inherit;font-size:12px;border:1px solid #E4E7EC;background:#F6F7F9;color:#14171F;border-radius:8px;padding:6px 10px;cursor:pointer}
+#lateAlert .ft button.p{background:#B7791F;border-color:#B7791F;color:#fff}
+</style>
+<div id="lateAlert" role="alertdialog" aria-live="assertive" aria-labelledby="lateAlertT">
+  <div class="hd"><b id="lateAlertT">Rider sin conectar a su turno</b><button class="x" id="lateAlertX" aria-label="Cerrar">×</button></div>
+  <ul id="lateAlertL"></ul>
+  <div class="ft"><button class="p" id="lateAlertVer">Ver en En vivo</button></div>
+</div>
+<script>
+/* ==== Pop-up: riders con el turno empezado y sin conectar (estado «late») ====
+   La pestaña WTD% v1 envía {lateAlert:{nuevos, activos}} con cada muestra (cada minuto).
+   Sonido y notificaciones usan los mismos ajustes que el aviso de parados. */
+(function(){
+  const box=document.getElementById('lateAlert'),L=document.getElementById('lateAlertL'),v1=document.getElementById('v1Alert');
+  const fr=document.getElementById('wtdV1Frame'); if(!box||!fr) return;
+  let act=[],nuevosIds=new Set(),cerrado=false;
+  const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const dur=s=>{s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+  const hhmm=s=>s?new Date(s).toLocaleTimeString('es-ES',{timeZone:'Europe/Madrid',hour:'2-digit',minute:'2-digit'}):'—';
+  const sonido=()=>{try{return localStorage.getItem('wtdv1_sonido')!=='0';}catch(e){return true;}};
+  function pitar(){ if(!sonido()) return; try{const C=window.AudioContext||window.webkitAudioContext;const a=new C();
+    [0,0.22,0.44].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.type='triangle';o.frequency.value=660;o.connect(g);g.connect(a.destination);
+      g.gain.setValueAtTime(0.0001,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.22,a.currentTime+t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+t+0.16);
+      o.start(a.currentTime+t);o.stop(a.currentTime+t+0.18);});setTimeout(()=>a.close(),1200);}catch(e){} }
+  // si el aviso de parados también está abierto, este se coloca encima para no taparlo
+  function colocar(){ box.style.bottom=(v1&&v1.classList.contains('on')?v1.offsetHeight+28:16)+'px'; }
+  function pintar(){
+    if(!act.length){box.classList.remove('on');return;}
+    document.getElementById('lateAlertT').textContent=act.length===1?'1 rider sin conectar a su turno':act.length+' riders sin conectar a su turno';
+    act.sort((a,b)=>String(a.ini).localeCompare(String(b.ini)));
+    L.innerHTML=act.map(r=>{const s=(Date.now()-new Date(r.ini).getTime())/1000;
+      return `<li class="${nuevosIds.has(r.rid)?'nw':''}"><div><b>${esc(r.name||r.rid)}</b><span>${esc(r.rid)} · ${esc(r.city)} · turno ${hhmm(r.ini)}–${hhmm(r.fin)}${r.sp?' · '+esc(r.sp):''}</span></div><i class="${s>=900?'d':''}" data-ini="${esc(r.ini)}" title="Tiempo desde el inicio del turno">+${dur(s)}</i></li>`;}).join('');
+    if(!cerrado) box.classList.add('on');
+    colocar();}
+  window.addEventListener('message',e=>{
+    if(e.source!==fr.contentWindow||!e.data||!e.data.lateAlert) return;
+    const m=e.data.lateAlert; act=m.activos||[];
+    if((m.nuevos||[]).length){ nuevosIds=new Set(m.nuevos.map(r=>r.rid)); cerrado=false; pitar();
+      if('Notification' in window&&Notification.permission==='granted'){
+        try{const n=new Notification(m.nuevos.length===1?'Rider sin conectar a su turno':m.nuevos.length+' riders sin conectar a su turno',
+          {body:m.nuevos.map(r=>(r.name||r.rid)+' ('+r.city+') · turno desde las '+hhmm(r.ini)).join('\n'),tag:'late-'+Date.now(),requireInteraction:true});
+          n.onclick=()=>{window.focus();document.getElementById('lateAlertVer').click();n.close();};}catch(err){} } }
+    pintar();});
+  setInterval(()=>{box.querySelectorAll('i[data-ini]').forEach(el=>{const s=(Date.now()-new Date(el.dataset.ini).getTime())/1000;
+    el.textContent='+'+dur(s);el.classList.toggle('d',s>=900);}); if(box.classList.contains('on')) colocar();},1000);
+  document.getElementById('lateAlertX').onclick=()=>{cerrado=true;box.classList.remove('on');};
+  document.getElementById('lateAlertVer').onclick=()=>{const b=document.querySelector('#viewSeg button[data-v="envivo"]');
+    if(b){ if(b.getAttribute('aria-pressed')!=='true') b.click(); window.scrollTo({top:0,behavior:'smooth'}); }};
+})();
+</script>
 '''
 
 
@@ -394,6 +459,7 @@ function aplicarVivo(j){
   if(!j||!j.foto||!j.episodios)return;
   if(D.foto&&j.foto<D.foto)return;
   D.foto=j.foto;D.aviso='';D.tras_entrega=j.tras_entrega||{};D.episodios=j.episodios||[];
+  if(Array.isArray(j.retrasos)){D.retrasos=j.retrasos;D.retrasos_foto=j.retrasos_foto||j.foto;}
   D.paradas=Object.fromEntries(Object.entries(j.paradas||{}).filter(([k,v])=>v&&v.estado==='parado'));
   Object.assign(D.riders,j.riders||{});cabecera();render();}
 /* Datos en vivo: primero la rama «vivo» del repositorio (una muestra por minuto, un fichero por minuto
@@ -506,6 +572,17 @@ function revisarAlertas(){
   try{const lim=Date.now()-864e5;for(const k in AL_SEEN)if(AL_SEEN[k]<lim)delete AL_SEEN[k];sessionStorage.setItem('wtdv1_alertas',JSON.stringify(AL_SEEN));}catch(e){}
   const msg={v1Alert:{umbral:U,nuevos:nuevos.map(info),activos:act.map(info)}};
   if(window.parent!==window){try{window.parent.postMessage(msg,'*');}catch(e){}}
+  revisarRetrasos();
+}
+/* ===== Pop-up: rider con turno empezado y sin conectar (estado «late» de Live Operations) ===== */
+function revisarRetrasos(){
+  const f=D.retrasos_foto, fresca=!!(f&&(Date.now()-new Date(f).getTime())<STALE_MIN*60000);
+  const act=(fresca?(D.retrasos||[]):[]).map(r=>({rid:String(r[0]),city:r[1],ini:r[2],fin:r[3],sp:r[4]||''}))
+    .filter(r=>D.cities.includes(r.city)&&(S.city==='ALL'||r.city===S.city));
+  const info=r=>({rid:r.rid,name:nombre(r.rid),city:r.city,ini:r.ini,fin:r.fin,sp:r.sp});
+  const nuevos=act.filter(r=>{const k='L|'+r.rid+'|'+r.ini;if(AL_SEEN[k])return false;AL_SEEN[k]=Date.now();return true;});
+  try{sessionStorage.setItem('wtdv1_alertas',JSON.stringify(AL_SEEN));}catch(e){}
+  if(window.parent!==window){try{window.parent.postMessage({lateAlert:{nuevos:nuevos.map(info),activos:act.map(info)}},'*');}catch(e){}}
 }
 /* ===== WTD>10′ por pedido (bucket delivery_lv) ===== */
 const WS={wk:'ALL',day:'ALL',sr:{k:'n10',d:-1},se:{k:'f',d:-1}};
