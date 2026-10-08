@@ -300,14 +300,14 @@ _ALERT_JS = r'''<style>
 <div id="v1Alert" role="alertdialog" aria-live="assertive" aria-labelledby="v1AlertT">
   <div class="hd"><b id="v1AlertT">Rider parado con pedido</b><button class="x" id="v1AlertX" aria-label="Cerrar">×</button></div>
   <ul id="v1AlertL"></ul>
-  <div class="ft"><button class="p" id="v1AlertVer">Ver en WTD% v1</button><button id="v1AlertSnd"></button><button id="v1AlertNot"></button></div>
+  <div class="ft"><button class="p" id="v1AlertVer">Ver en WTD% v1</button><button id="v1AlertSnd"></button><button id="v1AlertNot"></button><button id="v1AlertUmb" title="Minutos parado con pedido a partir de los que salta el aviso"></button></div>
 </div>
 <script>
 /* ==== Pop-up WTD% v1: riders parados tras entregar ==== */
 (function(){
   const box=document.getElementById('v1Alert'),L=document.getElementById('v1AlertL');
   const fr=document.getElementById('wtdV1Frame'); if(!box||!fr) return;
-  const T0=document.title; let act=[],fin=[],nuevosIds=new Set(),U=10,cerrado=false;
+  const T0=document.title; let act=[],fin=[],nuevosIds=new Set(),U=5,cerrado=false;
   let sonido=true; try{sonido=localStorage.getItem('wtdv1_sonido')!=='0';}catch(e){}
   const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const dur=s=>{s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
@@ -334,7 +334,7 @@ _ALERT_JS = r'''<style>
     if(!cerrado) box.classList.add('on');}
   window.addEventListener('message',e=>{
     if(e.source!==fr.contentWindow||!e.data||!e.data.v1Alert) return;
-    const m=e.data.v1Alert; U=m.umbral||U; act=m.activos||[]; fin=m.fin||[];
+    const m=e.data.v1Alert; U=m.umbral||U; act=m.activos||[]; fin=m.fin||[]; try{umbTxt();}catch(err){}
     if((m.nuevos||[]).length){ nuevosIds=new Set(m.nuevos.map(r=>r.rid)); cerrado=false; pitar();
       if('Notification' in window&&Notification.permission==='granted'){
         try{const n=new Notification(m.nuevos.length===1?'Rider parado con pedido asignado':m.nuevos.length+' riders parados con pedido asignado',
@@ -348,6 +348,13 @@ _ALERT_JS = r'''<style>
     if(b&&b.getAttribute('aria-pressed')!=='true') b.click(); setTimeout(()=>{fr.scrollIntoView({behavior:'smooth'});try{const t=fr.contentDocument.getElementById('secPP');if(t)window.scrollTo({top:fr.getBoundingClientRect().top+window.scrollY+t.offsetTop-10,behavior:'smooth'});}catch(e){}},80);};
   document.getElementById('v1AlertSnd').onclick=()=>{sonido=!sonido;try{localStorage.setItem('wtdv1_sonido',sonido?'1':'0');}catch(e){}botones();if(sonido)pitar();};
   document.getElementById('v1AlertNot').onclick=()=>{try{Notification.requestPermission().then(botones);}catch(e){}};
+  // umbral del aviso (5 o 10 min): se guarda en el navegador y se avisa a la pestaña para que recalcule
+  const umbBtn=document.getElementById('v1AlertUmb');
+  function umbTxt(){umbBtn.textContent='⏱ Aviso a partir de '+U+' min · cambiar a '+(U===5?10:5);}
+  umbBtn.onclick=()=>{U=U===5?10:5;try{localStorage.setItem('wtdv1_umbral_pp',String(U));}catch(e){}umbTxt();
+    try{fr.contentWindow.postMessage({ppUmbral:U},'*');}catch(e){}};
+  try{const v=+localStorage.getItem('wtdv1_umbral_pp');if(v===5||v===10)U=v;}catch(e){}
+  umbTxt();
   // el navegador solo deja pedir permiso tras un clic: se pide con el primer clic en cualquier parte del dashboard
   document.addEventListener('click',function pedir(){ document.removeEventListener('click',pedir,true);
     try{ if('Notification' in window&&Notification.permission==='default') Notification.requestPermission().then(botones); }catch(e){} },true);
@@ -495,7 +502,8 @@ tr.click{cursor:pointer}
     <div class="fg"><span>Buscar</span><input type="search" id="fQ" placeholder="ID o nombre de rider" aria-label="Buscar rider"></div>
   </div>
   <section class="kpis" id="kpis"></section>
-  <section class="panel" id="secPP"><div class="ph"><h2 data-def="Riders que en la última muestra llevan al menos el umbral sin moverse (menos de 80 m) con un pedido asignado, fuera de un restaurante (sin contar GPS congelado). El aviso emergente salta a partir de 10 min, porque la espera normal en la puerta del cliente es de unos 4-5 min.">Ahora · parados con pedido asignado</h2><p id="cntP"></p></div>
+  <section class="panel" id="secPP"><div class="ph"><h2 data-def="Riders que en la última muestra llevan al menos el umbral sin moverse (menos de 80 m) con un pedido asignado, fuera de un restaurante (sin contar GPS congelado). El aviso emergente salta a partir del umbral elegido (5 o 10 min). Lejos de un restaurante, casi siempre es el rider esperando en la puerta del cliente; la parada se confirma a los ~5 min porque Glovo actualiza la ubicación cada ~5 min.">Ahora · parados con pedido asignado</h2><p id="cntP"></p></div>
+    <div class="ph" style="justify-content:flex-start;gap:10px"><span class="sub" style="margin:0">Aviso emergente a partir de</span><div class="seg" id="fUP"></div></div>
     <div class="tw" style="max-height:420px"><table id="tP"></table></div></section>
   <section class="panel" id="secPPH">
     <div class="hhead"><div><h2 data-def="Paradas con pedido asignado ya terminadas, cruzadas con los datos de entregas de Glovo (delivery_lv, llegan con 1 día de retraso). «En la puerta del cliente» = la parada coincide con el tiempo entre que el rider llegó a la dirección del cliente y marcó la entrega (espera del WTD). «Fuera de la puerta» = el rider estaba parado con el pedido en otro sitio.">Histórico · ¿parados con pedido en la puerta del cliente?</h2><p class="sub" id="phSub" style="margin-top:4px"></p></div>
@@ -655,7 +663,7 @@ const CP=[CA[0],CA[1],
  {k:'desde',h:'Parado desde',v:p=>p.desde,f:p=>hhmm(p.desde)+(p.desde_inicio?'<span class="sub2">o antes</span>':''),d:'Primera muestra en la que ya estaba quieto en ese punto con el pedido.'},
  {k:'min',h:'Parado con pedido (en vivo)',n:1,v:p=>pSec(p),f:p=>{const m=pSec(p)/60,c=m>=U*2?'alert':'mid';return `<span class="pill ${c} live" data-desde="${p.desde}"><span class="dot"></span>≥ ${fmtDur(pSec(p))}</span><span class="sub2">última foto ${hhmm(p.t)}</span>`;},d:'Tiempo quieto con un pedido asignado, en vivo desde la primera muestra parado. Es un mínimo (fotos cada ~5 min).'},
 ];
-function renderPP(){const L=conPedido();const n=tabla('tP',CP,L,SP,'Ningún rider parado ≥'+U+' min con un pedido asignado ahora.');$('cntP').textContent=nf(n)+' riders';}
+function renderPP(){seg('fUP',[{v:5,l:'5 min'},{v:10,l:'10 min'}],umbralPP(),v=>ponerUmbralPP(+v));const L=conPedido();const n=tabla('tP',CP,L,SP,'Ningún rider parado ≥'+U+' min con un pedido asignado ahora.');$('cntP').textContent=nf(n)+' riders';}
 /* ===== Histórico de paradas con pedido: ¿en la puerta del cliente? (cruce con delivery_lv al generar) ===== */
 const PH={day:'ALL',cls:'F',st:{k:'d0',d:-1}};
 const PHFMT=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'});
@@ -696,9 +704,12 @@ function renderPPH(){
 }
 /* ===== Pop-up: rider parado ≥U min con pedido asignado ===== */
 const AL_SEEN=(()=>{try{return JSON.parse(sessionStorage.getItem('wtdv1_alertas')||'{}');}catch(e){return {};}})();
+function umbralPP(){try{const v=+localStorage.getItem('wtdv1_umbral_pp');if(v===5||v===10)return v;}catch(e){}return D.umbral_pp||5;}
+function ponerUmbralPP(v){try{localStorage.setItem('wtdv1_umbral_pp',String(v));}catch(e){}render();}
+window.addEventListener('message',e=>{if(e.source===window.parent&&e.data&&(e.data.ppUmbral===5||e.data.ppUmbral===10))ponerUmbralPP(e.data.ppUmbral);});
 function revisarAlertas(){
   // el aviso salta a partir de UP min (la espera normal en la puerta del cliente es de ~4-5 min)
-  const UP=D.umbral_pp||10;
+  const UP=umbralPP();
   const act=Object.entries(D.paradas).map(([rid,p])=>({rid,city:ciudadR(rid),...p}))
     .filter(p=>p.estado==='parado'&&!p.gps_viejo&&pVivo(p)&&pSec(p)/60>=UP&&D.cities.includes(p.city)&&(S.city==='ALL'||p.city===S.city));
   const lvl=p=>pSec(p)/60>=UP*2?2:1;

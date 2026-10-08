@@ -386,8 +386,9 @@ def guardar_historico(path, episodios):
 
 HIST_PP = "wtd_pp_hist.json"   # histórico publicado de paradas con pedido asignado (sin coordenadas)
 PP_MIN_GUARDAR = 3             # solo se guardan paradas confirmadas de al menos estos minutos
-PP_UMBRAL_MIN = 10             # el aviso de «parado con pedido» salta a partir de estos minutos
-                               # (la espera normal en la puerta del cliente es de ~4-5 min)
+PP_UMBRAL_MIN = 5              # el aviso de «parado con pedido» salta por defecto a partir de estos minutos
+                               # (el pop-up permite cambiarlo a 10 min; la parada se confirma a los ~5 min
+                               # porque Glovo actualiza la ubicación cada ~5 min)
 PP_FIN_HORAS = 3               # paradas terminadas que se publican en wtd_vivo.json (pp_fin)
 
 
