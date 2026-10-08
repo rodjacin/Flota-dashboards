@@ -111,6 +111,81 @@ def wtd_pedidos(cities):
             "contacto_desde": min((p[2] for p in P if p[4]), default=None)}
 
 
+PP_DIAS = 28          # días del histórico de paradas con pedido que se clasifican
+PP_TOL_MIN = 5        # holgura (min) alrededor de la ventana en la puerta: la posición llega cada ~5 min
+
+
+def _hist_pp(cities):
+    """Lee <dashboard>/wtd_pp_hist.json (lo escribe el muestreo) del repo."""
+    import posiciones
+    cs = set(cities)
+    carpeta = next((k for k, v in posiciones.DASHBOARDS.items() if set(NODE_ALIASES.get(c, c) for c in v) == cs), None)
+    if not carpeta:
+        return []
+    for repo in (os.environ.get("GITHUB_WORKSPACE"), os.path.expanduser("~/flota-dashboards")):
+        p = os.path.join(repo or "", carpeta, posiciones.HIST_PP)
+        if repo and os.path.isfile(p):
+            try:
+                return json.load(open(p, encoding="utf-8")).get("eps") or []
+            except Exception:
+                return []
+    return []
+
+
+def clasificar_pp(cities, eps=None, deliv_csv=None):
+    """Cruza cada parada con pedido (rider, desde, hasta en minutos epoch UTC) con las entregas
+    de delivery_lv del mismo rider: si la parada cae en la ventana en la que el rider estaba en la
+    puerta del cliente (rider_near_customer_at -> rider_dropped_off_local_at, hora de Madrid, con
+    PP_TOL_MIN de holgura) al menos la mitad de su duración, la parada fue «en la puerta del cliente».
+    Fila: [rider, área, desde, hasta, min, clase, espera_puerta_min, pedido, tienda]
+    clase: 'P' en la puerta del cliente · 'F' fuera de la puerta · 'N' pendiente (aún sin delivery_lv)."""
+    from zoneinfo import ZoneInfo
+    eps = _hist_pp(cities) if eps is None else eps
+    deliv_csv = deliv_csv or DELIV_CSV
+    if not eps:
+        return {"rows": [], "hasta": None}
+    lim = int(dt.datetime.now(dt.timezone.utc).timestamp() // 60) - PP_DIAS * 1440
+    eps = [e for e in eps if e[2] >= lim]
+    riders = {str(e[0]) for e in eps}
+    mad = ZoneInfo("Europe/Madrid")
+    def utc_min(t):
+        return int(t.replace(tzinfo=mad).timestamp() // 60)
+    def dia_local(m):
+        return dt.datetime.fromtimestamp(m * 60, mad).date().isoformat()
+    desde_dia = (dt.datetime.fromtimestamp(min(e[2] for e in eps) * 60, mad).date() - dt.timedelta(days=1)).isoformat()
+    puertas, hasta = {}, None
+    if os.path.isfile(deliv_csv):
+        with open(deliv_csv, encoding="utf-8-sig") as fh:
+            for x in csv.DictReader(fh):
+                f = (x.get("fecha") or "")[:10]
+                if f and (hasta is None or f > hasta):
+                    hasta = f
+                rid = str(x.get("rider_id") or "").strip()
+                if rid not in riders or f < desde_dia:
+                    continue
+                a, b = _ts(x.get("rider_near_customer_at")), _ts(x.get("rider_dropped_off_local_at"))
+                if not a or not b or b < a:
+                    continue
+                puertas.setdefault(rid, []).append((utc_min(a), utc_min(b), str(x.get("order_id") or ""),
+                                                    x.get("store_name") or ""))
+    rows = []
+    for e in eps:
+        rid, area, d0, d1, mn = str(e[0]), e[1], e[2], e[3], e[4]
+        dur = max(d1 - d0, 1)
+        best = None
+        for a, b, oid, tienda in puertas.get(rid, []):
+            ov = min(d1, b + PP_TOL_MIN) - max(d0, a - PP_TOL_MIN)
+            if ov >= dur * 0.5 and (best is None or ov > best[0]):
+                best = (ov, b - a, oid, tienda)
+        if best:
+            rows.append([rid, area, d0, d1, mn, "P", best[1], best[2], best[3]])
+        elif hasta and dia_local(d0) <= hasta:
+            rows.append([rid, area, d0, d1, mn, "F", None, "", ""])
+        else:
+            rows.append([rid, area, d0, d1, mn, "N", None, "", ""])
+    return {"rows": rows, "hasta": hasta}
+
+
 def construir_html(cities=None, semanas=None, sello=True):
     import posiciones
     cities = sorted(set(NODE_ALIASES.get(c, c) for c in (cities or [])))
@@ -138,7 +213,11 @@ def construir_html(cities=None, semanas=None, sello=True):
         wp = wtd_pedidos(cities)
     except Exception as e:
         wp = None; print("  (aviso) WTD por pedido: " + str(e)[:200])
-    data = {"cities": cities, "foto": foto, "aviso": aviso, "umbral": posiciones.TRAS_UMBRAL_MIN, "wp": wp,
+    try:
+        pph = clasificar_pp(cities)
+    except Exception as e:
+        pph = {"rows": [], "hasta": None}; print("  (aviso) paradas con pedido en puerta: " + str(e)[:200])
+    data = {"cities": cities, "foto": foto, "aviso": aviso, "umbral": posiciones.TRAS_UMBRAL_MIN, "wp": wp, "pph": pph,
             "horas": posiciones.KEEP_HOURS, "tras_entrega": ahora_te, "episodios": eps,
             "paradas": {k: v for k, v in (paradas or {}).items() if v.get("estado") == "parado"},
             "riders": {k: v for k, v in nombres.items() if v[1] in cities}}
@@ -410,6 +489,12 @@ tr.click{cursor:pointer}
   <section class="kpis" id="kpis"></section>
   <section class="panel" id="secPP"><div class="ph"><h2 data-def="Riders que en la última muestra llevan al menos el umbral sin moverse (menos de 80 m) con un pedido asignado, fuera de un restaurante (sin contar GPS congelado). Son los que saltan en el aviso emergente.">Ahora · parados con pedido asignado</h2><p id="cntP"></p></div>
     <div class="tw" style="max-height:420px"><table id="tP"></table></div></section>
+  <section class="panel" id="secPPH">
+    <div class="hhead"><div><h2 data-def="Paradas con pedido asignado ya terminadas, cruzadas con los datos de entregas de Glovo (delivery_lv, llegan con 1 día de retraso). «En la puerta del cliente» = la parada coincide con el tiempo entre que el rider llegó a la dirección del cliente y marcó la entrega (espera del WTD). «Fuera de la puerta» = el rider estaba parado con el pedido en otro sitio.">Histórico · ¿parados con pedido en la puerta del cliente?</h2><p class="sub" id="phSub" style="margin-top:4px"></p></div>
+      <div class="hfil"><div class="fg"><span>Fecha</span><select id="phDay" aria-label="Fecha"></select></div></div></div>
+    <div class="seg" id="phCls" style="margin:6px 0 10px"></div>
+    <section class="kpis" id="phKpis"></section>
+    <div class="tw" style="max-height:520px"><table id="tPH"></table></div></section>
   <section class="panel"><div class="ph"><h2 data-def="Riders que en la última muestra siguen sin moverse (menos de 80 m) y sin pedido desde que entregaron su último pedido.">Ahora · parados tras su última entrega</h2><p id="cntA"></p></div>
     <div class="tw" style="max-height:520px"><table id="tA"></table></div></section>
   <section class="panel"><div class="ph"><h2 id="hE" data-def="Cada vez que hoy (día operativo desde las 05:00) un rider entregó un pedido y se quedó parado al menos una muestra (~5 min) en el mismo punto sin coger otro pedido.">Paradas tras entrega</h2><p id="cntE"></p></div>
@@ -543,6 +628,7 @@ function render(){
   if(typeof renderHist==='function'&&HROWS.length)renderHist();
   if(typeof renderWP==='function')renderWP();
   renderPP();
+  renderPPH();
   revisarAlertas();
 }
 /* ===== Parados con pedido asignado (estado «parado» de la foto: quieto <80 m con pedido activo, fuera de restaurante) ===== */
@@ -561,6 +647,44 @@ const CP=[CA[0],CA[1],
  {k:'min',h:'Parado con pedido (en vivo)',n:1,v:p=>pSec(p),f:p=>{const m=pSec(p)/60,c=m>=U*2?'alert':'mid';return `<span class="pill ${c} live" data-desde="${p.desde}"><span class="dot"></span>≥ ${fmtDur(pSec(p))}</span><span class="sub2">última foto ${hhmm(p.t)}</span>`;},d:'Tiempo quieto con un pedido asignado, en vivo desde la primera muestra parado. Es un mínimo (fotos cada ~5 min).'},
 ];
 function renderPP(){const L=conPedido();const n=tabla('tP',CP,L,SP,'Ningún rider parado ≥'+U+' min con un pedido asignado ahora.');$('cntP').textContent=nf(n)+' riders';}
+/* ===== Histórico de paradas con pedido: ¿en la puerta del cliente? (cruce con delivery_lv al generar) ===== */
+const PH={day:'ALL',cls:'F',st:{k:'d0',d:-1}};
+const PHFMT=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'});
+const PHDOW=['dom','lun','mar','mié','jue','vie','sáb'];
+const phDay=m=>PHFMT.format(new Date(m*60000));
+const phLab=k=>{const d=new Date(k+'T00:00:00Z');return PHDOW[d.getUTCDay()]+' '+k.slice(8,10)+'/'+k.slice(5,7);};
+const phHm=m=>hhmm(new Date(m*60000).toISOString());
+const PHCLS={P:['En la puerta del cliente','pill'],F:['Fuera de la puerta','pill alert'],N:['Pendiente','pill mid']};
+const PHROWS=((D.pph||{}).rows||[]).map(r=>({rid:r[0],city:r[1],d0:r[2],d1:r[3],min:r[4],cls:r[5],esp:r[6],oid:r[7],tienda:r[8],day:phDay(r[2])}));
+const CPH=[CA[0],CA[1],
+ {k:'d0',h:'Fecha y hora',v:e=>e.d0,f:e=>phLab(e.day)+'<span class="sub2">'+phHm(e.d0)+' – '+phHm(e.d1)+'</span>',d:'Día y tramo en el que estuvo parado con el pedido (hora de Madrid, según las muestras de posición).'},
+ {k:'min',h:'Parado con pedido',n:1,v:e=>e.min,f:e=>`<span class="pill ${e.min>=U*2?'alert':'mid'}">≥ ${nf(e.min)} min</span>`,d:'Minutos parado con el pedido asignado (mínimo, fotos cada ~5 min).'},
+ {k:'cls',h:'Dónde',v:e=>e.cls,f:e=>`<span class="${PHCLS[e.cls][1]}">${PHCLS[e.cls][0]}</span>`,d:'En la puerta del cliente: la parada coincide con su espera en la dirección de entrega. Fuera de la puerta: parado con el pedido en otro sitio. Pendiente: aún no hay datos de entregas de ese día.'},
+ {k:'esp',h:'Pedido · espera en puerta',v:e=>e.esp,f:e=>e.cls==='P'?esc(e.tienda||'—')+'<span class="sub2">pedido '+esc(e.oid||'—')+' · '+nf(e.esp)+' min en la puerta</span>':'—',d:'Pedido que estaba entregando, tienda y minutos entre llegar a la dirección del cliente y marcar la entrega (WTD).'},
+];
+function renderPPH(){
+  if(!$('tPH'))return;
+  const minU=S.min==='ALL'?0:(S.min==='D'?U*2:U);
+  const B0=PHROWS.filter(e=>D.cities.includes(e.city)&&(S.city==='ALL'||e.city===S.city)&&e.min>=minU&&
+    (!S.q||String(e.rid).includes(S.q)||nombre(e.rid).toLowerCase().includes(S.q)));
+  const days=[...new Set(B0.map(e=>e.day))].sort().reverse();
+  if(PH.day!=='ALL'&&!days.includes(PH.day))PH.day='ALL';
+  $('phDay').innerHTML='<option value="ALL">Todas</option>'+days.map(d=>`<option value="${d}" ${d===PH.day?'selected':''}>${phLab(d)}</option>`).join('');
+  $('phDay').onchange=ev=>{PH.day=ev.target.value;renderPPH();};
+  const B=B0.filter(e=>PH.day==='ALL'||e.day===PH.day);
+  const n={P:0,F:0,N:0};B.forEach(e=>n[e.cls]++);const cl=n.P+n.F;
+  seg('phCls',[{v:'F',l:'Fuera de la puerta',c:n.F},{v:'P',l:'En la puerta del cliente',c:n.P},{v:'N',l:'Pendientes',c:n.N},{v:'ALL',l:'Todas',c:B.length}],PH.cls,v=>{PH.cls=v;renderPPH();});
+  const h=(D.pph||{}).hasta;
+  $('phSub').textContent=!PHROWS.length?'Todavía no hay histórico: las paradas con pedido se empiezan a guardar con el muestreo de cada minuto.':
+    'Paradas de '+(minU?'≥'+minU+' min':'cualquier duración')+' en los últimos 28 días · datos de entregas hasta el '+(h?phLab(h):'—')+' (llegan con 1 día de retraso).';
+  $('phKpis').innerHTML=[
+   ['Paradas con pedido',nf(B.length),nf(n.N)+' pendientes de cruzar','Paradas con pedido asignado terminadas en el periodo y filtros elegidos.'],
+   ['En la puerta del cliente',nf(n.P),cl?nf(n.P/cl*100,0)+' % de las cruzadas':'','Paradas que coinciden con la espera del rider en la dirección del cliente (WTD): no es una parada improductiva del rider.'],
+   ['Fuera de la puerta',`<span style="color:${n.F?'var(--bad)':'inherit'}">${nf(n.F)}</span>`,cl?nf(n.F/cl*100,0)+' % de las cruzadas':'','Paradas con el pedido en otro sitio: las que hay que revisar.'],
+   ['Riders fuera de la puerta',nf(new Set(B.filter(e=>e.cls==='F').map(e=>e.rid)).size),'','Riders distintos con alguna parada con pedido fuera de la puerta del cliente.'],
+  ].map(([e,b,s2,d])=>`<div class="kpi"><em data-def="${esc(d)}" tabindex="0">${e}</em><b>${b}</b><span>${s2}</span></div>`).join('');
+  tabla('tPH',CPH,B.filter(e=>PH.cls==="ALL"||e.cls===PH.cls),PH.st,'Ninguna parada con pedido con estos filtros.');
+}
 /* ===== Pop-up: rider parado ≥U min con pedido asignado ===== */
 const AL_SEEN=(()=>{try{return JSON.parse(sessionStorage.getItem('wtdv1_alertas')||'{}');}catch(e){return {};}})();
 function revisarAlertas(){

@@ -164,6 +164,11 @@ def exportar(repo, snap):
                 print("%s/%s: %d paradas tras entrega acumuladas" % (carpeta, HIST_V1, n))
             except Exception as e:
                 print("histórico WTD%% v1 (%s): %s" % (carpeta, e))
+            try:
+                n = guardar_historico_pp(os.path.join(d, HIST_PP), paradas, nombres)
+                print("%s/%s: %d paradas con pedido acumuladas" % (carpeta, HIST_PP, n))
+            except Exception as e:
+                print("histórico paradas con pedido (%s): %s" % (carpeta, e))
 
 
 # ------------------------------------------------------------- restaurantes
@@ -368,6 +373,42 @@ def guardar_historico(path, episodios):
     eps = sorted((f for f in filas.values() if f[4] >= lim), key=lambda f: (f[4], f[0]))
     out = {"v": 1, "updated_at": _now().isoformat(),
            "cols": ["rider", "area", "estado", "ent_ini", "ent_fin", "hasta", "min", "max", "flags"], "eps": eps}
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, path)
+    return len(eps)
+
+
+HIST_PP = "wtd_pp_hist.json"   # histórico publicado de paradas con pedido asignado (sin coordenadas)
+PP_MIN_GUARDAR = 3             # solo se guardan paradas confirmadas de al menos estos minutos
+
+
+def guardar_historico_pp(path, paradas, nombres):
+    """Acumula las paradas con pedido asignado (estado «parado» de quietos()) en
+    <dashboard>/wtd_pp_hist.json. Fila: [rider, área, desde, hasta, min] (minutos epoch UTC).
+    Una parada se identifica por rider + desde; mientras siga parado se alarga su «hasta».
+    Al generar el dashboard se cruza con delivery_lv para saber si estaba en la puerta del cliente."""
+    try:
+        h = json.load(open(path, encoding="utf-8"))
+    except Exception:
+        h = {}
+    filas = {"%s|%s" % (f[0], f[2]): f for f in h.get("eps", [])}
+    for rid, p in (paradas or {}).items():
+        if p.get("estado") != "parado" or not p.get("conf") or p.get("gps_viejo"):
+            continue
+        if (p.get("min") or 0) < PP_MIN_GUARDAR:
+            continue
+        d0, d1 = _min_epoch(p.get("desde")), _min_epoch(p.get("t"))
+        if d0 is None or d1 is None:
+            continue
+        f = [str(rid), (nombres.get(str(rid)) or ["", ""])[1], d0, d1, p.get("min")]
+        k = "%s|%s" % (f[0], d0)
+        if k not in filas or f[3] >= filas[k][3]:
+            filas[k] = f
+    lim = int(_now().timestamp() // 60) - HIST_V1_DIAS * 1440
+    eps = sorted((f for f in filas.values() if f[2] >= lim), key=lambda f: (f[2], f[0]))
+    out = {"v": 1, "updated_at": _now().isoformat(), "cols": ["rider", "area", "desde", "hasta", "min"], "eps": eps}
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))

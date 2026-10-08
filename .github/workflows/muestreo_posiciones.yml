@@ -63,7 +63,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           publicar() {
-            for f in gra-mad-nom-alc/wtd_vivo.json sab/wtd_vivo.json gra-mad-nom-alc/wtd_v1_hist.json sab/wtd_v1_hist.json gra-mad-nom-alc/liveops_hist.json sab/liveops_hist.json; do
+            for f in gra-mad-nom-alc/wtd_vivo.json sab/wtd_vivo.json gra-mad-nom-alc/wtd_v1_hist.json sab/wtd_v1_hist.json gra-mad-nom-alc/liveops_hist.json sab/liveops_hist.json gra-mad-nom-alc/wtd_pp_hist.json sab/wtd_pp_hist.json; do
               [ -f "$f" ] && git add "$f"
             done
             if git diff --cached --quiet; then echo "Sin cambios."; return 0; fi
