@@ -274,6 +274,19 @@ def main():
         rec["_assigned"], rec["_reassign"], rec["_ns"], rec["_bk"] = S["assigned"], S["reassign"], S["noshows"], S["booked"]
         weekly.append(rec)
 
+    # HISTÓRICO COMPLETO para el «Resumen de performance»: todas las semanas con registro,
+    # agregadas por nodo (el resto del dashboard sigue mostrando las WEEKS_TO_SHOW últimas)
+    perf_all = []
+    perf_order = ["W" + str(k[1]) for k in all_keys]
+    perf_label = {("W" + str(k[1])): (("W" + str(k[1])) + " - Actual" if k == cur_key else "W" + str(k[1])) for k in all_keys}
+    for (city, key), g in df.groupby(["_city", "_isokey"]):
+        S = {s: float(g["_" + s].sum()) for s in cols}
+        rec = {"city": str(city), "week": "W" + str(key[1])}
+        rec.update(metrics_from_sums(S))
+        rec["_assigned"], rec["_reassign"], rec["_ns"], rec["_bk"] = S["assigned"], S["reassign"], S["noshows"], S["booked"]
+        perf_all.append(rec)
+    print("Resumen de performance: " + str(len(perf_order)) + " semanas con registro (" + ", ".join(perf_order) + ")")
+
     # DIARIO (semana en curso)
     daily = []
     dcur = df[df["_isokey"] == cur_key]
@@ -405,6 +418,19 @@ def main():
                 print("  + pestaña Incidencias: " + inc_res)
             except Exception as _e:
                 print("  (aviso) sin pestaña Incidencias: " + str(_e))
+        # Resumen de performance con todas las semanas con registro (no solo las últimas)
+        _old = "const WDATA  = (typeof DATA!=='undefined'       && Array.isArray(DATA))       ? DATA       : [];"
+        if _old in tpl:
+            prow = [r for r in perf_all if r["city"] in cities]
+            pord = [w for w in perf_order if any(r["week"] == w for r in prow)]
+            tpl = tpl.replace(_old,
+                "const __PA = " + json.dumps({"rows": prow, "order": pord, "label": perf_label}, ensure_ascii=False) + ";\n"
+                "  const WDATA  = __PA.rows.length ? __PA.rows : ((typeof DATA!=='undefined' && Array.isArray(DATA)) ? DATA : []);", 1)
+            tpl = tpl.replace("const WORDER = (typeof WEEK_ORDER!=='undefined' && Array.isArray(WEEK_ORDER)) ? WEEK_ORDER : [];",
+                              "const WORDER = __PA.rows.length ? __PA.order : ((typeof WEEK_ORDER!=='undefined' && Array.isArray(WEEK_ORDER)) ? WEEK_ORDER : []);", 1)
+            tpl = tpl.replace("const WLABEL = (typeof WEEK_LABEL!=='undefined' && WEEK_LABEL)                 ? WEEK_LABEL : {};",
+                              "const WLABEL = __PA.rows.length ? __PA.label : ((typeof WEEK_LABEL!=='undefined' && WEEK_LABEL) ? WEEK_LABEL : {});", 1)
+            print("  + Resumen de performance con " + str(len(pord)) + " semanas")
         with open(os.path.join(OUTPUT_DIR, salida_nombre), "w", encoding="utf-8") as f:
             f.write(tpl)
         print("OK " + salida_nombre + ": " + str(len(recs)) + " filas semana - " +
