@@ -20,7 +20,7 @@ if [ -n "${GCP_JSON:-}" ];  then printf '%s' "$GCP_JSON"  > "$HOME/.gcp/gcp_mush
 if [ -n "${GLOVO_KEY:-}" ]; then printf '%s\n' "$GLOVO_KEY" | tr -d '\r' > "$HOME/claves-pem/private_key.pem"; chmod 600 "$HOME/claves-pem/private_key.pem"; fi
 
 # 2) scripts, plantillas y ficheros de entrada en ~/Downloads
-cp "$AUTO"/*.py "$AUTO"/plantilla_resumen_*.html "$DL"/
+cp "$AUTO"/*.py "$AUTO"/plantilla_*.html "$DL"/
 cp "$AUTO"/entradas/* "$DL"/ 2>/dev/null || true
 # la pestaña Capacidad ordena los horarios por fecha de fichero: se restauran las
 # fechas originales; los ficheros subidos después toman la fecha de su commit
