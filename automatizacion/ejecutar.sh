@@ -50,6 +50,7 @@ echo "==== $(date '+%Y-%m-%d %H:%M:%S') INICIO ===="
 [ "${SALTAR_EXTRAER:-0}" = 1 ] && echo "(prueba: sin descarga del bucket)" || python3 extraer_datos_fleet.py
 python3 combinar_datos_fleet.py
 python3 generar_resumen_flota.py
+python3 pedidos_restaurantes.py "$DL/dashboards/pedidos_restaurantes.html" || echo "⚠ pedidos por restaurante no generado"
 
 # 4) copiar al sitio publicado (mismo sello que ponía el Mac)
 STAMP=$(date '+%d/%m/%Y %H:%M')
@@ -61,6 +62,7 @@ publish(){
 }
 publish "$OUT/resumen_flota_riders_SAB.html"             "$REPO/sab/index.html"
 publish "$OUT/resumen_flota_riders_GRA_MAD_NOM_ALC.html" "$REPO/gra-mad-nom-alc/index.html"
+if [ -f "$OUT/pedidos_restaurantes.html" ]; then publish "$OUT/pedidos_restaurantes.html" "$REPO/gra-mad-nom-alc/restaurantes/index.html"; fi
 cat > "$REPO/index.html" <<HTML
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <meta name="robots" content="noindex,nofollow">
@@ -73,6 +75,7 @@ small{color:#6B7280}</style></head><body>
 <a href="sab/">SAB</a>
 <a href="gra-mad-nom-alc/">GRA · MAD · NOM · ALC</a>
 <a href="mushdrink/">MushDrink · Panel operativo</a>
+<a href="gra-mad-nom-alc/restaurantes/">Pedidos por restaurante (bucket GCP)</a>
 <small>Actualizado $STAMP</small>
 </body></html>
 HTML
