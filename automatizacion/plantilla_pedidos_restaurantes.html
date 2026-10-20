@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pedidos por restaurante</title>
+<style>
+:root{--bg:#F6F7F9;--card:#fff;--fg:#14171F;--mut:#6B7280;--line:#E4E7EC;--head:#EEF1F4;--acc:#0E5A6B;--heat:14,90,107;--tot:#EAF2F4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121416;--card:#1b1e21;--fg:#e8eaed;--mut:#9aa0a6;--line:#30343a;--head:#24282d;--acc:#5fb3c4;--heat:95,179,196;--tot:#1f2a2d}}
+:root[data-theme="dark"]{--bg:#121416;--card:#1b1e21;--fg:#e8eaed;--mut:#9aa0a6;--line:#30343a;--head:#24282d;--acc:#5fb3c4;--heat:95,179,196;--tot:#1f2a2d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1700px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--mut);font-size:13px;margin-bottom:16px;max-width:110ch}
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:140px}
+.kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.kpi span{color:var(--mut);font-size:12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+input,select,button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+input{min-width:220px;max-width:100%}
+button{cursor:pointer}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0}
+.seg button[aria-pressed="true"]{background:var(--acc);color:#fff}
+.tbl{overflow:auto;max-height:78vh;background:var(--card);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th{position:sticky;top:0;background:var(--head);z-index:2;font-size:12px;text-align:right;cursor:pointer;user-select:none;vertical-align:bottom}
+thead th small{display:block;font-weight:400;color:var(--mut);font-size:11px}
+th.l,td.l{text-align:left}
+td{text-align:right}
+.st{position:sticky;left:0;background:var(--card);z-index:1;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+thead th.st{z-index:3;background:var(--head)}
+td.z{color:var(--mut)}
+td.t{font-weight:600;background:var(--tot)}
+th.p small{color:var(--acc)}
+tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:600;border-top:1px solid var(--line)}
+th[aria-sort="ascending"]::after{content:" ▲";color:var(--acc)}
+th[aria-sort="descending"]::after{content:" ▼";color:var(--acc)}
+a{color:var(--acc)}
+.note{color:var(--mut);font-size:12px;margin-top:10px;max-width:110ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Pedidos por restaurante · semanal e histórico</h1>
+<div class="sub" id="sub"></div>
+<div class="kpis" id="kpis"></div>
+<div class="bar">
+  <input id="q" type="search" placeholder="Buscar restaurante o zona…">
+  <select id="fc"><option value="">Todas las ciudades</option></select>
+  <select id="fs"><option value="">Todas las marcas</option></select>
+  <span class="seg" id="mode"><button data-m="e" aria-pressed="true">Entregados</button><button data-m="t" aria-pressed="false">Todos los estados</button></span>
+  <button id="csv">Exportar CSV</button>
+</div>
+<div class="tbl"><table id="t"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
+<div class="note">Fuente: bucket de GCP de Glovo (delivery_lv), pedidos distintos por <i>order_id</i> y fecha de creación del pedido. Semanas ISO (lunes–domingo). Debajo de cada semana: fechas y días con datos en el bucket; en <span style="color:var(--acc)">color</span> las semanas incompletas. Restaurante = marca + ubicación del local; el nombre lleva la zona de Glovo. «Media sem.» = media de las semanas completas en que el restaurante tuvo pedidos. Pincha la ubicación para verla en el mapa.</div>
+</div>
+<script>
+const D=/*__DATA__*/null;
+const fmt=n=>n.toLocaleString('es-ES');
+const W=D.weeks;let M='e',sortK='tot',sortDir=-1;
+const f2=s=>s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);
+document.getElementById('sub').textContent=`Del ${f2(D.first)} al ${f2(D.last)} · ${D.nd} días con datos · actualizado ${D.gen}`;
+const fc=document.getElementById('fc'),fs=document.getElementById('fs');
+[...new Set(D.rows.map(r=>r.c))].sort().forEach(c=>fc.add(new Option(c,c)));
+[...new Set(D.rows.map(r=>r.s))].sort((a,b)=>a.localeCompare(b,'es')).forEach(s=>fs.add(new Option(s,s)));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function filt(){const q=document.getElementById('q').value.trim().toLowerCase(),c=fc.value,s=fs.value;
+ return D.rows.filter(r=>(!q||r.n.toLowerCase().includes(q))&&(!c||r.c===c)&&(!s||r.s===s));}
+function stats(r){const v=r[M];const tot=v.reduce((a,b)=>a+b,0);const fw=v.filter((x,i)=>W[i].n===7&&x>0);return {v,tot,avg:fw.length?fw.reduce((a,b)=>a+b,0)/fw.length:0};}
+function val(r,k){if(k==='n'||k==='c')return r[k].toLowerCase();const s=stats(r);if(k==='tot')return s.tot;if(k==='avg')return s.avg;return s.v[k];}
+function render(){
+ const R=filt().sort((a,b)=>{const x=val(a,sortK),y=val(b,sortK);return (x<y?-1:x>y?1:0)*sortDir;});
+ const S=R.map(stats),max=Math.max(1,...S.flatMap(s=>s.v));
+ const cols=[['n','Restaurante','l st'],['c','Ciudad','l'],...W.map((w,i)=>[i,w.w,w.n<7?'p':'',`${w.r} · ${w.n}d`]),['tot','Total',''],['avg','Media sem.','']];
+ document.querySelector('#t thead').innerHTML='<tr>'+cols.map(c=>`<th class="${c[2]}" data-k="${c[0]}" ${c[0]===sortK?`aria-sort="${sortDir>0?'ascending':'descending'}"`:''}>${c[1]}<small>${c[3]||'&nbsp;'}</small></th>`).join('')+'<th class="l" data-k="">Ubicación<small>&nbsp;</small></th></tr>';
+ document.querySelector('#t tbody').innerHTML=R.map((r,j)=>{const s=S[j];return '<tr>'+`<td class="l st" title="${esc(r.n)}">${esc(r.n)}</td><td class="l">${r.c}</td>`+
+  s.v.map(v=>v?`<td style="background:rgba(var(--heat),${(0.05+0.45*v/max).toFixed(2)})">${fmt(v)}</td>`:'<td class="z">·</td>').join('')+
+  `<td class="t">${fmt(s.tot)}</td><td>${fmt(Math.round(s.avg))}</td><td class="l">${r.loc?`<a href="https://www.google.com/maps?q=${r.loc}" target="_blank" rel="noopener">${r.loc}</a>`:'—'}</td></tr>`}).join('');
+ const sw=W.map((_,i)=>S.reduce((a,s)=>a+s.v[i],0)),tt=sw.reduce((a,b)=>a+b,0);
+ document.querySelector('#t tfoot').innerHTML=`<tr><td class="l st">Total (${R.length} rest.)</td><td></td>${sw.map(v=>`<td>${fmt(v)}</td>`).join('')}<td>${fmt(tt)}</td><td></td><td></td></tr>`;
+ const full=W.map((w,i)=>[w,sw[i]]).filter(x=>x[0].n===7),last=full[full.length-1];
+ document.getElementById('kpis').innerHTML=[[fmt(tt),M==='e'?'pedidos entregados en el histórico':'pedidos en el histórico (todos los estados)'],[R.length,'restaurantes'],[W.length,'semanas con datos'],
+  last?[fmt(last[1]),`última semana completa (${last[0].w})`]:null,
+  full.length?[fmt(Math.round(full.reduce((a,x)=>a+x[1],0)/full.length)),'media por semana completa']:null].filter(Boolean).map(k=>`<div class="kpi"><b>${k[0]}</b><span>${k[1]}</span></div>`).join('');
+}
+document.querySelector('#t thead').addEventListener('click',e=>{const th=e.target.closest('th');if(!th||th.dataset.k==='')return;let k=th.dataset.k;if(/^\d+$/.test(k))k=+k;if(k===sortK)sortDir*=-1;else{sortK=k;sortDir=(k==='n'||k==='c')?1:-1;}render();});
+['q','fc','fs'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+document.getElementById('mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;M=b.dataset.m;document.querySelectorAll('#mode button').forEach(x=>x.setAttribute('aria-pressed',x===b));render();});
+document.getElementById('csv').onclick=()=>{const R=filt();const h=['Restaurante','Ciudad','Marca',...W.map(w=>w.y+'-'+w.w),'Total','Media semanal','Ubicación'];
+ const lines=[h,...R.map(r=>{const s=stats(r);return [r.n,r.c,r.s,...s.v,s.tot,Math.round(s.avg),r.loc]})].map(a=>a.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(';'));
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+lines.join('\n')],{type:'text/csv'}));a.download='pedidos_por_restaurante_'+(M==='e'?'entregados':'todos')+'.csv';a.click();};
+render();
+</script>
+</body>
+</html>
