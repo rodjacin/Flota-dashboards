@@ -263,7 +263,16 @@ def _cargar(cities):
                 fc[(c, ts)] = (int(_num(r.get("max_couriers_pilot"))), _num(r.get("final_order_forecast")))
     if not fc:
         raise ValueError("el forecast no tiene datos de " + ", ".join(sorted(cities)))
-    fdates = sorted({k[1][:10] for k in fc})
+    hor, hor_fechas, hor_fuentes = _leer_horarios(cities)
+    # días = forecast ∪ horarios ∪ datos reales (así la pestaña sigue avanzando aunque falte forecast)
+    fdates = {k[1][:10] for k in fc}
+    for c, ds in hor_fechas.items():
+        if not cities or c in cities:
+            fdates |= set(ds)
+    for d in os.listdir(FLEET_DIR) if os.path.isdir(FLEET_DIR) else []:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d):
+            fdates.add(d)
+    fdates = sorted(fdates)
     wk = sorted({dt.date.fromisoformat(d).isocalendar()[:2] for d in fdates})[-MAX_WEEKS:]
     fdates = [d for d in fdates if dt.date.fromisoformat(d).isocalendar()[:2] in wk]
     # ciudad de cada rider (los shift_lv antiguos no traen city_code)
@@ -316,8 +325,7 @@ def _cargar(cities):
                     t = _p(r.get("order_created_local_at"))
                     if t:
                         orders[(c, _slot(t).strftime("%Y-%m-%d %H:%M"))].add(r.get("order_id"))
-    hor, hor_fechas, hor_fuentes = _leer_horarios(cities)
-    out_cities = sorted({k[0] for k in fc})
+    out_cities = sorted({k[0] for k in fc} | {c for c in hor_fechas if hor_fechas[c] and (not cities or c in cities)})
     out = {"cities": out_cities, "days": {}, "hor": {}, "horSrc": {c: hor_fuentes.get(c, {}) for c in out_cities}}
     last_real = None
     for c in out_cities:
@@ -332,7 +340,7 @@ def _cargar(cities):
                     rows.append([fR, hor.get(k, 0), round(fO, 1),
                                  round(cap.get(k, 0.0), 2) if has else None,
                                  len(orders.get(k, ())) if has else None])
-                    anyv = anyv or bool(fR or fO)
+                    anyv = anyv or bool(fR or fO or hor.get(k, 0))
             if d in hor_fechas.get(c, ()):
                 out["hor"].setdefault(c, []).append(d)
             if anyv or has:
