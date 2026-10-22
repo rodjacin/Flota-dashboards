@@ -103,10 +103,56 @@ def registrar(snap, pos, cuando=None):
     return n
 
 
+# ------------------------------- archivo privado de posiciones con pedido (3 días)
+ARCH_FILE = os.path.join(os.path.dirname(HIST_FILE), "archivo_pedidos.json")
+ARCH_HOURS = 72       # el bucket llega con ~1 día de retraso: se guardan 3 días para cruzar por pedido
+
+
+def archivar(snap, pos, cuando=None):
+    """Guarda en la caché PRIVADA las posiciones de los riders mientras llevan algún pedido activo:
+    {rider: [[t_iso_utc, lat, lng, loc_at, [ids activos]], ...]}. Nunca se publica: lo usa
+    pedido_trazas.py para sacar, por pedido, las paradas de cada tramo (cifradas)."""
+    t = cuando or _ts(snap.get("fetched_at")) or _now()
+    try:
+        A = json.load(open(ARCH_FILE, encoding="utf-8"))
+    except Exception:
+        A = {}
+    for code, C in (snap.get("cities") or {}).items():
+        for r in C.get("riders") or []:
+            rid = str(r.get("employee_id")); p = pos.get(rid)
+            if not p:
+                continue
+            d = r.get("deliveries_info") or {}
+            act = [str(x) for x in (d.get("active_delivery_ids") or [])]
+            if not (act or d.get("has_active_deliveries") or d.get("has_active_delivery")):
+                continue
+            o = [t.isoformat(), round(p["lat"], 6), round(p["lng"], 6), p.get("loc_at"), act]
+            lst = A.setdefault(rid, [])
+            if lst and lst[-1][0] == o[0]:
+                lst[-1] = o
+            elif len(lst) >= 2 and lst[-1][1:] == o[1:] and lst[-2][1:] == o[1:]:
+                lst[-1] = o
+            else:
+                lst.append(o)
+    lim = (_now() - dt.timedelta(hours=ARCH_HOURS)).isoformat()
+    for rid in list(A):
+        A[rid] = [o for o in A[rid] if o[0] >= lim]
+        if not A[rid]:
+            del A[rid]
+    os.makedirs(os.path.dirname(ARCH_FILE), exist_ok=True)
+    with open(ARCH_FILE + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(A, f, separators=(",", ":"))
+    os.replace(ARCH_FILE + ".tmp", ARCH_FILE)
+
+
 def muestrear(codigos=None):
     import en_vivo
     snap = en_vivo._descargar(codigos or CIUDADES)
     n = registrar(snap, en_vivo._POS)
+    try:
+        archivar(snap, en_vivo._POS)
+    except Exception as e:
+        print("archivo de posiciones con pedido: %s" % e)
     print("muestra %s: %d riders con posición · errores: %s" % (
         snap.get("fetched_at", "")[:16], n, "; ".join(snap.get("errors") or []) or "ninguno"))
     return n, snap

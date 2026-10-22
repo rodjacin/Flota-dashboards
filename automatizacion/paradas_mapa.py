@@ -32,6 +32,10 @@ _SECCION = r"""<section id="viewPpHeat" style="display:none">
 #viewPpHeat .pph-top td{padding:6px 8px;border-top:1px solid #EEF0F3}
 #viewPpHeat .pph-top tr.o{cursor:pointer}#viewPpHeat .pph-top tr.o:hover td{background:#F5F8FA}
 #viewPpHeat .pph-note{font-size:11.5px;color:#6B7280}
+#viewPpHeat .pq-box{background:#fff;border:1px solid #E4E7EC;border-radius:10px;padding:12px 14px}
+#viewPpHeat .pq-box input{border:1px solid #D4D9E1;border-radius:8px;padding:6px 9px;font:inherit;font-size:13px;width:190px}
+#viewPpHeat .pq-box button{border:0;border-radius:8px;padding:8px 14px;background:#0E5A6B;color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+#pqMap{height:420px;border:1px solid #E4E7EC;border-radius:10px}
 #viewPpHeat .pph-leg{display:inline-block;width:90px;height:9px;border-radius:4px;vertical-align:middle;background:linear-gradient(90deg,#FED976,#FD8D3C,#E31A1C,#800026)}
 @media(max-width:900px){#viewPpHeat .pph-body{grid-template-columns:1fr}#ppMap{height:60vh}}
 </style>
@@ -39,6 +43,19 @@ _SECCION = r"""<section id="viewPpHeat" style="display:none">
   <div>
     <h1 style="font-size:17px;margin:0">Paradas con pedido · mapa de calor</h1>
     <div class="pph-note" id="ppSub">Puntos donde los riders han estado parados 3 min o más con un pedido activo, fuera de un restaurante.</div>
+  </div>
+  <div class="pq-box">
+    <div class="pph-f">
+      <div><label>Buscar nº de pedido</label><input id="pqId" placeholder="p. ej. 101809942028" inputmode="numeric" autocomplete="off"></div>
+      <div><label>Contraseña</label><input id="pqPw" type="password" autocomplete="current-password"></div>
+      <div><button id="pqBtn" type="button">Ver trayecto</button></div>
+      <div class="pph-note" id="pqMsg" style="align-self:center"></div>
+    </div>
+    <div id="pqRes" style="display:none">
+      <div class="pph-k" id="pqKpi" style="margin:10px 0"></div>
+      <div class="pph-body"><div id="pqMap"></div><div class="pph-top" id="pqTab"></div></div>
+      <div class="pph-note" style="margin-top:6px"><b style="color:#E8833A">●</b> rider al que se le reasignó (aviso → reasignación) · <b style="color:#2F7DD1">●</b> hacia el restaurante (aviso → recogida) · <b style="color:#2E9E7B">●</b> hacia el cliente (recogida → entrega). Círculos = paradas de 3 min o más (tamaño según minutos); ▣ = restaurante. Posición de Live Operations cada minuto (Glovo la actualiza cada ~5 min). Datos de los últimos 3 días; cada pedido aparece cuando el bucket de Glovo lo trae (normalmente al día siguiente). No se muestra la ubicación del cliente.</div>
+    </div>
   </div>
   <div class="pph-f">
     <div><label>Área</label><select id="ppArea"></select></div>
@@ -127,6 +144,56 @@ _JS = r"""<script>
     if(!R.length){ $('ppKpi').innerHTML=''; $('ppTop').innerHTML='<div style="padding:14px;color:#6B7280">Aún no hay paradas registradas. El mapa se rellena con el muestreo de posiciones (cada minuto) y se publica cada ~10 min.</div>'; }
     pintar();
   }
+  // ---------- buscador por nº de pedido (datos cifrados en pedidos_trazas.json) ----------
+  let ENV=null, DEC=null, pqMap=null, pqLayer=null;
+  const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  async function descifrar(pw){
+    if(!ENV){ const r=await fetch(new URL('pedidos_trazas.json?t='+Date.now(),document.baseURI),{cache:'no-store'});
+      if(!r.ok) throw new Error('El buscador aún no está activo (falta la contraseña en GitHub o no hay datos).'); ENV=await r.json(); }
+    const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+    const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(ENV.salt),iterations:ENV.iter,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
+    let raw; try{ raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(ENV.iv)},key,b64(ENV.data)); }catch(e){ throw new Error('Contraseña incorrecta.'); }
+    const st=new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate'));
+    return JSON.parse(await new Response(st).text());
+  }
+  const TCOL={X:'#E8833A',R:'#2F7DD1',C:'#2E9E7B'}, TNOM={X:'Reasignado (aviso → reasignación)',R:'Hacia el restaurante',C:'Hacia el cliente'};
+  async function buscar(){
+    const id=$('pqId').value.trim().replace(/\D/g,''), pw=$('pqPw').value;
+    if(!id){ $('pqMsg').textContent='Escribe un nº de pedido.'; return; }
+    if(!DEC&&!pw){ $('pqMsg').textContent='Escribe la contraseña.'; return; }
+    $('pqMsg').textContent='Buscando…';
+    try{ if(!DEC){ DEC=await descifrar(pw); try{sessionStorage.setItem('pq_pw',pw);}catch(e){} } }
+    catch(e){ $('pqMsg').textContent=e.message; DEC=null; return; }
+    const o=DEC[id];
+    if(!o){ const d=(ENV.dias||[]); $('pqMsg').textContent='No hay traza para el pedido '+id+'. Hay '+(ENV.n||0)+' pedidos con traza'+(d.length?' ('+d.map(x=>x.slice(8,10)+'/'+x.slice(5,7)).join(', ')+')':'')+'; el bucket de Glovo suele traer cada día al día siguiente.'; $('pqRes').style.display='none'; return; }
+    $('pqMsg').textContent=''; $('pqRes').style.display='';
+    const T=o.tramos;
+    $('pqKpi').innerHTML='<div><b>'+id+'</b><span>'+o.tienda+' · '+o.area+' · '+(o.dia?o.dia.slice(8,10)+'/'+o.dia.slice(5,7):'')+'</span></div>'+
+      T.map(t=>'<div style="border-left:4px solid '+TCOL[t.tipo]+'"><b>'+nf(t.min,1)+' min</b><span>'+TNOM[t.tipo]+' · rider '+t.rider+' · '+t.t0+'–'+t.t1+' · '+t.par.filter(p=>!p[4]).length+' paradas'+(t.motivo?' · '+t.motivo:'')+'</span></div>').join('');
+    const fil=[]; T.forEach(t=>t.par.forEach(p=>fil.push([t.tipo,p])));
+    $('pqTab').innerHTML=fil.length?'<table><thead><tr><th>Tramo</th><th>Desde</th><th>Min</th><th>Dónde</th></tr></thead><tbody>'+
+      fil.map(([k,p],i)=>'<tr class="o" data-i="'+i+'"><td><b style="color:'+TCOL[k]+'">●</b> '+TNOM[k].split(' (')[0]+'</td><td>'+p[2]+'</td><td><b>'+nf(p[3],1)+'</b></td><td>'+(p[4]?'en el restaurante':'en ruta')+'</td></tr>').join('')+'</tbody></table>'
+      :'<div style="padding:14px;color:#6B7280">Sin paradas de 3 min o más en este pedido.</div>';
+    let L; try{ L=await leaflet(); }catch(e){ return; }
+    if(!pqMap){ pqMap=L.map('pqMap'); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles © Esri'}).addTo(pqMap); }
+    if(pqLayer) pqLayer.remove(); pqLayer=L.layerGroup().addTo(pqMap);
+    const all=[], mk=[];
+    T.forEach(t=>{ const ll=t.pts.map(p=>[p[1],p[2]]); all.push(...ll);
+      L.polyline(ll,{color:TCOL[t.tipo],weight:4,opacity:.8}).addTo(pqLayer);
+      t.pts.forEach(p=>L.circleMarker([p[1],p[2]],{radius:2.5,color:TCOL[t.tipo],weight:1,fillOpacity:1}).bindTooltip('+'+nf(p[0],1)+' min').addTo(pqLayer)); });
+    fil.forEach(([k,p],i)=>{ const r=6+Math.min(18,p[3]*1.2);
+      mk[i]=L.circleMarker([p[0],p[1]],{radius:r,stroke:true,color:'#fff',weight:1.5,fillColor:col(Math.min(1,p[3]/15)),fillOpacity:.8})
+        .bindPopup('<b>Parada de '+nf(p[3],1)+' min</b><br>'+TNOM[k]+'<br>Desde las '+p[2]+(p[4]?' · en el restaurante':'')).addTo(pqLayer); all.push([p[0],p[1]]); });
+    if(o.rest&&o.rest[0]!=null){ L.marker([o.rest[0],o.rest[1]],{icon:L.divIcon({className:'',html:'<div style="width:14px;height:14px;background:#14171F;border:2px solid #fff;border-radius:3px"></div>',iconSize:[14,14]})}).bindPopup(o.tienda).addTo(pqLayer); all.push(o.rest); }
+    setTimeout(()=>{ pqMap.invalidateSize(); if(all.length) pqMap.fitBounds(all,{padding:[30,30],maxZoom:17}); },50);
+    document.querySelectorAll('#pqTab tr.o').forEach(tr=>tr.onclick=()=>{ const m=mk[+tr.dataset.i]; if(m){ pqMap.flyTo(m.getLatLng(),17,{duration:.5}); setTimeout(()=>m.openPopup(),550);} });
+  }
+  try{ const pw=sessionStorage.getItem('pq_pw'); if(pw) $('pqPw').value=pw; }catch(e){}
+  $('pqBtn').addEventListener('click',buscar);
+  $('pqId').addEventListener('keydown',e=>{ if(e.key==='Enter') buscar(); });
+  $('pqPw').addEventListener('keydown',e=>{ if(e.key==='Enter'){ DEC=null; buscar(); } });
+  $('pqPw').addEventListener('input',()=>{ DEC=null; });
+
   [['ppArea','area'],['ppWeek','week'],['ppDay','day'],['ppHour','hour'],['ppTipo','tipo'],['ppMin','min']].forEach(([id,k])=>$(id).addEventListener('change',e=>{ st[k]=k==='min'?+e.target.value:e.target.value; pintar(); }));
   seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
     const on=b.dataset.v==='ppheat';
