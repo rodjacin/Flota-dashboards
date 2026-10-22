@@ -101,7 +101,7 @@ JS = r"""<script>
    '#rrBd{display:flex;flex-direction:column;min-height:0;flex:1}'+
    '#rrList{overflow:auto;flex:0 1 auto;max-height:40%;border-bottom:1px solid #333F4D}#rrMap{flex:1 1 auto;min-height:220px}'+
    '#rrList table{width:100%;border-collapse:collapse;font-size:12.5px}#rrList th{position:sticky;top:0;background:#1B232D;color:#98A3B3;text-align:left;padding:7px 8px;font-weight:600;white-space:nowrap}'+
-   '#rrList td{padding:5px 8px;border-top:1px solid #222B36;white-space:nowrap}#rrList td.st{max-width:280px;overflow:hidden;text-overflow:ellipsis}#rrList tr.o{cursor:pointer}#rrList tr.o:hover td{background:#1D2733}#rrList tr.sel td{background:#203040}'+
+   '#rrList td{padding:5px 8px;border-top:1px solid #222B36;white-space:nowrap}#rrList td .cut{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}#rrList td .cut.m{max-width:190px}#rrList tr.o{cursor:pointer}#rrList tr.o:hover td{background:#1D2733}#rrList tr.sel td{background:#203040}'+
    '.rrbar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:6px}'+
    '@media(max-width:760px){#rrList{max-height:45%}}';
   document.head.appendChild(css);
@@ -139,8 +139,8 @@ JS = r"""<script>
     const lim=LIM*60;
     document.getElementById('rrList').innerHTML=tot?'<table><thead><tr><th>Día</th><th>Pedido</th><th>Restaurante</th><th>Aviso</th><th>Reasig.</th><th title="Tiempo planeado por Glovo desde el aviso hasta la recogida en esa tienda (mediana de sus entregas, últimos 28 días)">Planeado</th><th title="Tiempo que tuvo el rider el pedido hasta que se le reasignó">Tardó</th><th>Dif.</th><th>Motivo</th></tr></thead><tbody>'+
       L0.map((o,i)=>{ const s=o[5], pl=o[11]; const ref=pl!=null?pl:lim; const w=s!=null?Math.min(60,Math.round(s/ref*30)):0; const c=s==null?'#555':(s>ref?'#E5624D':'#3FB984');
-        return '<tr class="o" data-i="'+i+'"><td>'+ddmm(o[0])+'</td><td style="font-family:ui-monospace,monospace">'+esc(o[1])+'</td><td class="st" title="'+esc(o[2])+'">'+esc(o[2])+'</td><td>'+esc(o[3]||'–')+'</td><td>'+esc(o[4]||'–')+'</td>'+
-          '<td>'+(pl!=null?mmss(pl):'–')+'</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:'+c+';font-weight:650">'+dif(s,pl)+'</td><td style="color:#98A3B3">'+esc(o[6])+' · <span style="font-size:11px">'+esc(o[7])+'</span></td></tr>'; }).join('')+'</tbody></table>'
+        return '<tr class="o" data-i="'+i+'"><td>'+ddmm(o[0])+'</td><td style="font-family:ui-monospace,monospace">'+esc(o[1])+'</td><td title="'+esc(o[2])+'"><span class="cut">'+esc(o[2])+'</span></td><td>'+esc(o[3]||'–')+'</td><td>'+esc(o[4]||'–')+'</td>'+
+          '<td>'+(pl!=null?mmss(pl):'–')+'</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:'+c+';font-weight:650">'+dif(s,pl)+'</td><td style="color:#98A3B3" title="'+esc(o[6])+' · '+esc(o[7])+'"><span class="cut m">'+esc(o[6])+'</span></td></tr>'; }).join('')+'</tbody></table>'
       :'<div style="padding:16px;color:#98A3B3">El bucket no trae pedidos reasignados de este rider en '+SEM+' (puede ir con un día de retraso respecto al RR %).</div>';
     ov.classList.add('on');
     let L; try{ L=await leaflet(); }catch(e){ document.getElementById('rrMap').innerHTML='<div style="padding:16px;color:#98A3B3">No se pudo cargar el mapa.</div>'; return; }
