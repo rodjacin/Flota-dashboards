@@ -100,7 +100,7 @@ JS = r"""<script>
    '#rrHd{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #333F4D}#rrHd b{flex:1}#rrHd button{all:unset;cursor:pointer;padding:2px 8px;border:1px solid #333F4D;border-radius:6px}'+
    '#rrBd{display:flex;flex-direction:column;min-height:0;flex:1}'+
    '#rrList{overflow:auto;flex:0 1 auto;max-height:40%;border-bottom:1px solid #333F4D}#rrMap{flex:1 1 auto;min-height:220px}'+
-   '#rrList table{width:100%;border-collapse:collapse;font-size:12.5px}#rrList th{position:sticky;top:0;background:#1B232D;color:#98A3B3;text-align:left;padding:7px 8px;font-weight:600;white-space:nowrap}'+
+   '#rrList table{width:100%;min-width:0;border-collapse:collapse;font-size:12.5px}#rrList th{position:sticky;top:0;background:#1B232D;color:#98A3B3;text-align:left;padding:7px 8px;font-weight:600;white-space:nowrap}'+
    '#rrList td{padding:5px 8px;border-top:1px solid #222B36;white-space:nowrap}#rrList td .cut{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}#rrList td .cut.m{max-width:190px}#rrList tr.o{cursor:pointer}#rrList tr.o:hover td{background:#1D2733}#rrList tr.sel td{background:#203040}'+
    '.rrbar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:6px}'+
    '@media(max-width:760px){#rrList{max-height:45%}}';
