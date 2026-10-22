@@ -50,6 +50,7 @@ echo "==== $(date '+%Y-%m-%d %H:%M:%S') INICIO ===="
 [ "${SALTAR_EXTRAER:-0}" = 1 ] && echo "(prueba: sin descarga del bucket)" || python3 extraer_datos_fleet.py
 python3 combinar_datos_fleet.py
 python3 generar_resumen_flota.py
+python3 pedido_trazas.py "$REPO" || echo "⚠ trazas por pedido no generadas"
 python3 pedidos_restaurantes.py "$DL/dashboards/pedidos_restaurantes.html" || echo "⚠ pedidos por restaurante no generado"
 
 # 4) copiar al sitio publicado (mismo sello que ponía el Mac)

@@ -57,6 +57,7 @@ jobs:
         env:
           GCP_JSON: ${{ secrets.GCP_JSON }}
           GLOVO_KEY: ${{ secrets.GLOVO_KEY }}
+          PEDIDOS_CLAVE: ${{ secrets.PEDIDOS_CLAVE }}   # contraseña del buscador por pedido (pedidos_trazas.json cifrado)
         run: bash automatizacion/ejecutar.sh
 
       - name: Publicar si hay datos nuevos
