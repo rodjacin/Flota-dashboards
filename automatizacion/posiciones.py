@@ -127,6 +127,84 @@ def retrasos(snap, cities):
     return sorted(out, key=lambda x: (x[2] or "", x[0]))
 
 
+# ------------------------------------- mapa de calor de paradas con pedido (agregado)
+HEAT_PP = "pp_heat.json"        # publicado: SOLO agregados por celda (sin rider ni hora exacta)
+HEAT_PRIV = os.path.join(os.path.dirname(HIST_FILE), "pp_heat_eps.json")  # privado: paradas con posición
+HEAT_CELDA = 0.002              # tamaño de celda en grados (~200 m)
+HEAT_DIAS = 60                  # días que se conservan
+
+
+def _celda(v):
+    return round(round(v / HEAT_CELDA) * HEAT_CELDA, 4)
+
+
+def guardar_heat_pp(path, paradas, cs, hist=None, pp_path=None):
+    """Mapa de calor de las paradas con pedido activo (>= PP_MIN_GUARDAR min, fuera de un restaurante).
+    Privado (caché de Actions, nunca en el repo): HEAT_PRIV con cada parada y su posición.
+    Publicado: <dashboard>/pp_heat.json con filas agregadas
+        [día, hora, área, lat_celda, lon_celda, tipo, tramo_min, n_paradas, min_total]
+    tipo: 'S' siguió con el pedido (parada en el trayecto), 'E' terminó en entrega (puerta del
+    cliente), 'N' aún sin saber; tramo_min: 3 (3-5), 5 (5-10), 10 (>=10)."""
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Europe/Madrid")
+    R = ((hist if hist is not None else cargar()).get("riders") or {})
+    try:
+        priv = json.load(open(HEAT_PRIV, encoding="utf-8"))
+    except Exception:
+        priv = {}
+    for rid, p in (paradas or {}).items():
+        if p.get("estado") != "parado" or not p.get("conf") or p.get("gps_viejo"):
+            continue
+        if (p.get("min") or 0) < PP_MIN_GUARDAR:
+            continue
+        obs = R.get(str(rid)) or []
+        if not obs or (cs and obs[-1][6] not in cs):
+            continue
+        d0, d1 = _min_epoch(p.get("desde")), _min_epoch(p.get("t"))
+        if d0 is None or d1 is None:
+            continue
+        k = "%s|%s" % (rid, d0)
+        e = priv.get(k)
+        if e is None or d1 >= e[3]:
+            priv[k] = [obs[-1][6], obs[-1][1], obs[-1][2], d1, p.get("min"), (e or [None] * 6)[5]]
+    # tipo de fin: el mismo que calcula guardar_historico_pp (wtd_pp_hist.json), por rider + desde
+    try:
+        fins = {"%s|%s" % (f[0], f[2]): f[5] for f in json.load(open(pp_path, encoding="utf-8")).get("eps", [])} if pp_path else {}
+    except Exception:
+        fins = {}
+    ahora = int(_now().timestamp() // 60)
+    lim = ahora - HEAT_DIAS * 1440
+    for k in list(priv):
+        d0 = int(k.split("|")[1])
+        if d0 < lim:
+            del priv[k]; continue
+        if priv[k][5] is None and fins.get(k):
+            priv[k][5] = fins[k]
+    os.makedirs(os.path.dirname(HEAT_PRIV), exist_ok=True)
+    with open(HEAT_PRIV + ".tmp", "w", encoding="utf-8") as fh:
+        json.dump(priv, fh, separators=(",", ":"))
+    os.replace(HEAT_PRIV + ".tmp", HEAT_PRIV)
+    # agregado publicado
+    agg = {}
+    for k, (area, lat, lon, d1, mins, fin) in priv.items():
+        if cs and area not in cs:
+            continue
+        d0 = int(k.split("|")[1])
+        t = dt.datetime.fromtimestamp(d0 * 60, tz)
+        m = int(mins or 0)
+        tramo = 10 if m >= 10 else (5 if m >= 5 else 3)
+        key = (t.date().isoformat(), t.hour, area, _celda(lat), _celda(lon), fin or "N", tramo)
+        a = agg.setdefault(key, [0, 0])
+        a[0] += 1; a[1] += m
+    filas = [list(k) + v for k, v in sorted(agg.items())]
+    out = {"v": 1, "updated_at": _now().isoformat(), "celda": HEAT_CELDA,
+           "cols": ["dia", "hora", "area", "lat", "lon", "tipo", "tramo", "n", "min"], "rows": filas}
+    with open(path + ".tmp", "w", encoding="utf-8") as fh:
+        json.dump(out, fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(path + ".tmp", path)
+    return len(filas), sum(r[7] for r in filas)
+
+
 def exportar(repo, snap):
     """Escribe <repo>/<dashboard>/wtd_vivo.json con las paradas (solo minutos, sin coordenadas)."""
     nombres = {}
@@ -173,6 +251,11 @@ def exportar(repo, snap):
                 print("%s/%s: %d paradas con pedido acumuladas · %d terminadas recientes" % (carpeta, HIST_PP, n, len(recientes)))
             except Exception as e:
                 print("histórico paradas con pedido (%s): %s" % (carpeta, e))
+            try:
+                nc, ne = guardar_heat_pp(os.path.join(d, HEAT_PP), paradas, cs, pp_path=os.path.join(d, HIST_PP))
+                print("%s/%s: %d celdas · %d paradas con pedido" % (carpeta, HEAT_PP, nc, ne))
+            except Exception as e:
+                print("mapa de calor de paradas (%s): %s" % (carpeta, e))
 
 
 # ------------------------------------------------------------- restaurantes
