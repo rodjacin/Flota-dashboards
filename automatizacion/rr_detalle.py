@@ -23,6 +23,30 @@ def _hhmm(s):
     return s[11:16] if len(s) >= 16 else ""
 
 
+def _eta_por_tienda(H):
+    """Mediana (s) del tiempo planeado por Glovo hasta la recogida en cada tienda:
+    estimated_pickup_arrival_local_at − rider_notified_local_at de sus entregas (últimos 28 días)."""
+    import pandas as pd
+    dl = H.leer(pd, "delivery_lv.csv", cols=["vendor_location", "rider_notified_local_at",
+                                             "estimated_pickup_arrival_local_at"])
+    if dl.empty or "estimated_pickup_arrival_local_at" not in dl.columns or "rider_notified_local_at" not in dl.columns:
+        return {}
+    a = pd.to_datetime(dl["rider_notified_local_at"].str.slice(0, 19), errors="coerce")
+    m = a >= a.max() - pd.Timedelta(days=28)
+    dl, a = dl[m].copy(), a[m]
+    b = pd.to_datetime(dl["estimated_pickup_arrival_local_at"].str.slice(0, 19), errors="coerce")
+    dl["eta"] = (b - a).dt.total_seconds()
+    dl = dl[(dl["eta"] > 0) & (dl["eta"] < 3600)]
+    out = {}
+    # por restaurante concreto (su ubicación): el nombre se repite en cadenas (McDonald's, DIA…)
+    if "vendor_location" in dl.columns:
+        k = dl["vendor_location"].map(lambda v: "%s,%s" % H.punto(v))
+        for key, g in dl.groupby(k)["eta"]:
+            if key != "None,None":
+                out[key] = (int(round(g.median())), int(len(g)))
+    return out
+
+
 def construir_datos(cities, semana_label):
     """{rider: [[fecha, order_id, restaurante, aviso, reasignado, segundos, motivo, quien, lat, lon], ...]}"""
     import heatmaps_reasignaciones as H
@@ -30,6 +54,10 @@ def construir_datos(cities, semana_label):
     ls_ = H._CACHE.get("loc_store", {})
     df = re_df[re_df["_city"].isin(set(cities))]
     df = df[df["_wkey"].map(lambda k: "W" + str(k[1])) == semana_label]
+    try:
+        eta = _eta_por_tienda(H)
+    except Exception:
+        eta = {}
     out = {}
     for g in df.sort_values("_ts").to_dict("records"):
         did = str(g.get("delivery_id", "")); store = str(g.get("store_name", ""))
@@ -52,7 +80,7 @@ def construir_datos(cities, semana_label):
             H.PERF_INFO.get(perf, (perf or "(sin dato)", ""))[0],
             reason == "PickupIdleOrder",
             lat, lon,
-        ])
+        ] + list(eta.get("%s,%s" % (lat, lon)) or (None, 0)))
     return out
 
 
@@ -60,13 +88,14 @@ JS = r"""<script>
 /* ==== Delivery Race · detalle de RR % (pedidos reasignados de la semana en curso) ==== */
 (function(){
   const RRD=__RRDET__, SEM='__SEM__', LIM=__LIM__;
+  /* fila: [fecha, pedido, tienda, aviso, reasignado, s_tardó, motivo, quién, auto, lat, lon, s_planeado, n_entregas] */
   const MET=new Set(['reassign','notSeen','ignored','decline','redispatch','cnm','agent']);
   const body=document.getElementById('ligaBody'), sel=document.getElementById('ligaMetricSel');
   if(!body||!sel) return;
   const css=document.createElement('style');
   css.textContent='td.trendwk.rrclick{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}'+
    'td.trendwk.rrclick:hover{outline:1px solid #4FD1B4}'+
-   '#rrOv{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:none;align-items:center;justify-content:center}'+
+   '#rrOv{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2147483000;display:none;align-items:center;justify-content:center}'+
    '#rrOv.on{display:flex}#rrBox{background:#161C24;color:#E9ECF1;border:1px solid #333F4D;border-radius:12px;width:min(1100px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}'+
    '#rrHd{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #333F4D}#rrHd b{flex:1}#rrHd button{all:unset;cursor:pointer;padding:2px 8px;border:1px solid #333F4D;border-radius:6px}'+
    '#rrBd{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0;min-height:0;flex:1}'+
@@ -79,7 +108,7 @@ JS = r"""<script>
   const ov=document.createElement('div'); ov.id='rrOv';
   ov.innerHTML='<div id="rrBox"><div id="rrHd"><b id="rrT"></b><span id="rrS" style="color:#98A3B3;font-size:12px"></span><button id="rrX">Cerrar</button></div>'+
     '<div id="rrBd"><div id="rrList"></div><div id="rrMap"></div></div>'+
-    '<div style="padding:8px 16px;color:#98A3B3;font-size:11.5px;border-top:1px solid #333F4D">Fuente: reassignment_lv del bucket GCP de Glovo. «Máx. recogida» = '+LIM+' min, tiempo a partir del cual el sistema reasigna solo un pedido parado en recogida. El bucket no trae la posición ni la hora estimada del rider al que se le reasignó: en el mapa solo se marca el restaurante.</div></div>';
+    '<div style="padding:8px 16px;color:#98A3B3;font-size:11.5px;border-top:1px solid #333F4D">Fuente: reassignment_lv del bucket GCP de Glovo. «Tardó» = tiempo que tuvo el rider el pedido hasta la reasignación. «Planeado» = tiempo estimado por Glovo desde el aviso hasta la recogida en esa tienda (mediana de sus entregas de los últimos 28 días): el bucket no trae la estimación ni la posición del rider al que se le reasignó, por eso se usa la de la tienda y en el mapa solo se marca el restaurante. El sistema reasigna solo a los '+LIM+' min un pedido parado en recogida.</div></div>';
   document.body.appendChild(ov);
   ov.addEventListener('click',e=>{ if(e.target===ov||e.target.id==='rrX') ov.classList.remove('on'); });
   const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -93,13 +122,14 @@ JS = r"""<script>
       const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
       s.onload=()=>ok(window.L); s.onerror=ko; document.head.appendChild(s); }); return Lp; }
 
-  function popup(o){ const [f,oid,st,av,re,secs,mot,quien,auto]=o; const lim=LIM*60;
-    const pct=secs!=null?Math.min(100,Math.round(secs/lim*100)):0;
+  const dif=(r,p)=>(r==null||p==null)?'–':((r>=p?'+':'−')+mmss(Math.abs(r-p)));
+  function popup(o){ const [f,oid,st,av,re,secs,mot,quien,auto,la,lo,plan,np]=o;
     return '<b>'+esc(st)+'</b><br>Pedido <b>'+esc(oid)+'</b> · '+ddmm(f)+'<br>'+
       'Aviso '+esc(av||'–')+' → reasignado '+esc(re||'–')+'<br>'+
-      'Real hasta reasignar: <b>'+mmss(secs)+' min</b><br>'+
-      'Máx. recogida (sistema): <b>'+LIM+':00 min</b>'+(secs!=null?' ('+(secs>=lim?'+':'')+mmss(Math.abs(secs-lim))+(secs>=lim?' por encima':' por debajo')+')':'')+'<br>'+
-      '<span style="color:#666">'+esc(mot)+' · '+esc(quien)+'</span>'; }
+      'Tardó el rider (hasta reasignar): <b>'+mmss(secs)+' min</b><br>'+
+      'Planeado por Glovo hasta recogida: <b>'+(plan!=null?mmss(plan)+' min':'sin dato')+'</b>'+(plan!=null?' <span style="color:#666">(mediana de '+np+' entregas en la tienda)</span>':'')+'<br>'+
+      'Diferencia: <b style="color:'+((secs!=null&&plan!=null&&secs>plan)?'#C0392B':'#1E7D3A')+'">'+dif(secs,plan)+' min</b><br>'+
+      '<span style="color:#666">'+esc(mot)+' · '+esc(quien)+' · el sistema reasigna solo a los '+LIM+' min</span>'; }
 
   async function abrir(rid){
     const L0=RRD[rid]||[];
@@ -107,18 +137,18 @@ JS = r"""<script>
     const tot=L0.length, med=tot?L0.reduce((a,o)=>a+(o[5]||0),0)/tot:0;
     document.getElementById('rrS').textContent=tot+' pedidos · media '+mmss(Math.round(med))+' min hasta reasignar';
     const lim=LIM*60;
-    document.getElementById('rrList').innerHTML=tot?'<table><thead><tr><th>Día</th><th>Pedido</th><th>Restaurante</th><th>Aviso</th><th>Reasig.</th><th title="Tiempo máximo de recogida del sistema">Máx. recogida</th><th>Real</th><th>Motivo</th></tr></thead><tbody>'+
-      L0.map((o,i)=>{ const s=o[5]; const w=s!=null?Math.min(60,Math.round(s/lim*40)):0; const c=s==null?'#555':(s>=lim?'#E5624D':'#3FB984');
+    document.getElementById('rrList').innerHTML=tot?'<table><thead><tr><th>Día</th><th>Pedido</th><th>Restaurante</th><th>Aviso</th><th>Reasig.</th><th title="Tiempo planeado por Glovo desde el aviso hasta la recogida en esa tienda (mediana de sus entregas, últimos 28 días)">Planeado</th><th title="Tiempo que tuvo el rider el pedido hasta que se le reasignó">Tardó</th><th>Dif.</th><th>Motivo</th></tr></thead><tbody>'+
+      L0.map((o,i)=>{ const s=o[5], pl=o[11]; const ref=pl!=null?pl:lim; const w=s!=null?Math.min(60,Math.round(s/ref*30)):0; const c=s==null?'#555':(s>ref?'#E5624D':'#3FB984');
         return '<tr class="o" data-i="'+i+'"><td>'+ddmm(o[0])+'</td><td style="font-family:ui-monospace,monospace">'+esc(o[1])+'</td><td>'+esc(o[2])+'</td><td>'+esc(o[3]||'–')+'</td><td>'+esc(o[4]||'–')+'</td>'+
-          '<td>'+LIM+':00</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:#98A3B3">'+esc(o[6])+'<br><span style="font-size:11px">'+esc(o[7])+'</span></td></tr>'; }).join('')+'</tbody></table>'
+          '<td>'+(pl!=null?mmss(pl):'–')+'</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:'+c+';font-weight:650">'+dif(s,pl)+'</td><td style="color:#98A3B3">'+esc(o[6])+'<br><span style="font-size:11px">'+esc(o[7])+'</span></td></tr>'; }).join('')+'</tbody></table>'
       :'<div style="padding:16px;color:#98A3B3">El bucket no trae pedidos reasignados de este rider en '+SEM+' (puede ir con un día de retraso respecto al RR %).</div>';
     ov.classList.add('on');
     let L; try{ L=await leaflet(); }catch(e){ document.getElementById('rrMap').innerHTML='<div style="padding:16px;color:#98A3B3">No se pudo cargar el mapa.</div>'; return; }
-    if(!map){ map=L.map('rrMap',{zoomControl:true}); L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© OpenStreetMap · © CARTO'}).addTo(map); }
+    if(!map){ map=L.map('rrMap',{zoomControl:true}); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles © Esri'}).addTo(map); }
     if(layer) layer.remove(); layer=L.layerGroup().addTo(map);
     const mk=[]; const pts=[];
     L0.forEach((o,i)=>{ const lat=o[9],lon=o[10]; if(lat==null||lon==null){ mk[i]=null; return; }
-      const s=o[5], c=s==null?'#888':(s>=lim?'#E5624D':'#3FB984');
+      const s=o[5], ref=o[11]!=null?o[11]:lim, c=s==null?'#888':(s>ref?'#E5624D':'#3FB984');
       const m=L.circleMarker([lat,lon],{radius:8,color:'#fff',weight:1.5,fillColor:c,fillOpacity:.9}).bindPopup(popup(o)).addTo(layer);
       m.on('click',()=>marcar(i)); mk[i]=m; pts.push([lat,lon]); });
     setTimeout(()=>{ map.invalidateSize(); if(pts.length) map.fitBounds(pts,{padding:[30,30],maxZoom:15}); else map.setView([40.2,-3.7],6); },60);
