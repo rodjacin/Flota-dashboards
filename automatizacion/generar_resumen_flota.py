@@ -42,6 +42,13 @@ try:
 except Exception:
     _apply_perf = None
 
+# --- Detalle de RR % en Delivery Race (pedidos reasignados + mapa): usa rr_detalle.py ---
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import rr_detalle as _rrdet
+except Exception:
+    _rrdet = None
+
 # --- Pestaña "Mapas de calor" (reasignaciones del bucket GCP): usa heatmaps_reasignaciones.py ---
 try:
     import heatmaps_reasignaciones as _heat
@@ -342,6 +349,12 @@ def main():
                 print("  + pestaña Mapas de calor: " + heat_res)
             except Exception as _e:
                 print("  (aviso) sin pestaña Mapas de calor: " + str(_e))
+        if _rrdet and _heat:
+            try:
+                tpl, rr_res = _rrdet.integrar(tpl, cities, cur_label)
+                print("  + Delivery Race · detalle de RR %: " + rr_res)
+            except Exception as _e:
+                print("  (aviso) sin detalle de RR % en Delivery Race: " + str(_e))
         if _utr:
             try:
                 utr_html, utr_res = _utr.construir_html(cities, WEEKS_TO_SHOW, sello=False)
