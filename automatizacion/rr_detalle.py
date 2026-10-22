@@ -96,14 +96,14 @@ JS = r"""<script>
   css.textContent='td.trendwk.rrclick{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}'+
    'td.trendwk.rrclick:hover{outline:1px solid #4FD1B4}'+
    '#rrOv{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2147483000;display:none;align-items:center;justify-content:center}'+
-   '#rrOv.on{display:flex}#rrBox{background:#161C24;color:#E9ECF1;border:1px solid #333F4D;border-radius:12px;width:min(1100px,96vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}'+
+   '#rrOv.on{display:flex}#rrBox{background:#161C24;color:#E9ECF1;border:1px solid #333F4D;border-radius:12px;width:min(1100px,96vw);height:94vh;max-height:94vh;display:flex;flex-direction:column;overflow:hidden}'+
    '#rrHd{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid #333F4D}#rrHd b{flex:1}#rrHd button{all:unset;cursor:pointer;padding:2px 8px;border:1px solid #333F4D;border-radius:6px}'+
-   '#rrBd{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0;min-height:0;flex:1}'+
-   '#rrList{overflow:auto;max-height:76vh}#rrMap{min-height:440px;height:100%}'+
+   '#rrBd{display:flex;flex-direction:column;min-height:0;flex:1}'+
+   '#rrList{overflow:auto;flex:0 1 auto;max-height:40%;border-bottom:1px solid #333F4D}#rrMap{flex:1 1 auto;min-height:220px}'+
    '#rrList table{width:100%;border-collapse:collapse;font-size:12.5px}#rrList th{position:sticky;top:0;background:#1B232D;color:#98A3B3;text-align:left;padding:7px 8px;font-weight:600;white-space:nowrap}'+
-   '#rrList td{padding:6px 8px;border-top:1px solid #222B36;white-space:nowrap}#rrList tr.o{cursor:pointer}#rrList tr.o:hover td{background:#1D2733}#rrList tr.sel td{background:#203040}'+
+   '#rrList td{padding:5px 8px;border-top:1px solid #222B36;white-space:nowrap}#rrList td.st{max-width:280px;overflow:hidden;text-overflow:ellipsis}#rrList tr.o{cursor:pointer}#rrList tr.o:hover td{background:#1D2733}#rrList tr.sel td{background:#203040}'+
    '.rrbar{display:inline-block;height:6px;border-radius:3px;vertical-align:middle;margin-left:6px}'+
-   '@media(max-width:760px){#rrBd{grid-template-columns:1fr}#rrMap{min-height:300px}}';
+   '@media(max-width:760px){#rrList{max-height:45%}}';
   document.head.appendChild(css);
   const ov=document.createElement('div'); ov.id='rrOv';
   ov.innerHTML='<div id="rrBox"><div id="rrHd"><b id="rrT"></b><span id="rrS" style="color:#98A3B3;font-size:12px"></span><button id="rrX">Cerrar</button></div>'+
@@ -139,8 +139,8 @@ JS = r"""<script>
     const lim=LIM*60;
     document.getElementById('rrList').innerHTML=tot?'<table><thead><tr><th>Día</th><th>Pedido</th><th>Restaurante</th><th>Aviso</th><th>Reasig.</th><th title="Tiempo planeado por Glovo desde el aviso hasta la recogida en esa tienda (mediana de sus entregas, últimos 28 días)">Planeado</th><th title="Tiempo que tuvo el rider el pedido hasta que se le reasignó">Tardó</th><th>Dif.</th><th>Motivo</th></tr></thead><tbody>'+
       L0.map((o,i)=>{ const s=o[5], pl=o[11]; const ref=pl!=null?pl:lim; const w=s!=null?Math.min(60,Math.round(s/ref*30)):0; const c=s==null?'#555':(s>ref?'#E5624D':'#3FB984');
-        return '<tr class="o" data-i="'+i+'"><td>'+ddmm(o[0])+'</td><td style="font-family:ui-monospace,monospace">'+esc(o[1])+'</td><td>'+esc(o[2])+'</td><td>'+esc(o[3]||'–')+'</td><td>'+esc(o[4]||'–')+'</td>'+
-          '<td>'+(pl!=null?mmss(pl):'–')+'</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:'+c+';font-weight:650">'+dif(s,pl)+'</td><td style="color:#98A3B3">'+esc(o[6])+'<br><span style="font-size:11px">'+esc(o[7])+'</span></td></tr>'; }).join('')+'</tbody></table>'
+        return '<tr class="o" data-i="'+i+'"><td>'+ddmm(o[0])+'</td><td style="font-family:ui-monospace,monospace">'+esc(o[1])+'</td><td class="st" title="'+esc(o[2])+'">'+esc(o[2])+'</td><td>'+esc(o[3]||'–')+'</td><td>'+esc(o[4]||'–')+'</td>'+
+          '<td>'+(pl!=null?mmss(pl):'–')+'</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:'+c+';font-weight:650">'+dif(s,pl)+'</td><td style="color:#98A3B3">'+esc(o[6])+' · <span style="font-size:11px">'+esc(o[7])+'</span></td></tr>'; }).join('')+'</tbody></table>'
       :'<div style="padding:16px;color:#98A3B3">El bucket no trae pedidos reasignados de este rider en '+SEM+' (puede ir con un día de retraso respecto al RR %).</div>';
     ov.classList.add('on');
     let L; try{ L=await leaflet(); }catch(e){ document.getElementById('rrMap').innerHTML='<div style="padding:16px;color:#98A3B3">No se pudo cargar el mapa.</div>'; return; }
