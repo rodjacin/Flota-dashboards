@@ -49,6 +49,12 @@ try:
 except Exception:
     _rrdet = None
 
+# --- Pestaña "Paradas con pedido" (mapa de calor agregado del muestreo de posiciones) ---
+try:
+    import paradas_mapa as _ppmap
+except Exception:
+    _ppmap = None
+
 # --- Pestaña "Mapas de calor" (reasignaciones del bucket GCP): usa heatmaps_reasignaciones.py ---
 try:
     import heatmaps_reasignaciones as _heat
@@ -349,6 +355,12 @@ def main():
                 print("  + pestaña Mapas de calor: " + heat_res)
             except Exception as _e:
                 print("  (aviso) sin pestaña Mapas de calor: " + str(_e))
+        if _ppmap:
+            try:
+                tpl, pp_res = _ppmap.integrar_en_dashboard(tpl)
+                print("  + pestaña Paradas con pedido: " + pp_res)
+            except Exception as _e:
+                print("  (aviso) sin pestaña Paradas con pedido: " + str(_e))
         if _rrdet and _heat:
             try:
                 tpl, rr_res = _rrdet.integrar(tpl, cities, cur_label)
