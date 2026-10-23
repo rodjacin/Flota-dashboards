@@ -29,6 +29,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import heatmaps_reasignaciones as H        # leer() / punto() del bucket ya descargado
 import posiciones as P                      # ARCH_FILE, _dist, MOVE_M, REST_M
 
+DIAG = {}   # contadores agregados (sin datos personales) para saber dónde se pierden los tramos
+
 DASHBOARDS = {"gra-mad-nom-alc": ["ALC", "GRA", "MAD", "NOM"], "sab": ["SAB"]}
 PARADA_MIN = 3          # minutos para contar una parada
 MARGEN_MIN = 2          # margen alrededor del tramo para coger muestras
@@ -130,15 +132,28 @@ def construir(cities, A, tz):
         re_ = re_[re_["city_code"].map(lambda c: H.NODE_ALIASES.get(c, c)).isin(set(cities))]
         t = pd.to_datetime(re_["notified_at_local"].str.slice(0, 19), errors="coerce")
         re_ = re_[t >= lim]
+        D = DIAG.setdefault(",".join(cities), {"reasig": 0, "rider_en_archivo": 0, "sin_horas": 0, "muestras_0": 0,
+                                                "muestras_1": 0, "con_tramo": 0, "muestras_30min": 0})
         for g in re_.to_dict("records"):
             oid, rid = str(g.get("order_id", "")).strip(), str(g.get("rider_id", "")).strip()
+            D["reasig"] += 1
             if not oid or rid not in A:
                 continue
+            D["rider_en_archivo"] += 1
             o = out.get(oid)
             rest = tuple(o["rest"]) if o else (None, None)
-            x = _tramo(A, rid, _local(g.get("notified_at_local"), tz), _local(g.get("reassigned_at_local"), tz), "X", rest, tz)
+            ta, tb = _local(g.get("notified_at_local"), tz), _local(g.get("reassigned_at_local"), tz)
+            if not ta or not tb or tb <= ta:
+                D["sin_horas"] += 1; continue
+            nm = len(_muestras(A, rid, ta, tb))
+            if nm < 2:
+                D["muestras_%d" % min(nm, 1)] += 1
+                if _muestras(A, rid, ta - dt.timedelta(minutes=30), tb + dt.timedelta(minutes=30)):
+                    D["muestras_30min"] += 1
+            x = _tramo(A, rid, ta, tb, "X", rest, tz)
             if not x:
                 continue
+            D["con_tramo"] += 1
             x["motivo"] = H._info(str(g.get("reassignment_reason", "")))["es"]
             if o is None:
                 t_av = _local(g.get("notified_at_local"), tz)
@@ -178,7 +193,10 @@ def main(repo):
         datos = construir(cs, A, tz) if A else {}
         env = cifrar(datos, clave)
         dias = sorted({o["dia"] for o in datos.values() if o.get("dia")})
-        env.update({"n": len(datos), "dias": dias, "updated_at": P._now().isoformat()})
+        env.update({"n": len(datos), "dias": dias, "updated_at": P._now().isoformat(),
+                    "diag": DIAG.get(",".join(cs), {}),
+                    "tramos": {k: sum(1 for o in datos.values() for t in o["tramos"] if t["tipo"] == k) for k in "XRC"},
+                    "archivo_riders": len(A)})
         with open(os.path.join(d, "pedidos_trazas.json"), "w", encoding="utf-8") as f:
             json.dump(env, f, separators=(",", ":"))
         print("%s/pedidos_trazas.json: %d pedidos con traza (%s)" % (carpeta, len(datos), ", ".join(dias) or "sin días"))
