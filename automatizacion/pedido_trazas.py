@@ -196,7 +196,10 @@ def main(repo):
         env.update({"n": len(datos), "dias": dias, "updated_at": P._now().isoformat(),
                     "diag": DIAG.get(",".join(cs), {}),
                     "tramos": {k: sum(1 for o in datos.values() for t in o["tramos"] if t["tipo"] == k) for k in "XRC"},
-                    "archivo_riders": len(A)})
+                    "archivo_riders": len(A),
+                    # nº de pedido con recorrido del rider reasignado (sin posiciones ni rider): la ventana de
+                    # Delivery Race lo usa para avisar de qué pedidos tienen traza antes de pedir la contraseña
+                    "con_x": sorted(k for k, o in datos.items() if any(t["tipo"] == "X" for t in o["tramos"]))})
         with open(os.path.join(d, "pedidos_trazas.json"), "w", encoding="utf-8") as f:
             json.dump(env, f, separators=(",", ":"))
         print("%s/pedidos_trazas.json: %d pedidos con traza (%s)" % (carpeta, len(datos), ", ".join(dias) or "sin días"))
