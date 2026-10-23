@@ -125,6 +125,7 @@ JS = r"""<script>
   // ---- trazas por pedido (pedidos_trazas.json cifrado; misma contraseña que el buscador de Paradas con pedido)
   let TENV=null, TDEC=null;
   const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  async function cargarEnv(){ if(TENV) return TENV; try{ const r=await fetch(new URL('pedidos_trazas.json?t='+Date.now(),document.baseURI),{cache:'no-store'}); if(r.ok) TENV=await r.json(); }catch(e){} return TENV; }
   async function trazas(pw){
     if(TDEC) return TDEC;
     if(!TENV){ const r=await fetch(new URL('pedidos_trazas.json?t='+Date.now(),document.baseURI),{cache:'no-store'}); if(!r.ok) throw new Error('sin fichero de trazas'); TENV=await r.json(); }
@@ -163,17 +164,19 @@ JS = r"""<script>
     const L0=(RRD[rid]||[]).filter(o=>!cnm||o[8]||/no avanza/i.test(o[6]||''));
     document.getElementById('rrT').textContent='Rider '+rid+' · '+(cnm?'pedidos CNM (no avanza / parado en recogida) ':'pedidos reasignados ')+SEM;
     let pw=''; try{ pw=sessionStorage.getItem('pq_pw')||''; }catch(e){}
+    await cargarEnv();
     if(!TDEC&&pw){ try{ await trazas(pw); }catch(e){} }
+    const CX=new Set((TENV&&TENV.con_x)||[]);
     document.getElementById('rrPwBox').style.display=TDEC?'none':'';
-    const conTr=L0.filter(o=>tramoDe(o,rid)).length;
-    document.getElementById('rrTz').innerHTML=TDEC?'<span style="color:#4FD1B4">'+conTr+' de '+L0.length+' con traza</span>':'';
+    const conTr=TDEC?L0.filter(o=>tramoDe(o,rid)).length:L0.filter(o=>CX.has(String(o[1]))).length;
+    document.getElementById('rrTz').innerHTML='<span style="color:#4FD1B4">📍 '+conTr+' de '+L0.length+' con traza'+(TDEC?'':' · pon la contraseña para verla')+'</span>';
     const tot=L0.length, med=tot?L0.reduce((a,o)=>a+(o[5]||0),0)/tot:0;
     document.getElementById('rrS').textContent=tot+' pedidos · media '+mmss(Math.round(med))+' min hasta reasignar';
     const lim=LIM*60;
     document.getElementById('rrList').innerHTML=tot?'<table><thead><tr><th>Día</th><th>Pedido</th><th>Restaurante</th><th>Aviso</th><th>Reasig.</th><th title="Tiempo planeado por Glovo desde el aviso hasta la recogida en esa tienda (mediana de sus entregas, últimos 28 días)">Planeado</th><th title="Tiempo que tuvo el rider el pedido hasta que se le reasignó">Tardó</th><th>Dif.</th><th title="Paradas de 3 min o más del rider entre el aviso y la reasignación, a más de 100 m del restaurante">Paradas</th><th title="Hora en que el rider se aleja más de 80 m de donde estaba al recibir el aviso (minutos desde el aviso). Glovo actualiza la ubicación cada ~5 min">Empieza a moverse</th><th>Motivo</th></tr></thead><tbody>'+
       L0.map((o,i)=>{ const s=o[5], pl=o[11]; const ref=pl!=null?pl:lim; const w=s!=null?Math.min(60,Math.round(s/ref*30)):0; const c=s==null?'#555':(s>ref?'#E5624D':'#3FB984');
         return '<tr class="o" data-i="'+i+'"><td>'+ddmm(o[0])+'</td><td style="font-family:ui-monospace,monospace">'+esc(o[1])+'</td><td title="'+esc(o[2])+'"><span class="cut">'+esc(o[2])+'</span></td><td>'+esc(o[3]||'–')+'</td><td>'+esc(o[4]||'–')+'</td>'+
-          '<td>'+(pl!=null?mmss(pl):'–')+'</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:'+c+';font-weight:650">'+dif(s,pl)+'</td>'+(()=>{ const tr=tramoDe(o,rid); if(!TDEC) return '<td style="color:#555" title="Pon la contraseña arriba">🔒</td><td style="color:#555">🔒</td>'; if(!tr) return '<td style="color:#555" title="Sin traza (pedido anterior al 22/10 16:50 o sin posiciones)">–</td><td style="color:#555">–</td>'; const P=paradas(o,tr).filter(p=>!p.local); const A=arranque(o,tr); const ac=A.min==null?'<td style="color:#E5624D;font-weight:650" title="No se alejó más de 80 m del punto del aviso antes de la reasignación">no se movió</td>':'<td style="color:'+(A.min>5?'#E5624D':'#E9ECF1')+'"><b>'+(A.h||'–')+'</b> <span style="color:#98A3B3">+'+A.min.toFixed(0)+'′</span></td>';
+          '<td>'+(pl!=null?mmss(pl):'–')+'</td><td><b>'+mmss(s)+'</b><span class="rrbar" style="width:'+w+'px;background:'+c+'"></span></td><td style="color:'+c+';font-weight:650">'+dif(s,pl)+'</td>'+(()=>{ const tr=tramoDe(o,rid); if(!TDEC) return CX.has(String(o[1]))?'<td style="color:#4FD1B4" title="Tiene traza: pon la contraseña arriba">📍🔒</td><td style="color:#4FD1B4">📍🔒</td>':'<td style="color:#555" title="Sin traza (pedido anterior al 22/10 16:50 o sin posiciones del rider)">–</td><td style="color:#555">–</td>'; if(!tr) return '<td style="color:#555" title="Sin traza (pedido anterior al 22/10 16:50 o sin posiciones)">–</td><td style="color:#555">–</td>'; const P=paradas(o,tr).filter(p=>!p.local); const A=arranque(o,tr); const ac=A.min==null?'<td style="color:#E5624D;font-weight:650" title="No se alejó más de 80 m del punto del aviso antes de la reasignación">no se movió</td>':'<td style="color:'+(A.min>5?'#E5624D':'#E9ECF1')+'"><b>'+(A.h||'–')+'</b> <span style="color:#98A3B3">+'+A.min.toFixed(0)+'′</span></td>';
           return '<td style="color:'+(P.length?'#E5624D':'#3FB984')+';font-weight:650">'+P.length+(P.length?' · '+P.reduce((a,p)=>a+p.min,0).toFixed(0)+'′':'')+'</td>'+ac; })()+'<td style="color:#98A3B3" title="'+esc(o[6])+' · '+esc(o[7])+'"><span class="cut m">'+esc(o[6])+'</span></td></tr>'; }).join('')+'</tbody></table>'
       :'<div style="padding:16px;color:#98A3B3">El bucket no trae pedidos '+(cnm?'CNM':'reasignados')+' de este rider en '+SEM+' (puede ir con un día de retraso respecto al RR %).</div>';
     ov.classList.add('on');
@@ -202,6 +205,8 @@ JS = r"""<script>
       return true;
     }
     document.querySelectorAll('#rrList tr.o').forEach(tr=>tr.onclick=()=>{ const i=+tr.dataset.i, m=mk[i]; marcar(i);
+      if(!TDEC&&CX.has(String(L0[i][1]))){ const f=document.getElementById('rrPw'); f.focus(); f.style.borderColor='#4FD1B4';
+        document.getElementById('rrTz').innerHTML='<span style="color:#E5A04B">Este pedido tiene traza: escribe la contraseña y pulsa «Ver paradas»</span>'; }
       if(dibujar(i)){ if(m) setTimeout(()=>m.openPopup(),400); return; }
       if(m){ map.flyTo(m.getLatLng(),16,{duration:.6}); setTimeout(()=>m.openPopup(),650); }
       else L.popup().setLatLng(map.getCenter()).setContent(popup(L0[i])+'<br><i>Sin ubicación del restaurante</i>').openOn(map); });
@@ -209,7 +214,9 @@ JS = r"""<script>
 
   let ultimo=null;
   const pwGo=async()=>{ const v=document.getElementById('rrPw').value; if(!v) return;
-    try{ TDEC=null; await trazas(v); if(ultimo) abrir(ultimo); }catch(e){ document.getElementById('rrTz').innerHTML='<span style="color:#E5624D">'+esc(e.message)+'</span>'; } };
+    try{ TDEC=null; await trazas(v); if(ultimo) await abrir(ultimo);
+      const k=[...document.querySelectorAll('#rrList tr.o')].find(tr=>tr.children[8]&&!/^[–🔒]/.test(tr.children[8].textContent.trim())); if(k) k.click();
+    }catch(e){ document.getElementById('rrTz').innerHTML='<span style="color:#E5624D">'+esc(e.message)+'</span>'; } };
   document.getElementById('rrPwB').addEventListener('click',pwGo);
   document.getElementById('rrPw').addEventListener('keydown',e=>{ if(e.key==='Enter') pwGo(); });
 
