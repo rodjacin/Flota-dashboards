@@ -269,6 +269,10 @@
     <section class="summary" id="daySummary"></section>
     <div class="controls">
       <div class="field">
+        <span class="lbl">Nodo</span>
+        <div class="seg" id="dayAreaSeg"></div>
+      </div>
+      <div class="field">
         <span class="lbl">Día</span>
         <div class="seg" id="daySeg"></div>
         <div class="search"><input id="daySearch" type="search" placeholder="Buscar Rider ID…" autocomplete="off"></div>
@@ -608,11 +612,19 @@ render();
   ];
   const dateOf={}; DAILY.forEach(d=>{dateOf[d.day]=d.date;});
   const days=[...new Set(DAILY.map(d=>d.day))].sort((a,b)=>dateOf[a]<dateOf[b]?-1:1);
-  const st={day:'ALL',q:''};
-  function base(){return DAILY.filter(d=>(st.day==='ALL'||d.day===st.day)&&(!st.q||String(d.rider).toLowerCase().includes(st.q.toLowerCase())));}
+  const nodes=[...new Set(DAILY.map(d=>d.city))].filter(Boolean).sort();
+  const st={day:'ALL',q:'',node:'ALL',sort:null,dir:'asc'};
+  function base(){return DAILY.filter(d=>(st.node==='ALL'||d.city===st.node)&&(st.day==='ALL'||d.day===st.day)&&(!st.q||String(d.rider).toLowerCase().includes(st.q.toLowerCase())));}
+  function drawNodeSeg(){
+    let h='<button data-n="ALL" aria-pressed="'+(st.node==='ALL')+'">Todos<span class="n">'+DAILY.filter(x=>st.day==='ALL'||x.day===st.day).length+'</span></button>';
+    nodes.forEach(nd=>{const n=DAILY.filter(x=>x.city===nd&&(st.day==='ALL'||x.day===st.day)).length;h+='<button data-n="'+nd+'" aria-pressed="'+(st.node===nd)+'">'+nd+'<span class="n">'+n+'</span></button>';});
+    $('dayAreaSeg').innerHTML=h;
+    $('dayAreaSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{st.node=b.dataset.n;render();});
+  }
   function drawSeg(){
-    let h='<button data-d="ALL" aria-pressed="'+(st.day==='ALL')+'">Toda la semana<span class="n">'+DAILY.length+'</span></button>';
-    days.forEach(dd=>{const n=DAILY.filter(x=>x.day===dd).length;h+='<button data-d="'+dd+'" aria-pressed="'+(st.day===dd)+'">'+dd+'<span class="n">'+n+'</span></button>';});
+    const inNode=x=>st.node==='ALL'||x.city===st.node;
+    let h='<button data-d="ALL" aria-pressed="'+(st.day==='ALL')+'">Toda la semana<span class="n">'+DAILY.filter(inNode).length+'</span></button>';
+    days.forEach(dd=>{const n=DAILY.filter(x=>x.day===dd&&inNode(x)).length;h+='<button data-d="'+dd+'" aria-pressed="'+(st.day===dd)+'">'+dd+'<span class="n">'+n+'</span></button>';});
     $('daySeg').innerHTML=h;
     $('daySeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{st.day=b.dataset.d;render();});
   }
@@ -627,14 +639,25 @@ render();
     ].map(x=>'<div class="stat"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+(x[2]||'')+'</div></div>').join('');
   }
   function render(){
-    drawSeg(); drawSummary();
-    $('dayHead').innerHTML=COLS.map(c=>'<th'+((c.cls==='rider'||c.cls==='txt')?' class="lft"':'')+'>'+c.h+'</th>').join('');
-    const rows=base().slice().sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:(String(a.rider)<String(b.rider)?-1:1));
+    drawNodeSeg(); drawSeg(); drawSummary();
+    $('dayHead').innerHTML=COLS.map(c=>{const on=st.sort===c.k;return '<th data-k="'+c.k+'"'+((c.cls==='rider'||c.cls==='txt')?' class="lft"':'')+(on?' data-dir="'+st.dir+'"':'')+' title="Ordenar">'+c.h+'<span class="ar">'+(on?(st.dir==='asc'?'▲':'▼'):'↕')+'</span></th>';}).join('');
+    $('dayHead').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(st.sort===k){st.dir=st.dir==='asc'?'desc':'asc';}else{st.sort=k;const c=COLS.find(x=>x.k===k);st.dir=(c.cls==='rider'||c.cls==='txt')?'asc':'desc';}render();});
+    const defCmp=(a,b)=> a.date<b.date?-1:a.date>b.date?1:(String(a.rider)<String(b.rider)?-1:1);
+    const val=(r,k)=>k==='day'?r.date:(k==='rider'?(isNaN(+r.rider)?String(r.rider):+r.rider):r[k]);
+    const sg=st.dir==='asc'?1:-1;
+    const rows=base().slice().sort((a,b)=>{
+      if(!st.sort) return defCmp(a,b);
+      const x=val(a,st.sort), y=val(b,st.sort);
+      if(x==null&&y==null) return defCmp(a,b);
+      if(x==null) return 1; if(y==null) return -1;      /* vacíos siempre al final */
+      const c=(typeof x==='number'&&typeof y==='number')?x-y:String(x).localeCompare(String(y),'es',{numeric:true});
+      return c?c*sg:defCmp(a,b);
+    });
     let h='';
     if(!rows.length){h='<tr><td colspan="'+COLS.length+'"><div class="empty"><b>Sin datos</b>No hay registros para el filtro actual.</div></td></tr>';}
     rows.forEach(r=>{h+='<tr>'+COLS.map(c=>{let v=r[c.k];let t=(c.tone&&v!=null)?c.tone(v):null;let cls=((c.cls?c.cls+' ':'')+(t?'cell-'+t:'')).trim();if(c.k==='reassign'){const rs=r.reasons||{};const has=Object.keys(rs).length>0;cls=(cls?cls+' ':'')+(has?'reas-cell':'reas-cell noreas');const tt=has?' title="Clic para ver motivos de reasignación"':'';return '<td class="'+cls+'" data-reasons="'+reasAttr(rs)+'"'+tt+'>'+c.f(v)+'</td>';}return '<td'+(cls?' class="'+cls+'"':'')+'>'+c.f(v)+'</td>';}).join('')+'</tr>';});
     $('dayBody').innerHTML=h;
-    $('dayFoot').textContent=rows.length+' registros · '+(st.day==='ALL'?'toda la semana en curso':st.day)+' · '+CW;
+    $('dayFoot').textContent=rows.length+' registros · '+(st.node==='ALL'?'todos los nodos':st.node)+' · '+(st.day==='ALL'?'toda la semana en curso':st.day)+' · '+CW;
   }
   $('daySearch').addEventListener('input',e=>{st.q=e.target.value;render();});
   render();
