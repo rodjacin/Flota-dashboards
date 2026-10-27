@@ -69,13 +69,86 @@ def extraer(carpeta, salida):
     return out
 
 
+# ------------------------------------------------------------------------------
+#  Incidencias desde el bucket GCP (delivery_lv), para los días que aún no cubre
+#  ningún informe S&L. Reglas comprobadas contra los informes de septiembre 2026
+#  (coinciden ~90 % de las incidencias de cada tipo):
+#    No entregado    -> refund_purpose = UNDELIVERED_RIDER_FRAUD
+#    CAPU            -> cancelado con cancellation_reason UNPROFESSIONAL_BEHAVIOUR (owner TRANSPORT)
+#    Cliente ausente -> cancelado con is_contact_customer_absent = True
+#                       o cancellation_reason UNABLE_TO_FIND (owner CUSTOMER)
+#  Coste = fraud_cost_eur del bucket (puede diferir unos euros del informe). El
+#  bucket no trae el método de pago. Cuando llega el informe S&L de esos días,
+#  el informe manda (los días que cubre dejan de leerse del bucket).
+# ------------------------------------------------------------------------------
+BUCKET_CSV = os.path.expanduser("~/Downloads/fleet_data_combinado/delivery_lv_combinado.csv")
+
+
+def _tipo_bucket(r):
+    if (r.get("refund_purpose") or "") == "UNDELIVERED_RIDER_FRAUD":
+        return "U"
+    if (r.get("delivery_status") or "") != "cancelled":
+        return None
+    motivo, quien = r.get("cancellation_reason") or "", r.get("cancellation_owner") or ""
+    if motivo == "UNPROFESSIONAL_BEHAVIOUR" and quien == "TRANSPORT":
+        return "C"
+    if str(r.get("is_contact_customer_absent") or "") == "True" or (motivo == "UNABLE_TO_FIND" and quien == "CUSTOMER"):
+        return "A"
+    return None
+
+
+def filas_bucket(desde=None, ruta=None):
+    """Incidencias del bucket (formato de 'rows' + marca 'B') con fecha de pedido > desde."""
+    import csv
+    ruta = ruta or BUCKET_CSV
+    if not os.path.isfile(ruta):
+        return [], None
+    csv.field_size_limit(10 ** 8)
+    out, vistos, ultimo = [], set(), None
+    with open(ruta, encoding="utf-8", newline="") as f:
+        for r in csv.DictReader(f):
+            creado = (r.get("order_created_local_at") or "").strip()
+            fecha = creado[:10] or (r.get("p_created_date") or r.get("fecha") or "")[:10]
+            if fecha and (ultimo is None or fecha > ultimo):
+                ultimo = fecha
+            if not fecha or (desde and fecha <= desde):
+                continue
+            t = _tipo_bucket(r)
+            oid = str(r.get("order_id") or "").strip()
+            if not t or not oid or oid in vistos:
+                continue
+            vistos.add(oid)
+            try:
+                coste = round(float(r.get("fraud_cost_eur") or 0), 2)
+            except ValueError:
+                coste = 0.0
+            ciudad = (r.get("city_code") or "").strip()
+            out.append([fecha, oid, str(r.get("rider_id") or "").split(".")[0], NODE_ALIASES.get(ciudad, ciudad), t,
+                        coste, (r.get("store_name") or "").strip(), creado[11:16], "", "B"])
+    return out, ultimo
+
+
 def construir_html(cities=None, semanas=None, sello=True):
     cities = sorted(set(NODE_ALIASES.get(c, c) for c in (cities or [])))
     if not os.path.isfile(JSON_IN):
         raise ValueError("no encuentro " + JSON_IN)
     d = json.load(open(JSON_IN, encoding="utf-8"))
     rows = [r for r in d["rows"] if r[3] in cities]
-    data = {"cities": cities, "rows": rows, "extraido": d.get("extraido") or d.get("actualizado"), "tipos": TIPOS}
+    # días posteriores al último informe S&L: se completan con el bucket GCP (se refresca en cada ejecución)
+    # el último informe cubre hasta el domingo de su última semana completa (claves de 'semanas' = lunes)
+    sem = sorted(d.get("semanas") or {})
+    hasta_inf = ((dt.date.fromisoformat(sem[-1]) + dt.timedelta(days=6)).isoformat() if sem
+                 else max((r[0] for r in d["rows"]), default=None))
+    ids = {r[1] for r in d["rows"]}
+    try:
+        extra, ultimo = filas_bucket(hasta_inf)
+    except Exception as e:
+        print("  (aviso) incidencias del bucket no leídas: " + str(e))
+        extra, ultimo = [], None
+    extra = [r for r in extra if r[3] in cities and r[1] not in ids]
+    rows = sorted(rows + extra, key=lambda r: (r[0], r[7], r[1]))
+    bucket = {"desde": min((r[0] for r in extra), default=None), "hasta": ultimo, "n": len(extra), "informe_hasta": hasta_inf}
+    data = {"cities": cities, "rows": rows, "extraido": d.get("extraido") or d.get("actualizado"), "tipos": TIPOS, "bucket": bucket}
     html = HTML.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     return html, "%d incidencias (%s → %s)" % (len(rows), rows[0][0] if rows else "-", rows[-1][0] if rows else "-")
 
@@ -202,11 +275,12 @@ const COL={C:'var(--c)',U:'var(--u)',A:'var(--a)'};
 const DOW=['dom','lun','mar','mié','jue','vie','sáb'];
 function isoW(s){const t=new Date(s+'T00:00:00Z');const dn=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-dn+3);const y=t.getUTCFullYear();const f=new Date(Date.UTC(y,0,4));return y+'-W'+String(1+Math.round(((t-f)/864e5-3+((f.getUTCDay()+6)%7))/7)).padStart(2,'0');}
 const dlab=s=>{const d=new Date(s+'T00:00:00Z');return DOW[d.getUTCDay()]+' '+s.slice(8,10)+'/'+s.slice(5,7);};
-const R=D.rows.map(r=>({f:r[0],id:r[1],rid:r[2],city:r[3],t:r[4],cost:r[5],store:r[6],h:r[7],pay:r[8],hh:r[7]?+r[7].slice(0,2):null,wk:isoW(r[0])}));
+const R=D.rows.map(r=>({f:r[0],id:r[1],rid:r[2],city:r[3],t:r[4],cost:r[5],store:r[6],h:r[7],pay:r[8],src:r[9]||'S',hh:r[7]?+r[7].slice(0,2):null,wk:isoW(r[0])}));
+const BK=D.bucket||{};
 const today=new Date().toISOString().slice(0,10), CUR=isoW(today);
 const S={city:'ALL',wk:'ALL',day:'ALL',tipo:'ALL',q:'',sr:{k:'n',d:-1},se:{k:'f',d:-1}};
-$('sub').textContent='Incidencias que Glovo imputa a la flota (informe «Fraud chargeability & incident report»): CAPU, pedido no entregado y cliente ausente. Datos del '+(R.length?dlab(R[0].f)+' al '+dlab(R[R.length-1].f):'—')+' · semana en curso '+CUR.slice(5)+' · datos extraídos el '+(D.extraido||'—')+'.';
-$('nota').innerHTML='Fuente: informes S&amp;L de Glovo (todos los recibidos, histórico y semana en curso). Coste = importe del pedido con incidencia según Glovo. No se publican ubicaciones de restaurante ni de cliente.';
+$('sub').textContent='Incidencias que Glovo imputa a la flota (informe «Fraud chargeability & incident report»): CAPU, pedido no entregado y cliente ausente. Datos del '+(R.length?dlab(R[0].f)+' al '+dlab(R[R.length-1].f):'—')+' · semana en curso '+CUR.slice(5)+' · informes S&L hasta el '+(BK.informe_hasta?dlab(BK.informe_hasta):'—')+(BK.n?' · después, bucket GCP hasta el '+dlab(BK.hasta):'')+'.';
+$('nota').innerHTML='Fuente: informes S&amp;L de Glovo (todos los recibidos, histórico y semana en curso)'+(BK.n?'; los días sin informe (del '+dlab(BK.desde)+' en adelante) salen del bucket GCP de Glovo, se refrescan en cada actualización y se sustituyen por el informe S&amp;L cuando llega. En esos días el coste es el del bucket y no hay método de pago (marcados como «bucket» en el detalle)':'')+'. Coste = importe del pedido con incidencia según Glovo. No se publican ubicaciones de restaurante ni de cliente.';
 function seg(id,opts,val,on){const el=$(id);el.innerHTML=opts.map(o=>`<button data-v="${o.v}" class="${String(o.v)===String(val)?'on':''}">${o.l}${o.c!=null?`<span class="c">${o.c}</span>`:''}</button>`).join('');el.onclick=e=>{const b=e.target.closest('button');if(b)on(b.dataset.v);};}
 const base=()=>R.filter(r=>(S.city==='ALL'||r.city===S.city)&&(S.tipo==='ALL'||r.t===S.tipo)&&(!S.q||(r.rid+' '+r.id+' '+r.store).toLowerCase().includes(S.q)));
 function tabla(id,cols,rows,st,empty,lim){
@@ -257,7 +331,7 @@ function render(){
     {k:'f',h:'Fecha y hora',v:r=>r.f+' '+r.h,f:r=>dlab(r.f)+' '+esc(r.h)},{k:'t',h:'Tipo',v:r=>r.t,f:r=>tp(r.t)},
     {k:'rid',h:'Rider',v:r=>Number(r.rid)||0,f:r=>esc(r.rid)},{k:'city',h:'Área',v:r=>r.city,f:r=>esc(r.city)},
     {k:'store',h:'Tienda',v:r=>r.store,f:r=>esc(r.store)},{k:'id',h:'Pedido',v:r=>r.id,f:r=>`<span class="muted">${esc(r.id)}</span>`},
-    {k:'cost',h:'Coste',n:1,v:r=>r.cost||0,f:r=>nf(r.cost,2)+' €'},{k:'pay',h:'Pago',v:r=>r.pay,f:r=>esc(r.pay)}],B,S.se,'Ninguna incidencia con estos filtros.',800);
+    {k:'cost',h:'Coste',n:1,v:r=>r.cost||0,f:r=>nf(r.cost,2)+' €'},{k:'pay',h:'Pago',v:r=>r.pay,f:r=>r.src==='B'?'<span class="muted">bucket</span>':esc(r.pay)}],B,S.se,'Ninguna incidencia con estos filtros.',800);
   $('cE').textContent=nf(B.length)+' incidencias'+(B.length>800?' (se muestran 800)':'');
 }
 $('fWk').onchange=e=>{S.wk=e.target.value;S.day='ALL';render();};
