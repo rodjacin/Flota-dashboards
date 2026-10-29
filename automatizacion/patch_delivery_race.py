@@ -79,8 +79,13 @@ NEW_JS = r"""<script>
     else txt=Math.round(Math.abs(d)).toLocaleString('es-ES');
     return '<span class="trend-delta '+cls+'">'+arr+' '+txt+'</span>'; };
 
+  // Δ WoW: semana más reciente con datos (WK0) frente a la anterior (WK-1), iguales para todos los riders
+  function wkIdx(){ let i0=WORD.length-1;
+    for(let i=WORD.length-1;i>=0;i--){ if(D.some(r=>r.week===WORD[i] && (st.area==='ALL'||r.city===st.area) && r[st.metric]!=null && !Number.isNaN(+r[st.metric]))){ i0=i; break; } }
+    return [i0, i0-1]; }
   function pivot(){
     const g={};
+    const [i0,i1]=wkIdx();
     for(const r of D){
       if(st.area!=='ALL' && r.city!==st.area) continue;
       let o=g[r.rider]; if(!o){ o=g[r.rider]={rider:r.rider, city:r.city, vals:{}}; }
@@ -91,7 +96,8 @@ NEW_JS = r"""<script>
       const arr=WORD.map(w=> (w in o.vals)? o.vals[w] : null);
       const pres=arr.filter(x=>x!=null);
       const last=pres.length?pres[pres.length-1]:null, first=pres.length?pres[0]:null;
-      const delta=(last!=null&&first!=null)?(last-first):null;
+      const w0=i0>=0?arr[i0]:null, w1=i1>=0?arr[i1]:null;
+      const delta=(w0!=null&&w1!=null)?(w0-w1):null;
       const mean=pres.length?pres.reduce((s,x)=>s+x,0)/pres.length:null;
       return {rider:o.rider, city:o.city, arr, last, first, delta, mean, n:pres.length};
     });
@@ -156,7 +162,7 @@ NEW_JS = r"""<script>
     // cabecera
     const cols=[{k:'rank',h:'#',lft:true,s:false},{k:'rider',h:'Rider ID',lft:true,s:true},{k:'city',h:'Área',lft:true,s:true}]
       .concat(WORD.map(w=>({k:'w:'+w, h:(WLBL[w]||w), s:true})))
-      .concat([{k:'spark',h:'Tendencia',s:false},{k:'last',h:'Última',s:true},{k:'delta',h:'Δ (últ−prim)',s:true}]);
+      .concat([{k:'spark',h:'Tendencia',s:false},{k:'last',h:'Última',s:true},{k:'delta',h:'Δ WoW ('+(WLBL[WORD[wkIdx()[0]]]||WORD[wkIdx()[0]]||'WK0')+' vs '+(WLBL[WORD[wkIdx()[1]]]||WORD[wkIdx()[1]]||'WK-1')+')',s:true}]);
     const head=document.getElementById('ligaHead');
     head.innerHTML=cols.map(c=>{ const ar=c.s?(st.sort===c.k?(st.dir==='asc'?'▲':'▼'):'↕'):'';
       return '<th class="'+(c.lft?'lft':'')+(c.s?' sortable':'')+'" data-k="'+c.k+'">'+c.h+(ar?' <span class="ar2">'+ar+'</span>':'')+'</th>'; }).join('');
@@ -189,7 +195,7 @@ NEW_JS = r"""<script>
       if(M.target){ const tg=(st.area!=='ALL'&&TARGETS[st.area])?TARGETS[st.area][M.target]:null;
         t = tg!=null ? ' · Objetivo T1 '+st.area+': '+(tg*100).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+'%' : ' · con Objetivo T1 por área'; }
       note.innerHTML='<span class="liga-leg"><span><span class="sw"></span>Color: verde = mejor → rojo = peor (según la métrica)</span>'+
-        '<span>▲/▼ Δ = última vs primera semana ('+(M.worse==='down'?'▲ sube = mejora':'▼ baja = mejora')+')</span></span>'+
+        '<span>▲/▼ Δ WoW = semana WK0 ('+(WLBL[WORD[wkIdx()[0]]]||WORD[wkIdx()[0]])+') − semana WK-1 ('+(WLBL[WORD[wkIdx()[1]]]||WORD[wkIdx()[1]]||'–')+'); «–» si el rider no tiene dato en alguna de las dos ('+(M.worse==='down'?'▲ sube = mejora':'▼ baja = mejora')+')</span></span>'+
         '<b>'+M.label+'</b> por rider y semana ('+WORD[0]+'–'+WORD[WORD.length-1]+')'+t+'.'; }
   }
 
@@ -201,7 +207,7 @@ NEW_JS = r"""<script>
   const btn=document.getElementById('ligaCsvBtn');
   if(btn) btn.onclick=()=>{
     const rows=sortRows(pivot());
-    const H=['Rider','Area'].concat(WORD).concat(['Ultima','Delta']);
+    const H=['Rider','Area'].concat(WORD).concat(['Ultima','Delta_WoW']);
     const val=v=> v==null?'':(METRICS[st.metric].kind==='pct'?(v*100).toFixed(2):(METRICS[st.metric].kind==='num2'?v.toFixed(2):Math.round(v)));
     const lines=[H.join(',')];
     rows.forEach(r=>lines.push([r.rider,r.city].concat(r.arr.map(val)).concat([val(r.last), r.delta==null?'':val(r.delta)]).join(',')));
