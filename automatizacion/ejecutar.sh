@@ -63,6 +63,9 @@ publish(){
 }
 publish "$OUT/resumen_flota_riders_SAB.html"             "$REPO/sab/index.html"
 publish "$OUT/resumen_flota_riders_GRA_MAD_NOM_ALC.html" "$REPO/gra-mad-nom-alc/index.html"
+# aviso emergente de festivos (7 días vista) en las zonas de reparto de cada dashboard
+python3 "$AUTO/festivos_flota.py" "$REPO/sab/index.html" sab || echo "⚠ aviso de festivos no añadido (SAB)"
+python3 "$AUTO/festivos_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom-alc || echo "⚠ aviso de festivos no añadido (GRA-MAD-NOM-ALC)"
 if [ -f "$OUT/pedidos_restaurantes.html" ]; then publish "$OUT/pedidos_restaurantes.html" "$REPO/gra-mad-nom-alc/restaurantes/index.html"; fi
 cat > "$REPO/index.html" <<HTML
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8">

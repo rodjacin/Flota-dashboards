@@ -1,0 +1,1067 @@
+{
+ "fuentes": [
+  "Nacional/autonómico 2026: BOE Resolución 17/10/2025 · Decreto 101/2025 Junta de Andalucía · Decreto 100/2025 Consell (DOGV 07/07/2025) · Ordre EMT/66/2025 (DOGC) · Comunidad de Madrid (BOCM 25/09/2025)",
+  "Nacional/autonómico 2027: BOE Resolución 08/10/2026 (BOE 13/10/2026) · Decreto 84/2026 Junta de Andalucía · Decreto Consell 2027 · Ordre EMT/52/2026 (DOGC) · Decreto 82/2026 Comunidad de Madrid",
+  "Locales 2026: BOJA 197 de 14/10/2025 (+ modificaciones) · DOGV Resolución 12/11/2025 · Ordre EMT/208/2025 (DOGC 17/12/2025) y EMT/3/2026 · Ayuntamiento de Madrid (Pleno 30/09/2025)",
+  "Locales 2026 Comunidad de Madrid: Resolución 2/12/2025 DG Trabajo (BOCM 12/12/2025)",
+  "Municipios por zona: puntos de entrega pp_heat.json (22–29/10/2026) × límites municipales INE (es-atlas)"
+ ],
+ "nota": "No hay festivos laborales provinciales ni comarcales en estas comunidades. Añadir los locales de 2027 cuando se publiquen.",
+ "dashboards": {
+  "sab": [
+   "SAB"
+  ],
+  "gra-mad-nom-alc": [
+   "ALC",
+   "GRA",
+   "MAD",
+   "NOM"
+  ]
+ },
+ "zonas": {
+  "ALC": {
+   "nombre": "Alicante",
+   "provincia": "Alicante",
+   "muni": [
+    [
+     "Alacant",
+     89.7,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Sant Vicent del Raspeig",
+     4.9,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Sant Joan d'Alacant",
+     1.7,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Mutxamel",
+     1.5,
+     "Comunitat Valenciana"
+    ],
+    [
+     "El Campello",
+     1.5,
+     "Comunitat Valenciana"
+    ]
+   ]
+  },
+  "GRA": {
+   "nombre": "Granada",
+   "provincia": "Granada",
+   "muni": [
+    [
+     "Granada",
+     71.6,
+     "Andalucía"
+    ],
+    [
+     "Churriana de la Vega",
+     8.1,
+     "Andalucía"
+    ],
+    [
+     "Armilla",
+     5.2,
+     "Andalucía"
+    ],
+    [
+     "Las Gabias",
+     2.8,
+     "Andalucía"
+    ],
+    [
+     "La Zubia",
+     2.4,
+     "Andalucía"
+    ],
+    [
+     "Maracena",
+     2.4,
+     "Andalucía"
+    ],
+    [
+     "Ogíjares",
+     2.4,
+     "Andalucía"
+    ],
+    [
+     "Gójar",
+     1.4,
+     "Andalucía"
+    ],
+    [
+     "Monachil",
+     1.4,
+     "Andalucía"
+    ],
+    [
+     "Huétor Vega",
+     1.4,
+     "Andalucía"
+    ],
+    [
+     "Pulianas",
+     0.5,
+     "Andalucía"
+    ],
+    [
+     "Alhendín",
+     0.5,
+     "Andalucía"
+    ]
+   ]
+  },
+  "MAD": {
+   "nombre": "Madrid norte · Alcobendas · S.S. Reyes",
+   "provincia": "Madrid",
+   "muni": [
+    [
+     "Madrid",
+     43.0,
+     "Comunidad de Madrid"
+    ],
+    [
+     "San Sebastián de los Reyes",
+     35.0,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Alcobendas",
+     21.9,
+     "Comunidad de Madrid"
+    ]
+   ]
+  },
+  "NOM": {
+   "nombre": "Madrid noroeste",
+   "provincia": "Madrid",
+   "muni": [
+    [
+     "Las Rozas de Madrid",
+     25.5,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Pozuelo de Alarcón",
+     22.5,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Madrid",
+     17.3,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Boadilla del Monte",
+     14.4,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Majadahonda",
+     13.1,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Torrelodones",
+     4.2,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Villaviciosa de Odón",
+     1.3,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Alcorcón",
+     0.7,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Galapagar",
+     0.3,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Leganés",
+     0.3,
+     "Comunidad de Madrid"
+    ],
+    [
+     "Collado Villalba",
+     0.3,
+     "Comunidad de Madrid"
+    ]
+   ]
+  },
+  "SAB": {
+   "nombre": "Camp de Túria · San Antonio de Benagéber",
+   "provincia": "Valencia",
+   "muni": [
+    [
+     "La Pobla de Vallbona",
+     36.2,
+     "Comunitat Valenciana"
+    ],
+    [
+     "L'Eliana",
+     17.8,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Bétera",
+     15.5,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Llíria",
+     10.9,
+     "Comunitat Valenciana"
+    ],
+    [
+     "San Antonio de Benagéber",
+     8.0,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Paterna",
+     4.6,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Benaguasil",
+     3.4,
+     "Comunitat Valenciana"
+    ],
+    [
+     "València",
+     1.7,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Riba-roja de Túria",
+     1.1,
+     "Comunitat Valenciana"
+    ],
+    [
+     "Benissanó",
+     0.6,
+     "Comunitat Valenciana"
+    ]
+   ]
+  }
+ },
+ "hol": [
+  [
+   "2026-01-01",
+   "Nacional",
+   "Año Nuevo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-01-02",
+   "Local",
+   "Día de la Toma",
+   [
+    "Granada"
+   ]
+  ],
+  [
+   "2026-01-06",
+   "Nacional",
+   "Epifanía del Señor",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-01-19",
+   "Local",
+   "Fiesta local",
+   [
+    "Monachil"
+   ]
+  ],
+  [
+   "2026-01-20",
+   "Local",
+   "San Sebastián",
+   [
+    "La Pobla de Vallbona",
+    "San Sebastián de los Reyes",
+    "Villaviciosa de Odón"
+   ]
+  ],
+  [
+   "2026-01-22",
+   "Local",
+   "San Vicente Mártir",
+   [
+    "València"
+   ]
+  ],
+  [
+   "2026-01-24",
+   "Local",
+   "Fiesta local",
+   [
+    "Alcobendas"
+   ]
+  ],
+  [
+   "2026-02-12",
+   "Local",
+   "Fiesta local",
+   [
+    "Churriana de la Vega",
+    "Pulianas"
+   ]
+  ],
+  [
+   "2026-02-28",
+   "Autonómico",
+   "Día de Andalucía",
+   [
+    "Andalucía"
+   ]
+  ],
+  [
+   "2026-03-18",
+   "Local",
+   "Fallas",
+   [
+    "Benaguasil"
+   ]
+  ],
+  [
+   "2026-03-19",
+   "Autonómico",
+   "San José",
+   [
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-03-20",
+   "Local",
+   "Santa Alejandra",
+   [
+    "Bétera"
+   ]
+  ],
+  [
+   "2026-03-23",
+   "Local",
+   "Fiesta local",
+   [
+    "Monachil"
+   ]
+  ],
+  [
+   "2026-03-27",
+   "Local",
+   "Fiesta local",
+   [
+    "Maracena"
+   ]
+  ],
+  [
+   "2026-04-02",
+   "Autonómico",
+   "Jueves Santo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid"
+   ]
+  ],
+  [
+   "2026-04-03",
+   "Nacional",
+   "Viernes Santo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-04-06",
+   "Autonómico",
+   "Lunes de Pascua",
+   [
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-04-06",
+   "Local",
+   "Fiesta local",
+   [
+    "Alcorcón"
+   ]
+  ],
+  [
+   "2026-04-08",
+   "Local",
+   "Fiesta de la Segregación",
+   [
+    "San Antonio de Benagéber"
+   ]
+  ],
+  [
+   "2026-04-13",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Sant Vicent del Raspeig"
+   ]
+  ],
+  [
+   "2026-04-13",
+   "Local",
+   "San Vicente Ferrer",
+   [
+    "Bétera",
+    "Llíria",
+    "Paterna",
+    "Riba-roja de Túria",
+    "València"
+   ]
+  ],
+  [
+   "2026-04-14",
+   "Local",
+   "Moros y Cristianos",
+   [
+    "Sant Vicent del Raspeig"
+   ]
+  ],
+  [
+   "2026-04-16",
+   "Local",
+   "Santa Faz",
+   [
+    "Alacant"
+   ]
+  ],
+  [
+   "2026-05-01",
+   "Nacional",
+   "Fiesta del Trabajo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-05-02",
+   "Autonómico",
+   "Fiesta de la Comunidad de Madrid",
+   [
+    "Comunidad de Madrid"
+   ]
+  ],
+  [
+   "2026-05-04",
+   "Local",
+   "Fiesta local",
+   [
+    "Las Gabias",
+    "Las Rozas de Madrid"
+   ]
+  ],
+  [
+   "2026-05-15",
+   "Local",
+   "San Isidro",
+   [
+    "Alcobendas",
+    "Armilla",
+    "Galapagar",
+    "San Antonio de Benagéber"
+   ]
+  ],
+  [
+   "2026-05-15",
+   "Local",
+   "San Isidro Labrador",
+   [
+    "Madrid"
+   ]
+  ],
+  [
+   "2026-05-16",
+   "Local",
+   "Fiesta local",
+   [
+    "La Zubia"
+   ]
+  ],
+  [
+   "2026-06-01",
+   "Local",
+   "Fiesta local",
+   [
+    "Boadilla del Monte"
+   ]
+  ],
+  [
+   "2026-06-04",
+   "Local",
+   "Corpus Christi",
+   [
+    "Alhendín",
+    "Granada",
+    "Gójar",
+    "Huétor Vega",
+    "La Zubia",
+    "Ogíjares",
+    "Pulianas"
+   ]
+  ],
+  [
+   "2026-06-05",
+   "Local",
+   "Fiesta local",
+   [
+    "Huétor Vega"
+   ]
+  ],
+  [
+   "2026-06-12",
+   "Local",
+   "Fiesta local",
+   [
+    "Collado Villalba"
+   ]
+  ],
+  [
+   "2026-06-23",
+   "Local",
+   "Fiesta local",
+   [
+    "Sant Joan d'Alacant"
+   ]
+  ],
+  [
+   "2026-06-23",
+   "Local",
+   "Fogueres de Sant Joan",
+   [
+    "Alacant"
+   ]
+  ],
+  [
+   "2026-06-24",
+   "Autonómico",
+   "San Juan",
+   [
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-07-16",
+   "Local",
+   "Fiestas patronales",
+   [
+    "L'Eliana"
+   ]
+  ],
+  [
+   "2026-07-16",
+   "Local",
+   "Virgen del Carmen",
+   [
+    "El Campello",
+    "Pozuelo de Alarcón",
+    "Torrelodones"
+   ]
+  ],
+  [
+   "2026-07-17",
+   "Local",
+   "Fiestas patronales",
+   [
+    "L'Eliana"
+   ]
+  ],
+  [
+   "2026-07-24",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Collado Villalba"
+   ]
+  ],
+  [
+   "2026-08-05",
+   "Local",
+   "Fiesta local",
+   [
+    "Las Gabias"
+   ]
+  ],
+  [
+   "2026-08-06",
+   "Local",
+   "El Salvador",
+   [
+    "Mutxamel"
+   ]
+  ],
+  [
+   "2026-08-14",
+   "Local",
+   "Fiesta local",
+   [
+    "Maracena"
+   ]
+  ],
+  [
+   "2026-08-14",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Leganés",
+    "Torrelodones"
+   ]
+  ],
+  [
+   "2026-08-15",
+   "Nacional",
+   "Asunción de la Virgen",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-08-24",
+   "Local",
+   "Fiesta local",
+   [
+    "Alhendín"
+   ]
+  ],
+  [
+   "2026-08-28",
+   "Local",
+   "Fiestas patronales",
+   [
+    "San Sebastián de los Reyes"
+   ]
+  ],
+  [
+   "2026-08-31",
+   "Local",
+   "Fiesta local",
+   [
+    "Gójar"
+   ]
+  ],
+  [
+   "2026-08-31",
+   "Local",
+   "Santísimo Cristo de la Fe",
+   [
+    "Paterna"
+   ]
+  ],
+  [
+   "2026-09-07",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Pozuelo de Alarcón"
+   ]
+  ],
+  [
+   "2026-09-08",
+   "Local",
+   "Fiesta local",
+   [
+    "Churriana de la Vega"
+   ]
+  ],
+  [
+   "2026-09-08",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Alcorcón"
+   ]
+  ],
+  [
+   "2026-09-08",
+   "Local",
+   "Virgen de Montiel",
+   [
+    "Benaguasil"
+   ]
+  ],
+  [
+   "2026-09-08",
+   "Local",
+   "Virgen del Fundamento",
+   [
+    "Benissanó"
+   ]
+  ],
+  [
+   "2026-09-09",
+   "Local",
+   "Mare de Déu del Loreto",
+   [
+    "Mutxamel"
+   ]
+  ],
+  [
+   "2026-09-09",
+   "Local",
+   "Nuestra Señora de los Dolores",
+   [
+    "Benissanó"
+   ]
+  ],
+  [
+   "2026-09-14",
+   "Local",
+   "Festividad del Cristo",
+   [
+    "Riba-roja de Túria"
+   ]
+  ],
+  [
+   "2026-09-14",
+   "Local",
+   "Fiesta local",
+   [
+    "Ogíjares",
+    "Sant Joan d'Alacant"
+   ]
+  ],
+  [
+   "2026-09-14",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Galapagar",
+    "Majadahonda"
+   ]
+  ],
+  [
+   "2026-09-21",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Villaviciosa de Odón"
+   ]
+  ],
+  [
+   "2026-09-29",
+   "Local",
+   "San Miguel",
+   [
+    "Armilla",
+    "Las Rozas de Madrid"
+   ]
+  ],
+  [
+   "2026-09-29",
+   "Local",
+   "San Miguel Arcángel",
+   [
+    "Llíria"
+   ]
+  ],
+  [
+   "2026-10-05",
+   "Local",
+   "Fiestas patronales",
+   [
+    "Boadilla del Monte"
+   ]
+  ],
+  [
+   "2026-10-07",
+   "Local",
+   "Virgen del Rosario",
+   [
+    "La Pobla de Vallbona"
+   ]
+  ],
+  [
+   "2026-10-09",
+   "Autonómico",
+   "Día de la Comunitat Valenciana",
+   [
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-10-09",
+   "Local",
+   "Fiesta local",
+   [
+    "Leganés"
+   ]
+  ],
+  [
+   "2026-10-12",
+   "Nacional",
+   "Fiesta Nacional de España",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-10-15",
+   "Local",
+   "Santa Teresa de Jesús",
+   [
+    "El Campello"
+   ]
+  ],
+  [
+   "2026-11-02",
+   "Autonómico",
+   "Todos los Santos (traslado del domingo 1/11)",
+   [
+    "Andalucía",
+    "Comunidad de Madrid"
+   ]
+  ],
+  [
+   "2026-11-09",
+   "Local",
+   "Nuestra Señora de la Almudena",
+   [
+    "Madrid"
+   ]
+  ],
+  [
+   "2026-11-25",
+   "Local",
+   "Fiesta local",
+   [
+    "Majadahonda"
+   ]
+  ],
+  [
+   "2026-12-07",
+   "Autonómico",
+   "Día de la Constitución (traslado del domingo 6/12)",
+   [
+    "Andalucía",
+    "Comunidad de Madrid"
+   ]
+  ],
+  [
+   "2026-12-08",
+   "Nacional",
+   "Inmaculada Concepción",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2026-12-25",
+   "Nacional",
+   "Navidad",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-01-01",
+   "Nacional",
+   "Año Nuevo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-01-06",
+   "Nacional",
+   "Epifanía del Señor",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-01-22",
+   "Local",
+   "San Vicente Mártir",
+   [
+    "València"
+   ]
+  ],
+  [
+   "2027-03-01",
+   "Autonómico",
+   "Día de Andalucía (traslado del domingo 28/2)",
+   [
+    "Andalucía"
+   ]
+  ],
+  [
+   "2027-03-19",
+   "Autonómico",
+   "San José",
+   [
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-03-25",
+   "Autonómico",
+   "Jueves Santo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid"
+   ]
+  ],
+  [
+   "2027-03-26",
+   "Nacional",
+   "Viernes Santo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-03-29",
+   "Autonómico",
+   "Lunes de Pascua",
+   [
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-04-05",
+   "Local",
+   "San Vicente Ferrer (pendiente de Pleno)",
+   [
+    "València"
+   ]
+  ],
+  [
+   "2027-05-01",
+   "Nacional",
+   "Fiesta del Trabajo",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-05-15",
+   "Local",
+   "San Isidro Labrador",
+   [
+    "Madrid"
+   ]
+  ],
+  [
+   "2027-08-16",
+   "Autonómico",
+   "Asunción de la Virgen (traslado del domingo 15/8)",
+   [
+    "Andalucía",
+    "Comunidad de Madrid"
+   ]
+  ],
+  [
+   "2027-10-09",
+   "Autonómico",
+   "Día de la Comunitat Valenciana",
+   [
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-10-12",
+   "Nacional",
+   "Fiesta Nacional de España",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-11-01",
+   "Nacional",
+   "Todos los Santos",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-11-09",
+   "Local",
+   "Nuestra Señora de la Almudena",
+   [
+    "Madrid"
+   ]
+  ],
+  [
+   "2027-12-06",
+   "Nacional",
+   "Día de la Constitución",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-12-08",
+   "Nacional",
+   "Inmaculada Concepción",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ],
+  [
+   "2027-12-25",
+   "Nacional",
+   "Navidad",
+   [
+    "Andalucía",
+    "Comunidad de Madrid",
+    "Comunitat Valenciana"
+   ]
+  ]
+ ]
+}
