@@ -2043,5 +2043,67 @@ thead th[data-def]{text-decoration:underline dotted rgba(107,114,128,.55);text-u
     fr.style.height=Math.max(600,Math.ceil(e.data.incH)+20)+'px'; } });
 })();
 </script>
+
+<!-- festivos_flota -->
+<style>
+#ffpop{position:fixed;inset:0;background:rgba(20,23,31,.45);display:none;align-items:flex-start;justify-content:center;z-index:9999;padding:70px 14px;overflow:auto;font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+#ffpop.on{display:flex}
+#ffpop .bx{background:#fff;border:1px solid #E4E7EC;border-top:4px solid #0E5A6B;border-radius:12px;max-width:720px;width:100%;box-shadow:0 20px 50px rgba(20,23,31,.25);color:#14171F}
+#ffpop .hd{padding:14px 18px;border-bottom:1px solid #E4E7EC} #ffpop .hd b{font-size:16px} #ffpop .hd div{color:#6B7280;font-size:12.5px;margin-top:3px}
+#ffpop .bd{padding:4px 18px 8px;max-height:62vh;overflow:auto}
+#ffpop .it{border:1px solid #E4E7EC;border-radius:10px;padding:10px 12px;margin:10px 0}
+#ffpop .t{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline} #ffpop .t b{font-size:14px}
+#ffpop .tg{font-size:11px;border-radius:10px;padding:1px 8px;margin-left:6px;background:#E3F0F2;color:#0E5A6B;white-space:nowrap}
+#ffpop .w{font-weight:700;font-size:12px;color:#B45309} #ffpop .w.h{color:#B91C1C}
+#ffpop .z{font-size:12.5px;color:#374151;margin-top:6px;line-height:1.55} #ffpop .z b{color:#0E5A6B}
+#ffpop .ft{padding:12px 18px;border-top:1px solid #E4E7EC;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#ffpop button,#ffbell{font:600 12.5px -apple-system,Segoe UI,Roboto,sans-serif;border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid #E4E7EC;background:#fff;color:#14171F}
+#ffpop button.p{background:#0E5A6B;color:#fff;border-color:#0E5A6B}
+#ffbell{margin-left:10px;border-color:#F59E0B;color:#B45309;background:#FFFBEB;white-space:nowrap}
+</style>
+<div id="ffpop" role="dialog" aria-modal="true"><div class="bx">
+ <div class="hd"><b>⚠ Festivos en los próximos 7 días · zonas de reparto</b><div id="ffS"></div></div>
+ <div class="bd" id="ffB"></div>
+ <div class="ft"><button id="ffHoy">No volver a mostrar hoy</button><button class="p" id="ffOk">Entendido</button></div>
+</div></div>
+<script>
+(function(){
+const F={"zonas":{"ALC":{"nombre":"Alicante","provincia":"Alicante","muni":[["Alacant",89.7,"Comunitat Valenciana"],["Sant Vicent del Raspeig",4.9,"Comunitat Valenciana"],["Sant Joan d'Alacant",1.7,"Comunitat Valenciana"],["Mutxamel",1.5,"Comunitat Valenciana"],["El Campello",1.5,"Comunitat Valenciana"]]},"GRA":{"nombre":"Granada","provincia":"Granada","muni":[["Granada",71.6,"Andalucía"],["Churriana de la Vega",8.1,"Andalucía"],["Armilla",5.2,"Andalucía"],["Las Gabias",2.8,"Andalucía"],["La Zubia",2.4,"Andalucía"],["Maracena",2.4,"Andalucía"],["Ogíjares",2.4,"Andalucía"],["Gójar",1.4,"Andalucía"],["Monachil",1.4,"Andalucía"],["Huétor Vega",1.4,"Andalucía"],["Pulianas",0.5,"Andalucía"],["Alhendín",0.5,"Andalucía"]]},"MAD":{"nombre":"Madrid norte · Alcobendas · S.S. Reyes","provincia":"Madrid","muni":[["Madrid",43.0,"Comunidad de Madrid"],["San Sebastián de los Reyes",35.0,"Comunidad de Madrid"],["Alcobendas",21.9,"Comunidad de Madrid"]]},"NOM":{"nombre":"Madrid noroeste","provincia":"Madrid","muni":[["Las Rozas de Madrid",25.5,"Comunidad de Madrid"],["Pozuelo de Alarcón",22.5,"Comunidad de Madrid"],["Madrid",17.3,"Comunidad de Madrid"],["Boadilla del Monte",14.4,"Comunidad de Madrid"],["Majadahonda",13.1,"Comunidad de Madrid"],["Torrelodones",4.2,"Comunidad de Madrid"],["Villaviciosa de Odón",1.3,"Comunidad de Madrid"],["Alcorcón",0.7,"Comunidad de Madrid"],["Galapagar",0.3,"Comunidad de Madrid"],["Leganés",0.3,"Comunidad de Madrid"],["Collado Villalba",0.3,"Comunidad de Madrid"]]}},"hol":[["2026-01-01","Nacional","Año Nuevo",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2026-01-02","Local","Día de la Toma",["Granada"]],["2026-01-06","Nacional","Epifanía del Señor",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2026-01-19","Local","Fiesta local",["Monachil"]],["2026-01-20","Local","San Sebastián",["La Pobla de Vallbona","San Sebastián de los Reyes","Villaviciosa de Odón"]],["2026-01-22","Local","San Vicente Mártir",["València"]],["2026-01-24","Local","Fiesta local",["Alcobendas"]],["2026-02-12","Local","Fiesta local",["Churriana de la Vega","Pulianas"]],["2026-02-28","Autonómico","Día de Andalucía",["Andalucía"]],["2026-03-18","Local","Fallas",["Benaguasil"]],["2026-03-19","Autonómico","San José",["Comunitat Valenciana"]],["2026-03-20","Local","Santa Alejandra",["Bétera"]],["2026-03-23","Local","Fiesta local",["Monachil"]],["2026-03-27","Local","Fiesta local",["Maracena"]],["2026-04-02","Autonómico","Jueves Santo",["Andalucía","Comunidad de Madrid"]],["2026-04-03","Nacional","Viernes Santo",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2026-04-06","Autonómico","Lunes de Pascua",["Comunitat Valenciana"]],["2026-04-06","Local","Fiesta local",["Alcorcón"]],["2026-04-08","Local","Fiesta de la Segregación",["San Antonio de Benagéber"]],["2026-04-13","Local","Fiestas patronales",["Sant Vicent del Raspeig"]],["2026-04-13","Local","San Vicente Ferrer",["Bétera","Llíria","Paterna","Riba-roja de Túria","València"]],["2026-04-14","Local","Moros y Cristianos",["Sant Vicent del Raspeig"]],["2026-04-16","Local","Santa Faz",["Alacant"]],["2026-05-01","Nacional","Fiesta del Trabajo",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2026-05-02","Autonómico","Fiesta de la Comunidad de Madrid",["Comunidad de Madrid"]],["2026-05-04","Local","Fiesta local",["Las Gabias","Las Rozas de Madrid"]],["2026-05-15","Local","San Isidro",["Alcobendas","Armilla","Galapagar","San Antonio de Benagéber"]],["2026-05-15","Local","San Isidro Labrador",["Madrid"]],["2026-05-16","Local","Fiesta local",["La Zubia"]],["2026-06-01","Local","Fiesta local",["Boadilla del Monte"]],["2026-06-04","Local","Corpus Christi",["Alhendín","Granada","Gójar","Huétor Vega","La Zubia","Ogíjares","Pulianas"]],["2026-06-05","Local","Fiesta local",["Huétor Vega"]],["2026-06-12","Local","Fiesta local",["Collado Villalba"]],["2026-06-23","Local","Fiesta local",["Sant Joan d'Alacant"]],["2026-06-23","Local","Fogueres de Sant Joan",["Alacant"]],["2026-06-24","Autonómico","San Juan",["Comunitat Valenciana"]],["2026-07-16","Local","Fiestas patronales",["L'Eliana"]],["2026-07-16","Local","Virgen del Carmen",["El Campello","Pozuelo de Alarcón","Torrelodones"]],["2026-07-17","Local","Fiestas patronales",["L'Eliana"]],["2026-07-24","Local","Fiestas patronales",["Collado Villalba"]],["2026-08-05","Local","Fiesta local",["Las Gabias"]],["2026-08-06","Local","El Salvador",["Mutxamel"]],["2026-08-14","Local","Fiesta local",["Maracena"]],["2026-08-14","Local","Fiestas patronales",["Leganés","Torrelodones"]],["2026-08-15","Nacional","Asunción de la Virgen",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2026-08-24","Local","Fiesta local",["Alhendín"]],["2026-08-28","Local","Fiestas patronales",["San Sebastián de los Reyes"]],["2026-08-31","Local","Fiesta local",["Gójar"]],["2026-08-31","Local","Santísimo Cristo de la Fe",["Paterna"]],["2026-09-07","Local","Fiestas patronales",["Pozuelo de Alarcón"]],["2026-09-08","Local","Fiesta local",["Churriana de la Vega"]],["2026-09-08","Local","Fiestas patronales",["Alcorcón"]],["2026-09-08","Local","Virgen de Montiel",["Benaguasil"]],["2026-09-08","Local","Virgen del Fundamento",["Benissanó"]],["2026-09-09","Local","Mare de Déu del Loreto",["Mutxamel"]],["2026-09-09","Local","Nuestra Señora de los Dolores",["Benissanó"]],["2026-09-14","Local","Festividad del Cristo",["Riba-roja de Túria"]],["2026-09-14","Local","Fiesta local",["Ogíjares","Sant Joan d'Alacant"]],["2026-09-14","Local","Fiestas patronales",["Galapagar","Majadahonda"]],["2026-09-21","Local","Fiestas patronales",["Villaviciosa de Odón"]],["2026-09-29","Local","San Miguel",["Armilla","Las Rozas de Madrid"]],["2026-09-29","Local","San Miguel Arcángel",["Llíria"]],["2026-10-05","Local","Fiestas patronales",["Boadilla del Monte"]],["2026-10-07","Local","Virgen del Rosario",["La Pobla de Vallbona"]],["2026-10-09","Autonómico","Día de la Comunitat Valenciana",["Comunitat Valenciana"]],["2026-10-09","Local","Fiesta local",["Leganés"]],["2026-10-12","Nacional","Fiesta Nacional de España",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2026-10-15","Local","Santa Teresa de Jesús",["El Campello"]],["2026-11-02","Autonómico","Todos los Santos (traslado del domingo 1/11)",["Andalucía","Comunidad de Madrid"]],["2026-11-09","Local","Nuestra Señora de la Almudena",["Madrid"]],["2026-11-25","Local","Fiesta local",["Majadahonda"]],["2026-12-07","Autonómico","Día de la Constitución (traslado del domingo 6/12)",["Andalucía","Comunidad de Madrid"]],["2026-12-08","Nacional","Inmaculada Concepción",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2026-12-25","Nacional","Navidad",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-01-01","Nacional","Año Nuevo",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-01-06","Nacional","Epifanía del Señor",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-01-22","Local","San Vicente Mártir",["València"]],["2027-03-01","Autonómico","Día de Andalucía (traslado del domingo 28/2)",["Andalucía"]],["2027-03-19","Autonómico","San José",["Comunidad de Madrid","Comunitat Valenciana"]],["2027-03-25","Autonómico","Jueves Santo",["Andalucía","Comunidad de Madrid"]],["2027-03-26","Nacional","Viernes Santo",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-03-29","Autonómico","Lunes de Pascua",["Comunitat Valenciana"]],["2027-04-05","Local","San Vicente Ferrer (pendiente de Pleno)",["València"]],["2027-05-01","Nacional","Fiesta del Trabajo",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-05-15","Local","San Isidro Labrador",["Madrid"]],["2027-08-16","Autonómico","Asunción de la Virgen (traslado del domingo 15/8)",["Andalucía","Comunidad de Madrid"]],["2027-10-09","Autonómico","Día de la Comunitat Valenciana",["Comunitat Valenciana"]],["2027-10-12","Nacional","Fiesta Nacional de España",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-11-01","Nacional","Todos los Santos",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-11-09","Local","Nuestra Señora de la Almudena",["Madrid"]],["2027-12-06","Nacional","Día de la Constitución",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-12-08","Nacional","Inmaculada Concepción",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]],["2027-12-25","Nacional","Navidad",["Andalucía","Comunidad de Madrid","Comunitat Valenciana"]]],"dias":7};
+const pad=n=>String(n).padStart(2,'0'),now=new Date(),t0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+const today=t0.getFullYear()+'-'+pad(t0.getMonth()+1)+'-'+pad(t0.getDate());
+const DW=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const it=[];
+for(const [d,tipo,nom,terr] of F.hol){
+  const x=new Date(d+'T00:00:00'),dd=Math.round((x-t0)/864e5); if(dd<0||dd>F.dias)continue;
+  const zs=[];
+  for(const [z,Z] of Object.entries(F.zonas)){
+    const T=[].concat(terr);const ms=Z.muni.filter(m=>T.includes(m[2])||T.includes(m[0]));
+    if(ms.length) zs.push({z,nombre:Z.nombre,ms,pct:ms.reduce((a,m)=>a+m[1],0)});
+  }
+  if(zs.length) it.push({d,dd,x,tipo,nom,terr,zs});
+}
+if(!it.length)return;
+const host=document.querySelector('header.top .stamp')||document.querySelector('header')||document.body;
+const b=document.createElement('button');b.id='ffbell';b.type='button';
+b.textContent='🔔 '+it.length+' festivo'+(it.length>1?'s':'')+' (7 días)';b.title='Festivos en los próximos 7 días en las zonas de reparto';
+host.parentNode&&host!==document.body?host.parentNode.insertBefore(b,host.nextSibling):document.body.appendChild(b);
+const zt=new Set(it.flatMap(i=>i.zs.map(z=>z.z)));
+document.getElementById('ffS').textContent='Zonas afectadas: '+[...zt].sort().join(', ')+' · % = parte de las entregas de la zona en esos municipios';
+document.getElementById('ffB').innerHTML=it.map(i=>{
+  const w=i.dd===0?'HOY':i.dd===1?'MAÑANA':'en '+i.dd+' días';
+  const amb=[].concat(i.terr).join(' · ');
+  return `<div class="it"><div class="t"><div><b>${DW[i.x.getDay()]} ${pad(i.x.getDate())}/${pad(i.x.getMonth()+1)} · ${esc(i.nom)}</b><span class="tg">${i.tipo} · ${esc(amb)}</span></div><span class="w${i.dd<=1?' h':''}">${w}</span></div>`+
+    i.zs.map(z=>`<div class="z"><b>${z.z}</b> (${esc(z.nombre)}) · <b>${Math.round(z.pct)}%</b> de las entregas: ${z.ms.map(m=>esc(m[0])+' '+Math.round(m[1])+'%').join(', ')}</div>`).join('')+'</div>';}).join('');
+const pop=document.getElementById('ffpop'),K='ffpop-'+location.pathname+'-'+today;
+const show=()=>pop.classList.add('on'),hide=()=>pop.classList.remove('on');
+b.onclick=show;document.getElementById('ffOk').onclick=hide;
+document.getElementById('ffHoy').onclick=()=>{try{localStorage.setItem(K,'1');}catch(e){}hide();};
+pop.onclick=e=>{if(e.target===pop)hide();};document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});
+let seen=null;try{seen=localStorage.getItem(K);}catch(e){}
+if(!seen)setTimeout(show,700);
+})();
+</script>
+<!-- /festivos_flota -->
 </body>
 </html>
