@@ -149,8 +149,12 @@ def _dt(s):
     except Exception: return None
 
 
+STATS = {}
+
+
 def parse_caps(caps):
     avisos = {}
+    STATS.clear()
     for xml in caps:
         try: root = ET.fromstring(xml.encode("utf-8") if isinstance(xml, str) else xml)
         except Exception: continue
@@ -161,6 +165,9 @@ def parse_caps(caps):
         if info is None: continue
         par, ec = _kv(info, "parameter"), _kv(info, "eventCode")
         nivel = (par.get("AEMET-Meteoalerta nivel") or "").lower() or NIVEL_SEV.get(_txt(info, "severity").lower(), "")
+        _c = (ec.get("AEMET-Meteoalerta fenomeno") or par.get("AEMET-Meteoalerta parametro") or _txt(info, "event") or "?").split(";")
+        _k = f"{nivel or '?'} · {(_c[1] if len(_c) > 1 else _c[0]).strip()[:40]}"
+        STATS[_k] = STATS.get(_k, 0) + 1
         if nivel not in NIVELES: continue
         fen = " ".join([_txt(info, "event"), par.get("AEMET-Meteoalerta parametro", ""), ec.get("AEMET-Meteoalerta fenomeno", ""),
                         " ".join(v for k, v in ec.items())]).lower()
@@ -281,7 +288,7 @@ def seccion(data):
 <div class="tp-card"><div style="font-weight:700;margin-bottom:8px">Detalle de avisos</div><div style="overflow:auto"><table>
 <thead><tr><th>Zona</th><th>Nivel</th><th>Fenómeno</th><th>Intervalo</th><th>% entregas</th><th>Municipios afectados</th><th>Zona de aviso AEMET</th></tr></thead>
 <tbody id="tpBody"></tbody></table></div>
-<div class="mut" style="margin-top:8px">Avisos de nivel amarillo, naranja o rojo por lluvias o tormentas. «% entregas» = parte de las entregas de los últimos 7 días de la zona de reparto que cae dentro del área del aviso. Horas en hora peninsular. Fuente: AEMET Meteoalerta (CAP).</div></div>
+<div class="mut" style="margin-top:8px">Avisos de nivel amarillo, naranja o rojo por lluvias o tormentas. «% entregas» = parte de las entregas de los últimos 7 días de la zona de reparto que cae dentro del área del aviso. Horas en hora peninsular. Fuente: AEMET Meteoalerta (CAP).</div><div class="mut" id="tpRev" style="margin-top:6px"></div></div>
 </section>
 """
 
@@ -328,6 +335,7 @@ def js(data):
     $('tpBody').innerHTML=A.length?A.map(a=>'<tr><td><span class="zn">'+a.zona+'</span><div class="mut">'+esc(a.zona_nombre)+'</div></td><td>'+lvl(a.nivel)+'</td><td>'+ico(a.tipo)+' '+esc(a.tipo)+(a.detalle?'<div class="mut">'+esc(a.detalle)+'</div>':'')+(a.prob?'<div class="mut">Prob. '+esc(a.prob)+'</div>':'')+'</td>'+
       '<td style="white-space:nowrap"><b>'+iv(a)+'</b></td><td><b>'+a.pct+'%</b></td><td>'+(a.munis.length?a.munis.map(m=>esc(m[0])+' <span class="mut">'+Math.round(m[1])+'%</span>').join(', '):'<span class="mut">—</span>')+'</td><td>'+esc(a.zona_aemet)+(a.desc?'<div class="mut">'+esc(a.desc)+'</div>':'')+'</td></tr>').join('')
       :'<tr><td colspan="7" class="ok">✓ Ninguna zona de reparto tiene aviso amarillo, naranja o rojo por lluvias o tormentas en las próximas 72 h.</td></tr>';
+    $('tpRev').innerHTML='Mensajes AEMET revisados en la última consulta: <b>'+T.n_cap+'</b>'+(T.revisados&&T.revisados.length?' · '+T.revisados.map(([k,n])=>esc(k)+' ('+n+')').join(', '):'');
   }
   seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
     const on=b.dataset.v==='temporal';
@@ -367,7 +375,8 @@ def main():
     avisos = parse_caps(c["caps"])
     res = cruzar(avisos, zonas, puntos_heat(heat_p, zonas))
     data = dict(zonas=list(zonas), avisos=res, consulta=c["consulta"], fuente=c["fuente"],
-                ok=bool(c["caps"]) or not c["errores"], errores=c["errores"], n_cap=len(c["caps"]), n_lluvia=len(avisos))
+                ok=bool(c["caps"]) or not c["errores"], errores=c["errores"], n_cap=len(c["caps"]), n_lluvia=len(avisos),
+                revisados=sorted(STATS.items(), key=lambda kv: -kv[1]))
     h = open(html_p, encoding="utf-8").read()
     open(html_p, "w", encoding="utf-8").write(integrar(h, data))
     print(f"temporal_flota: {dash} · {len(c['caps'])} CAP leídos ({c['fuente']}) · {len(avisos)} avisos lluvia/tormenta ≥ amarillo · "
