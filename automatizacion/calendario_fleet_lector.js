@@ -88,6 +88,83 @@
     return CITY + ' · ' + log.join(' · ');
   };
 
+  /* ---- Demanda (página https://fleet.glovoapp.com/demand): riders y pedidos forecast por media hora ----
+     await window.__demLeer('GRA', [...fechas])  ·  window.__demExport() -> líneas
+        DEM CIU AAAA-MM-DD r=48 números (total_rider_demand) o=48 números (forecasted_orders) tot=suma r otot=suma o
+     Si la ciudad tiene varias zonas, se suman. */
+  window.__DEM = window.__DEM || {};
+  window.__dm = window.__dm || [];
+  if (!window.__patchedDem) {
+    window.__patchedDem = 1;
+    const RD = /rider_demand\/v2\//;
+    const of2 = window.fetch;
+    window.fetch = async function (...a) {
+      const r = await of2.apply(this, a);
+      try { const u = (a[0] && a[0].url) || String(a[0]); if (RD.test(u)) r.clone().text().then(t => window.__dm.push({ u, t })); } catch (e) {}
+      return r;
+    };
+    const oo2 = XMLHttpRequest.prototype.open, os2 = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (m, u, ...x) { this.__u2 = u; return oo2.call(this, m, u, ...x); };
+    XMLHttpRequest.prototype.send = function (...x) {
+      this.addEventListener('load', () => { if (RD.test(this.__u2 || '')) window.__dm.push({ u: this.__u2, t: this.responseText }); });
+      return os2.apply(this, x);
+    };
+  }
+  window.__demLeer = async (CITY, DATES) => {
+    const log = [];
+    const csel = () => document.querySelector('select[aria-label="Selector de ciudades"]');
+    const zsel = () => document.querySelector('select[aria-label="Zones selector"]');
+    if (!csel() || !location.pathname.startsWith('/demand')) return 'ERROR: no estoy en la página de Demanda (¿sesión caducada?)';
+    window.__dm = [];
+    if (csel().value === CITY) {   // forzar una petición nueva de la fecha que ya está elegida
+      const otra = [...csel().options].map(x => x.value).find(v => v !== CITY);
+      const n0 = window.__dm.length; csel().value = otra; csel().dispatchEvent(new Event('change', { bubbles: true })); await waitFor(() => window.__dm.length > n0); await sleep(400);
+      window.__dm = [];
+    }
+    { const n0 = window.__dm.length; csel().value = CITY; csel().dispatchEvent(new Event('change', { bubbles: true })); await waitFor(() => window.__dm.length > n0); await sleep(600); }
+    const zonas = zsel() ? [...zsel().options].map(o => o.value) : [null];
+    for (const D of DATES) {
+      const r = Array(48).fill(0), o = Array(48).fill(0); let ok = true;
+      for (const Z of zonas) {
+        if (Z && zsel().value !== Z) { const n0 = window.__dm.length; zsel().value = Z; zsel().dispatchEvent(new Event('change', { bubbles: true })); await waitFor(() => window.__dm.length > n0); await sleep(300); }
+        const rx = new RegExp('rider_demand/v2/' + CITY + '/' + (Z || '[^/]+') + '/' + D);
+        if (!window.__dm.some(c => rx.test(c.u))) {
+          const inp = document.querySelector('[data-test="dp-input"]');
+          let cell = null;
+          for (let t = 0; t < 4 && !cell; t++) {
+            if (!document.getElementById(D)) {
+              if (!document.querySelector('.dp__calendar_item')) { inp.click(); await sleep(600); }
+              else { const navs = document.querySelectorAll('.dp__inner_nav'); if (navs.length) navs[navs.length - 1].click(); await sleep(500); }
+            }
+            cell = document.getElementById(D);
+          }
+          if (!cell) { ok = false; log.push(D + ': sin celda'); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); break; }
+          (cell.querySelector('.dp__cell_inner') || cell).click();
+          if (!await waitFor(() => window.__dm.some(c => rx.test(c.u)))) {
+            // misma fecha ya seleccionada: forzar recarga cambiando de zona/ciudad no es necesario si ya hay captura
+            ok = false; log.push(D + ': sin respuesta'); break;
+          }
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        }
+        const c = [...window.__dm].reverse().find(x => rx.test(x.u));
+        let j; try { j = JSON.parse(c.t); } catch (e) { ok = false; log.push(D + ': respuesta no válida'); break; }
+        for (const it of j.items || []) {
+          const m = String(it.slot_id).match(/^(\d\d):(\d\d)/); if (!m) continue;
+          const i = (+m[1]) * 2 + (+m[2] >= 30 ? 1 : 0);
+          r[i] += +it.total_rider_demand || 0; o[i] += +it.forecasted_orders || 0;
+        }
+      }
+      if (!ok) continue;
+      window.__DEM[CITY + '|' + D] = { r, o };
+      log.push(D + ': ' + r.reduce((a, b) => a + b, 0) / 2 + ' h');
+    }
+    return 'DEM ' + CITY + ' · ' + log.join(' · ');
+  };
+  window.__demExport = () => Object.entries(window.__DEM).sort().map(([k, v]) => {
+    const [c, d] = k.split('|');
+    return `DEM ${c} ${d} r=${v.r.join(',')} o=${v.o.join(',')} tot=${v.r.reduce((a, b) => a + b, 0)} otot=${Math.round(v.o.reduce((a, b) => a + b, 0) * 10) / 10}`;
+  }).join('\n');
+
   window.__calExport = () => Object.entries(window.__AGG).sort().map(([k, v]) => {
     const [c, d] = k.split('|');
     const sp = a => a.map((x, i) => x ? i + ':' + x : '').filter(Boolean).join(',');
