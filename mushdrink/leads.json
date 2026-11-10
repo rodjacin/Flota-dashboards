@@ -22,7 +22,8 @@
    "estado": "pendiente",
    "municipio": "Alicante",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "asador-skonn-alicante",
@@ -45,7 +46,8 @@
    "estado": "pendiente",
    "municipio": "Sant Joan d'Alacant",
    "km": 7.4,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "restaurante-nou-manolin-alicante",
@@ -68,7 +70,8 @@
    "estado": "pendiente",
    "municipio": "Alicante",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "el-portal-alicante-alicante",
@@ -91,7 +94,8 @@
    "estado": "pendiente",
    "municipio": "Alicante",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "rostisseria-l-aviram-barcelona",
@@ -114,7 +118,8 @@
    "estado": "pendiente",
    "municipio": "Barcelona",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "el-escondrijo-barcelona",
@@ -137,7 +142,8 @@
    "estado": "pendiente",
    "municipio": "Badalona",
    "km": 9.6,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "cap-a-casa-barcelona",
@@ -160,7 +166,8 @@
    "estado": "pendiente",
    "municipio": "Sant Cugat del Vallès",
    "km": 11.7,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "rostisseria-eli-barcelona",
@@ -183,7 +190,8 @@
    "estado": "pendiente",
    "municipio": "L'Hospitalet de Llobregat",
    "km": 6.5,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "rostisseria-del-centre-barcelona",
@@ -206,7 +214,8 @@
    "estado": "pendiente",
    "municipio": "Sabadell",
    "km": 18.4,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-cuina-de-la-rosita-vagi-de-gust-barcelona",
@@ -229,7 +238,8 @@
    "estado": "pendiente",
    "municipio": "Castelldefels",
    "km": 20.0,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "casa-xica-barcelona",
@@ -252,7 +262,8 @@
    "estado": "pendiente",
    "municipio": "Barcelona",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "restaurante-ca-l-estevet-barcelona",
@@ -275,7 +286,8 @@
    "estado": "pendiente",
    "municipio": "Barcelona",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "7-portes-barcelona",
@@ -298,7 +310,8 @@
    "estado": "pendiente",
    "municipio": "Barcelona",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "can-culleretes-barcelona",
@@ -321,7 +334,8 @@
    "estado": "pendiente",
    "municipio": "Barcelona",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "casa-orellana-madrid",
@@ -344,7 +358,8 @@
    "estado": "pendiente",
    "municipio": "Madrid",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-cocinona-madrid",
@@ -367,7 +382,8 @@
    "estado": "pendiente",
    "municipio": "Madrid",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-sarten-de-la-abuela-maria-madrid",
@@ -390,7 +406,8 @@
    "estado": "pendiente",
    "municipio": "San Sebastián de los Reyes",
    "km": 15.9,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "deyicatessen-madrid",
@@ -413,7 +430,8 @@
    "estado": "pendiente",
    "municipio": "Leganés",
    "km": 11.2,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "mg-pollo-madrid",
@@ -436,7 +454,8 @@
    "estado": "pendiente",
    "municipio": "Móstoles",
    "km": 17.2,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "olimpia-teresa-madrid",
@@ -459,7 +478,8 @@
    "estado": "pendiente",
    "municipio": "Madrid",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-ancha-zorrilla-madrid",
@@ -482,7 +502,8 @@
    "estado": "pendiente",
    "municipio": "Madrid",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-ancha-principe-de-vergara-madrid",
@@ -505,7 +526,8 @@
    "estado": "pendiente",
    "municipio": "Madrid",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "restaurante-hevia-madrid",
@@ -528,7 +550,8 @@
    "estado": "pendiente",
    "municipio": "Madrid",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "casa-lucio-madrid",
@@ -551,7 +574,8 @@
    "estado": "pendiente",
    "municipio": "Madrid",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "asador-la-termica-malaga",
@@ -574,7 +598,8 @@
    "estado": "pendiente",
    "municipio": "Málaga",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "meson-el-pollo-del-tio-paco-malaga",
@@ -597,7 +622,8 @@
    "estado": "pendiente",
    "municipio": "Málaga",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "asador-de-pollos-virgen-del-mar-malaga",
@@ -620,7 +646,8 @@
    "estado": "pendiente",
    "municipio": "Torre del Mar (Vélez-Málaga)",
    "km": 29.5,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "precocinados-la-despensa-malaga",
@@ -643,7 +670,8 @@
    "estado": "pendiente",
    "municipio": "Coín",
    "km": 30.7,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "bodega-el-pimpi-malaga",
@@ -666,7 +694,8 @@
    "estado": "pendiente",
    "municipio": "Málaga",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "el-lagar-de-verum-malaga",
@@ -689,7 +718,8 @@
    "estado": "pendiente",
    "municipio": "Málaga",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "los-mellizos-malaga-malaga",
@@ -712,7 +742,8 @@
    "estado": "pendiente",
    "municipio": "Málaga",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "trafus-al-plato-puesto-sevilla",
@@ -735,7 +766,8 @@
    "estado": "pendiente",
    "municipio": "Sevilla",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "sin-gluten-la-sala-sevilla",
@@ -758,7 +790,8 @@
    "estado": "pendiente",
    "municipio": "Dos Hermanas",
    "km": 13.0,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-tizna-sevilla",
@@ -781,7 +814,8 @@
    "estado": "pendiente",
    "municipio": "Sevilla",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "komelo-sano-sevilla",
@@ -804,7 +838,8 @@
    "estado": "pendiente",
    "municipio": "Sevilla",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "casa-la-viuda-sevilla",
@@ -827,7 +862,8 @@
    "estado": "pendiente",
    "municipio": "Sevilla",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "restaurante-donaire-azabache-sevilla",
@@ -850,7 +886,8 @@
    "estado": "pendiente",
    "municipio": "Sevilla",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "el-rinconcillo-sevilla",
@@ -873,7 +910,8 @@
    "estado": "pendiente",
    "municipio": "Sevilla",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-gitana-loca-central-sevilla",
@@ -896,7 +934,8 @@
    "estado": "pendiente",
    "municipio": "Sevilla",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "cocinarte-valencia",
@@ -919,7 +958,8 @@
    "estado": "pendiente",
    "municipio": "Valencia",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "al-plato-valencia",
@@ -942,7 +982,8 @@
    "estado": "pendiente",
    "municipio": "Valencia",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "la-llar-de-l-arros-valencia",
@@ -965,7 +1006,8 @@
    "estado": "pendiente",
    "municipio": "La Pobla de Vallbona",
    "km": 19.9,
-   "radio_ok": false
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "asador-el-mosset-valencia",
@@ -988,7 +1030,8 @@
    "estado": "pendiente",
    "municipio": "Valencia",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "comidas-garrido-valencia",
@@ -1011,7 +1054,8 @@
    "estado": "pendiente",
    "municipio": "Valencia",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "tu-arrocero-valencia",
@@ -1034,7 +1078,8 @@
    "estado": "pendiente",
    "municipio": "Valencia",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "restaurante-casa-carmela-valencia",
@@ -1057,7 +1102,8 @@
    "estado": "pendiente",
    "municipio": "Valencia",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   },
   {
    "id": "restaurante-palace-fesol-valencia",
@@ -1080,8 +1126,9 @@
    "estado": "pendiente",
    "municipio": "Valencia",
    "km": 0,
-   "radio_ok": true
+   "radio_ok": true,
+   "tipo": "casera"
   }
  ],
- "radio_km": 10
+ "radio_km": 20
 }
