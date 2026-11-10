@@ -110,7 +110,7 @@ function tpl(l,x){const F=(CFG.firma||'Jacinto').trim(),N=F.split(',')[0].trim()
  const ciudad=(l.municipio||l.provincia||'').replace(/\s*\(.*?\)/,'');
  const rasgo=(l.tipo==='independiente')?'buena cocina, trato cercano y clientes que vuelven':'cocina casera, recetas de siempre y clientes que vuelven';
  const body=BODY.replace(/\{FIRMA\}/g,N).replace(/\{NOMBRE\}/g,limpio(l.nombre)).replace(/\{CIUDAD\}/g,ciudad).replace(/\{RASGO\}/g,rasgo).replace(/\{FIRMA_COMPLETA\}/g,F.split(',').map(s=>s.trim()).join('\n')+(/kometa/i.test(F)?'':'\nKometa Delivery'));
- return{sub:'Reparto a domicilio para '+limpio(l.nombre)+' · Kometa Delivery',body}}
+ return{sub:'Kometa Delivery - '+limpio(l.nombre),body}}
 function setS(id,patch){ST[id]=Object.assign({},ST[id]||{},patch);save(KS,ST);render()}
 function cyc(v){return v===true?false:v===false?null:true}
 let VIS=[];
