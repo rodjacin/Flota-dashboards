@@ -414,6 +414,54 @@ def main():
     else:
         print('Agregadores: sin «Resumen pedidos», no se toca.')
 
+
+    # Recepción / cocina por franja de 30 min (pestaña «Pedidos por rider · 15 min» y franjas de Operativa), desde los Resumen
+    if a.resumen:
+        rr = rdf[~rdf['Fallo de Entrega'].fillna('').str.startswith('Cancelado')].drop_duplicates('Id')
+        rr = rr[rr.Repartidor.map(tipo) == 0]
+        rr = rr[(rr.t >= t0) & (rr.t < t0 + pd.Timedelta(days=1))].copy()
+        sec = lambda s: pd.to_timedelta(s, errors='coerce').dt.total_seconds()
+        rr['rec'] = sec(rr['Tiempo en recepción']); rr['coc'] = sec(rr['Tiempo en producción'])
+        rr['code'] = rr['Código'].astype(int).replace(ALIAS); rr['s'] = (rr.t.dt.hour * 60 + rr.t.dt.minute) // 30
+        G = {}
+        for (c, s_), y in rr.groupby(['code', 's']):
+            rc = y[y.rec.notna()]; cc = y[y.coc.notna()]
+            G[(c, s_)] = [len(rc), int(round(rc.rec.sum())), int((rc.rec > 120).sum()), int((rc.rec <= 120).sum()),
+                          len(cc), int(round(cc.coc.sum())), int((cc.coc > 1080).sum()), int((cc.coc < 720).sum()),
+                          int(((y.rec.fillna(0) + y.coc) > 2700).sum())]
+        def f_sl2(v):
+            for k, arr in v.items():
+                c, dd = k.split('|')
+                if dd != D: continue
+                for j in range(0, len(arr), 12):
+                    g = G.get((int(c), arr[j]))
+                    if g: arr[j + 2:j + 8] = [g[0], g[1], g[2], g[4], g[5], g[6]]
+            return v
+        setv(2, 'SL30', f_sl2)
+        def f_x45(v):
+            for k in [k for k in v if k.endswith('|' + D)]: del v[k]
+            for (c, s_), g in G.items():
+                if g[8]: v.setdefault(f'{c}|{D}', []).extend([int(s_), g[8]])
+            return v
+        setv(2, 'X45', f_x45)
+        def f_hh2(v):
+            for c, dd in v['H'].items():
+                arr = dd.get(D)
+                if not arr: continue
+                for j in range(0, len(arr), 10):
+                    g = G.get((int(c), arr[j]))
+                    if g: arr[j + 2:j + 7] = [g[0], g[3], g[4], g[7], g[6]]
+            return v
+        setv(3, 'HHDATA', f_hh2)
+
+    # doc7 · Mapa (% >45 por restaurante y día)
+    d7 = docs[7]; m7 = re.search(r'const D=(?=\{"coords")', d7)
+    v7, e7 = json.JSONDecoder().raw_decode(d7[m7.end():]); L = v7['L']
+    if D not in L['dates']:
+        L['dates'].append(D); idx = len(L['dates']) - 1
+        for r in ROWS: L['R'].setdefault(str(r['code']), []).extend([idx, r['orders'], r['late45']])
+    docs[7] = d7[:m7.end()] + J(v7) + d7[m7.end() + e7:]
+
     # doc15 · Agrupación de pedidos
     def f_agr(v):
         add_date(v['dates']); v['dow'][D] = DOW; v['week'][D] = WK
