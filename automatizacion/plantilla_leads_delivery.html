@@ -46,7 +46,7 @@ tr:hover td{background:#1a1e27}
 </style></head><body><div class="wrap">
 <div class="head"><div><h1>Leads delivery · comida casera</h1>
 <div class="sub" id="sub">Cargando…</div></div>
-<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="cfg">⚙ Remitente</button><button id="exp">Exportar CSV</button><button id="expj" title="Copia de seguridad del estado de contacto">Guardar estado</button><button id="impj">Cargar estado</button><input type="file" id="impf" accept=".json" hidden></div></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="cfg">⚙ Remitente</button><button id="bulk" class="btn-acc" title="Un email personalizado por cada local filtrado y pendiente">Envío masivo (CSV)</button><button id="exp">Exportar CSV</button><button id="expj" title="Copia de seguridad del estado de contacto">Guardar estado</button><button id="impj">Cargar estado</button><input type="file" id="impf" accept=".json" hidden></div></div>
 <div class="kpis" id="kpis"></div>
 <div class="bar">
 <select id="fProv"><option value="">Todas las provincias</option></select>
@@ -80,34 +80,40 @@ function st(l){const s=ST[l.id]||{};return{estado:s.estado||l.estado||'pendiente
 function cls(x){if(x.glovo===true||x.uber===true)return'plat';if(x.glovo===false&&x.uber===false)return'sin';return'q'}
 const CLSN={plat:'En Glovo/Uber',sin:'Sin Glovo/Uber',q:'Sin comprobar'};
 const gq=(n,p,site)=>'https://www.google.com/search?q='+encodeURIComponent('"'+n.replace(/\s*\(.*?\)/g,'')+'" '+p+' site:'+site);
-function tpl(l,x){const E=CFG.empresa||'[tu empresa]',F=CFG.firma||'[tu nombre, cargo y teléfono]',N=(CFG.firma||'').split(',')[0].trim()||'[tu nombre]',c=cls(x);
- const plat=[x.glovo===true?'Glovo':null,x.uber===true?'Uber Eats':null].filter(Boolean).join(' y ');
- if(c==='plat')return{sub:'Reparto propio para '+l.nombre+' sin comisiones de plataforma',body:
-`Hola, equipo de ${l.nombre}:
+const BODY=`Hola,
 
-Me llamo ${N} y os escribo desde ${E}. Somos una empresa de reparto a domicilio que trabaja en ${l.provincia} y alrededores.
+Me llamo {FIRMA} y os escribo desde Kometa Delivery. Conocemos {NOMBRE} y lo que representa en {CIUDAD}: {RASGO}. Precisamente por eso queremos proponeros algo: que esos mismos platos puedan llegar también a casa de vuestros clientes, sin que tengáis que cambiar nada de cómo trabajáis.
 
-Hemos visto que ya servís pedidos a domicilio a través de ${plat||'plataformas de delivery'}. Muchos locales como el vuestro nos usan para complementar o sustituir ese canal: nosotros nos encargamos de los repartidores y vosotros recibís los pedidos por vuestros propios medios (teléfono, WhatsApp o web), sin pagar la comisión por pedido de la plataforma y manteniendo la relación directa con vuestros clientes.
+Quiénes somos
+Kometa Delivery es una empresa española de reparto de comida a domicilio. Hoy repartimos para grandes marcas de restauración y plataformas de delivery:
+• Burger King y Popeyes: 141 restaurantes en Madrid, Cataluña, Comunidad Valenciana y Andalucía.
+• Glovo: flota dedicada en seis ciudades, entre ellas Madrid, Granada y Alicante.
+• McDonald's: pedidos de Uber Eats, Glovo y Just Eat con una única flota.
 
-¿Os parece que hablemos 10 minutos esta semana? Os explico cómo funcionaría con vuestro volumen y en qué zonas podríamos repartir.
+En total hacemos unas 57.000 entregas a la semana, con más de 900 repartidores y un tiempo medio de unos 34 minutos desde el pedido hasta la puerta.
+
+Qué os proponemos
+• Vosotros cocináis y recibís los pedidos como ya lo hacéis: por teléfono, WhatsApp o web.
+• Nosotros ponemos los repartidores y nos ocupamos de la entrega, el seguimiento y las incidencias.
+• Sin contratar personal de reparto, sin motos, sin seguros y más económico que plataformas grandes como Glovo/Uber.
+• Podéis empezar con un horario o un radio de reparto pequeño (por ejemplo, solo mediodía entre semana) e ir ampliando según la demanda.
+
+Tranquilidad legal
+Todos nuestros repartidores están contratados por Kometa, conforme a la Ley 12/2021, conocida como "Ley Rider". Vosotros no asumís ninguna relación laboral con ellos.
+
+Nos encantaría hacer una videollamada con vosotros y os contamos más en detalle, sin compromiso, para que veáis cómo funciona y cuántos pedidos genera nuestro servicio.
 
 Un saludo,
-${F}
-${E}`};
- return{sub:'Llevar la comida de '+l.nombre+' a domicilio',body:
-`Hola, equipo de ${l.nombre}:
-
-Me llamo ${N} y os escribo desde ${E}. Somos una empresa de reparto a domicilio que trabaja en ${l.provincia} y alrededores.
-
-Hemos visto que preparáis ${(l.perfil||'comida casera').charAt(0).toLowerCase()+(l.perfil||'comida casera').slice(1)} y nos gustaría proponeros empezar a llevarla a domicilio sin tener que contratar repartidores ni depender de una plataforma: vosotros seguís recibiendo los encargos como hasta ahora (teléfono, WhatsApp o web) y nosotros los entregamos.
-
-¿Os parece que hablemos 10 minutos esta semana? Os cuento cómo funciona, plazos y zonas de entrega.
-
-Un saludo,
-${F}
-${E}`}}
+{FIRMA_COMPLETA}`;
+const limpio=n=>n.replace(/\s*\(.*?\)\s*/g,' ').replace(/\s*\/.*$/,'').replace(/,.*$/,'').trim();
+function tpl(l,x){const F=(CFG.firma||'Jacinto').trim(),N=F.split(',')[0].trim();
+ const ciudad=(l.municipio||l.provincia||'').replace(/\s*\(.*?\)/,'');
+ const rasgo=(l.tipo==='independiente')?'buena cocina, trato cercano y clientes que vuelven':'cocina casera, recetas de siempre y clientes que vuelven';
+ const body=BODY.replace(/\{FIRMA\}/g,N).replace(/\{NOMBRE\}/g,limpio(l.nombre)).replace(/\{CIUDAD\}/g,ciudad).replace(/\{RASGO\}/g,rasgo).replace(/\{FIRMA_COMPLETA\}/g,F.split(',').map(s=>s.trim()).join('\n')+(/kometa/i.test(F)?'':'\nKometa Delivery'));
+ return{sub:'Reparto a domicilio para '+limpio(l.nombre)+' · Kometa Delivery',body}}
 function setS(id,patch){ST[id]=Object.assign({},ST[id]||{},patch);save(KS,ST);render()}
 function cyc(v){return v===true?false:v===false?null:true}
+let VIS=[];
 function render(){
  const L=DATA.leads,ft=$('fTipo').value,fd=$('fRad').value,fp=$('fProv').value,fe=$('fEst').value,fc=$('fCls').value,fr=$('fPri').value,q=$('q').value.toLowerCase().trim();
  const inR=l=>l.radio_ok!==false;const all=L.filter(l=>fd===''||(fd==='r'?inR(l):!inR(l))).map(l=>({l,x:st(l)}));
@@ -118,7 +124,7 @@ function render(){
  const pr={Alta:0,Media:1,Baja:2};
  const rows=all.filter(({l,x})=>(!fp||l.provincia===fp)&&(!fe||x.estado===fe)&&(!fc||cls(x)===fc)&&(!fr||l.prioridad===fr)&&(!ft||(l.tipo||'casera')===ft)&&(!q||(l.nombre+' '+l.email+' '+l.zona+' '+l.direccion+' '+l.perfil).toLowerCase().includes(q)))
   .sort((a,b)=>(pr[a.l.prioridad]??3)-(pr[b.l.prioridad]??3)||(b.l.alta||'').localeCompare(a.l.alta||'')||a.l.provincia.localeCompare(b.l.provincia));
- $('cnt').textContent=rows.length+' de '+L.length+' locales'+(fd==='r'?' · '+L.filter(l=>!inR(l)).length+' fuera de radio ocultos':'');
+ VIS=rows;$('cnt').textContent=rows.length+' de '+L.length+' locales'+(fd==='r'?' · '+L.filter(l=>!inR(l)).length+' fuera de radio ocultos':'');
  const pl=(v,k,lab)=>`<span class="pl ${v===true?'si '+k:v===false?'no':'q'}" data-t="${k}" title="Clic para cambiar ? → Sí → No">${lab}${v===null||v===undefined?' ?':''}</span>`;
  $('tb').innerHTML=rows.length?rows.map(({l,x})=>{const c=cls(x);const nuevo=l.alta>'2026-11-10'&&(Date.now()-Date.parse(l.alta))/864e5<=7;
   return `<tr data-id="${l.id}"><td><div class="n">${esc(l.nombre)}${nuevo?'<span class="tag">nuevo</span>':''}${l.tipo==='independiente'?'<span class="tag">independiente</span>':''}</div><div class="mut">${esc(l.direccion)}</div><div class="mut">${esc(l.municipio||l.provincia)}${l.km?` · ${l.km} km del centro`:''}${l.radio_ok===false?' <span class="tag" style="color:var(--warn)">fuera de radio</span>':''} · alta ${esc(l.alta)}</div></td>
@@ -147,6 +153,10 @@ function dl(name,txt,type){const a=document.createElement('a');a.href=URL.create
 $('exp').onclick=()=>{const H=['Provincia','Local','Email','Teléfono','Dirección','Glovo','Uber Eats','Enfoque','Prioridad','Estado','Fecha estado','Fuente'];const f=v=>v===true?'Sí':v===false?'No':'?';
  const R=DATA.leads.map(l=>{const x=st(l);return[l.provincia,l.nombre,l.email,l.telefono,l.direccion,f(x.glovo),f(x.uber),CLSN[cls(x)],l.prioridad,x.estado,x.fecha,l.fuente]});
  dl('leads_delivery_'+today()+'.csv','﻿'+[H,...R].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n'),'text/csv')};
+$('bulk').onclick=()=>{const R=VIS.filter(o=>o.x.estado==='pendiente'&&o.l.email);if(!R.length){alert('No hay locales pendientes con email en el filtro actual.');return}
+ const H=['Email','Restaurante','Ciudad','Asunto','Mensaje'];const rows=R.map(({l,x})=>{const t=tpl(l,x);return[l.email,l.nombre,l.municipio||l.provincia,t.sub,t.body]});
+ dl('envio_masivo_'+today()+'.csv','\ufeff'+[H,...rows].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n'),'text/csv');
+ if(confirm('Se han exportado '+R.length+' emails. ¿Marcar estos locales como "Email enviado" con fecha de hoy? (Pulsa Cancelar si aún no los vas a enviar.)')){R.forEach(({l})=>{ST[l.id]=Object.assign({},ST[l.id]||{},{estado:'enviado',fecha:today()})});save(KS,ST);render()}};
 $('expj').onclick=()=>dl('leads_estado_'+today()+'.json',JSON.stringify(ST,null,1),'application/json');
 $('impj').onclick=()=>$('impf').click();
 $('impf').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const o=JSON.parse(t);ST=Object.assign({},ST,o);save(KS,ST);render();alert('Estado cargado: '+Object.keys(o).length+' locales')}catch(err){alert('Archivo no válido')}})};
