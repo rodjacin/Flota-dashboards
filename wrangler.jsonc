@@ -1,0 +1,11 @@
+// Configuración de Cloudflare Workers (sitio estático).
+// El build (python3 automatizacion/build_cloudflare.py) genera dist/.
+{
+  "name": "flota-dashboards",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}
