@@ -19,11 +19,12 @@
    "verificacion": "Email en su web",
    "fuente": "lacuinadesanblas.vercel.app",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Alicante",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "asador-skonn-alicante",
@@ -139,11 +140,12 @@
    "verificacion": "Email en su web",
    "fuente": "elescondrijo.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Badalona",
    "km": 9.6,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "cap-a-casa-barcelona",
@@ -163,11 +165,12 @@
    "verificacion": "Email en guía local",
    "fuente": "totsantcugat.cat",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Sant Cugat del Vallès",
    "km": 11.7,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "rostisseria-eli-barcelona",
@@ -187,11 +190,12 @@
    "verificacion": "Email en su página de Facebook",
    "fuente": "facebook.com/RostisseriasEli",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "L'Hospitalet de Llobregat",
    "km": 6.5,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "rostisseria-del-centre-barcelona",
@@ -211,11 +215,12 @@
    "verificacion": "Email en su web",
    "fuente": "rostisseriadelcentre.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Sabadell",
    "km": 18.4,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "la-cuina-de-la-rosita-vagi-de-gust-barcelona",
@@ -235,11 +240,12 @@
    "verificacion": "Email en su web",
    "fuente": "vagidegust.es",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Castelldefels",
    "km": 20.0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "casa-xica-barcelona",
@@ -355,11 +361,12 @@
    "verificacion": "Email y canal Glovo en su web",
    "fuente": "casaorellana.com/delivery",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Madrid",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "la-cocinona-madrid",
@@ -379,11 +386,12 @@
    "verificacion": "Email en su web",
    "fuente": "lacocinona.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Madrid",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "la-sarten-de-la-abuela-maria-madrid",
@@ -403,11 +411,12 @@
    "verificacion": "Email en su web (web antigua: confirmar que sigue activo)",
    "fuente": "lasartendelaabuelamaria.es",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "San Sebastián de los Reyes",
    "km": 15.9,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "deyicatessen-madrid",
@@ -427,11 +436,12 @@
    "verificacion": "Email en su web",
    "fuente": "deyicatessen.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Leganés",
    "km": 11.2,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "mg-pollo-madrid",
@@ -451,11 +461,12 @@
    "verificacion": "Email en su web",
    "fuente": "mgpollo.es",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Móstoles",
    "km": 17.2,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "olimpia-teresa-madrid",
@@ -475,11 +486,12 @@
    "verificacion": "Email en su web",
    "fuente": "olimpiayteresa.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Madrid",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "la-ancha-zorrilla-madrid",
@@ -595,11 +607,12 @@
    "verificacion": "Email en su web",
    "fuente": "asadorlatermica.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Málaga",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "meson-el-pollo-del-tio-paco-malaga",
@@ -619,11 +632,12 @@
    "verificacion": "Email en su web",
    "fuente": "elpollodeltiopaco.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Málaga",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "asador-de-pollos-virgen-del-mar-malaga",
@@ -643,11 +657,12 @@
    "verificacion": "Email en directorio",
    "fuente": "cityempresas.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Torre del Mar (Vélez-Málaga)",
    "km": 29.5,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "precocinados-la-despensa-malaga",
@@ -667,11 +682,12 @@
    "verificacion": "Email en su web",
    "fuente": "precocinadosladespensa.es",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Coín",
    "km": 30.7,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "bodega-el-pimpi-malaga",
@@ -763,11 +779,12 @@
    "verificacion": "Email en guía oficial de Turismo de Sevilla",
    "fuente": "visitasevilla.es",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Sevilla",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "sin-gluten-la-sala-sevilla",
@@ -787,11 +804,12 @@
    "verificacion": "Email en directorio local",
    "fuente": "cogemesa.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Dos Hermanas",
    "km": 13.0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "la-tizna-sevilla",
@@ -811,11 +829,12 @@
    "verificacion": "Email en guía oficial de Turismo de Sevilla",
    "fuente": "visitasevilla.es",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Sevilla",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "komelo-sano-sevilla",
@@ -835,11 +854,12 @@
    "verificacion": "Email en su web (web antigua)",
    "fuente": "komelosano.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Sevilla",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "casa-la-viuda-sevilla",
@@ -955,11 +975,12 @@
    "verificacion": "Email en su web",
    "fuente": "cocinartepuntoyaparte.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Valencia",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "al-plato-valencia",
@@ -979,11 +1000,12 @@
    "verificacion": "Email en su web",
    "fuente": "alplato.makro.rest",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Valencia",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "la-llar-de-l-arros-valencia",
@@ -1003,11 +1025,12 @@
    "verificacion": "Email en su web (parece de una persona)",
    "fuente": "telepaellalapobla.es",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "La Pobla de Vallbona",
    "km": 19.9,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "asador-el-mosset-valencia",
@@ -1051,11 +1074,12 @@
    "verificacion": "Email en su web",
    "fuente": "comidasgarrido.com",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Valencia",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "tu-arrocero-valencia",

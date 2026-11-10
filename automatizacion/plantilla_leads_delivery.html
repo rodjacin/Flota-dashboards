@@ -76,7 +76,7 @@ let ST=load(KS,{}),CFG=load(KC,{empresa:'',firma:''}),DATA=null,KF='pendiente';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const today=()=>new Date().toISOString().slice(0,10);
-function st(l){const s=ST[l.id]||{};return{estado:s.estado||l.estado||'pendiente',fecha:s.fecha||'',glovo:'glovo' in s?s.glovo:l.glovo,uber:'uber' in s?s.uber:l.uber}}
+function st(l){const s=ST[l.id]||{};return{estado:s.estado||l.estado||'pendiente',fecha:s.fecha||l.fecha_envio||'',glovo:'glovo' in s?s.glovo:l.glovo,uber:'uber' in s?s.uber:l.uber}}
 function cls(x){if(x.glovo===true||x.uber===true)return'plat';if(x.glovo===false&&x.uber===false)return'sin';return'q'}
 const CLSN={plat:'En Glovo/Uber',sin:'Sin Glovo/Uber',q:'Sin comprobar'};
 const gq=(n,p,site)=>'https://www.google.com/search?q='+encodeURIComponent('"'+n.replace(/\s*\(.*?\)/g,'')+'" '+p+' site:'+site);
