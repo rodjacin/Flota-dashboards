@@ -4,3 +4,4 @@ openpyxl
 certifi
 shapely
 cryptography
+xlrd
