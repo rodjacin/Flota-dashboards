@@ -1175,7 +1175,8 @@
    "verificacion": "Email literal en guía del Ajuntament; local único; sin ficha Glovo/Uber en búsquedas",
    "fuente": "https://ajuntament.barcelona.cat/infancia/ca/detall/restaurant-kikiriki_75990539858.html",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "casa-bibi-barcelona",
@@ -1199,7 +1200,8 @@
    "verificacion": "Email literal en cercador de comerços Horta-Guinardó; solo para llevar; sin ficha Glovo/Uber",
    "fuente": "https://ajuntament.barcelona.cat/horta-guinardo/comerc/ca/comerc/casa-bibi",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "rostisseria-menjabe-pujades-barcelona",
@@ -1223,7 +1225,8 @@
    "verificacion": "Email literal en guía del Districte de Sant Martí; sin ficha Glovo/Uber",
    "fuente": "https://ajuntament.barcelona.cat/santmarti/ca/guia-del-districte/equipaments-temes/llistat/rostisseria-menjabe-pujades-99400291908",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "fogons-del-guinardo-barcelona",
@@ -1247,7 +1250,8 @@
    "verificacion": "Email literal en cercador de comerços Horta-Guinardó (ficha de 2023); sin ficha Glovo/Uber",
    "fuente": "https://ajuntament.barcelona.cat/horta-guinardo/comerc/ca/comerc/fogons-del-guinardo",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "la-girella-barcelona",
@@ -1271,7 +1275,8 @@
    "verificacion": "Email literal en cercador de comerços Horta-Guinardó; sin ficha Glovo/Uber",
    "fuente": "https://ajuntament.barcelona.cat/horta-guinardo/comerc/ca/comerc/la-girella-0",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "flash-flash-tortilleria-barcelona",
@@ -1295,7 +1300,8 @@
    "verificacion": "Ficha Glovo abierta y confirmada; email literal en barcelona.de; Uber ambiguo (null)",
    "fuente": "https://www.barcelona.de/en/flash-flash-restaurant.html",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "les-truites-barcelona",
@@ -1319,7 +1325,8 @@
    "verificacion": "Ficha Glovo abierta y confirmada; email literal en guia.barcelona.cat. Ficha Uber Eats aparece en buscador pero no se pudo abrir: uber sin confirmar (null). (https://www.ubereats.com/es/store/les-truites/8LjcpW0nSkyq5sZRXd_3ag)",
    "fuente": "https://guia.barcelona.cat/es/detall/restaurant-les-truites_99400426201.html",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "truiteria-la-ceba-barcelona",
@@ -1343,7 +1350,8 @@
    "verificacion": "Ficha Glovo abierta y confirmada; email literal en guia.barcelona.cat. Ficha Uber Eats aparece en buscador pero no se pudo abrir: uber sin confirmar (null). (https://www.ubereats.com/es/store/truiteria-i-restaurant-la-ceba/p1DuEOqKQzW0OtvNYMu47g)",
    "fuente": "https://guia.barcelona.cat/es/detall/restaurant-la-ceba_92086022151.html",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   },
   {
    "id": "viblioteca-barcelona",
@@ -1367,7 +1375,8 @@
    "verificacion": "Ficha Glovo abierta y confirmada; email literal en salir.com. Ficha Uber Eats aparece en buscador pero no se pudo abrir: uber sin confirmar (null). (https://www.ubereats.com/es/store/viblioteca/1KnwKIQLT5uK325LgT0Ifw)",
    "fuente": "https://www.salir.com/viblioteca-bar-barcelona-neg-126516.html",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-10"
   }
  ],
  "radio_km": 20
