@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leads delivery</title>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212b;--line:#2a2f3a;--txt:#e6e8ee;--muted:#9aa3b2;--faint:#6b7383;--accent:#4fd1b4;--warn:#f0b54a;--bad:#ef6b6b;--blue:#5b8cff;--glovo:#ffc244;--uber:#06c167}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:13.5px/1.45 Inter,system-ui,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1500px;margin:0 auto;padding:18px 20px 40px}
+h1{font-size:19px;margin:0}.sub{color:var(--muted);font-size:12.5px;margin-top:3px}
+.head{display:flex;gap:14px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;cursor:pointer}
+.kpi:hover{border-color:#3a4252}.kpi.on{border-color:var(--accent)}
+.kpi b{display:block;font-size:22px}.kpi span{color:var(--muted);font-size:12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:12px}
+select,input,button,textarea{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
+button{cursor:pointer}button:hover{border-color:#46506a}
+.btn-acc{background:var(--accent);color:#04120e;border-color:var(--accent);font-weight:600}
+input[type=search]{min-width:220px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--panel2);color:var(--muted);font-weight:600;font-size:12px;position:sticky;top:0;z-index:1}
+tr:hover td{background:#1a1e27}
+.n{font-weight:600}.mut{color:var(--muted);font-size:12px}.em{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11.5px;font-weight:600;border:1px solid var(--line);white-space:nowrap}
+.p-Alta{background:#16352c;color:#7fe3c6;border-color:#245a4a}.p-Media{background:#3a3016;color:#f3cf7a;border-color:#5d4b1d}.p-Baja{background:#262a33;color:#aab2c0}
+.seg{display:inline-flex;gap:4px}
+.pl{border-radius:7px;padding:3px 7px;font-size:11.5px;font-weight:700;border:1px solid var(--line);background:var(--panel2);cursor:pointer;user-select:none;min-width:62px;text-align:center}
+.pl.si.g{background:#3d3210;color:var(--glovo);border-color:#6a5517}.pl.si.u{background:#0f3323;color:var(--uber);border-color:#17543a}
+.pl.no{color:var(--faint);text-decoration:line-through}
+.pl.q{color:var(--muted)}
+.cls{font-size:11.5px;font-weight:600}.c-plat{color:var(--glovo)}.c-sin{color:var(--accent)}.c-q{color:var(--muted)}
+.lnk{color:var(--blue);text-decoration:none;font-size:11.5px;margin-right:6px}.lnk:hover{text-decoration:underline}
+.est{padding:4px 6px;font-size:12px}
+.est.pendiente{border-color:#5d4b1d}.est.enviado{border-color:#2d4f8c}.est.respondio{border-color:#245a4a}.est.descartado{opacity:.6}
+.note{color:var(--muted);font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px}
+.note b{color:var(--txt)}
+#modal{position:fixed;inset:0;background:rgba(5,8,12,.65);display:none;align-items:flex-start;justify-content:center;padding:50px 14px;z-index:9;overflow:auto}
+#modal.on{display:flex}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:760px;width:100%;padding:16px 18px}
+.box h3{margin:0 0 4px;font-size:16px}.box label{display:block;color:var(--muted);font-size:12px;margin:10px 0 4px}
+.box input,.box textarea{width:100%}.box textarea{min-height:300px;line-height:1.5}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.tag{font-size:11px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:1px 6px;margin-left:6px}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+@media(max-width:900px){.hide-m{display:none}}
+</style></head><body><div class="wrap">
+<div class="head"><div><h1>Leads delivery · comida casera</h1>
+<div class="sub" id="sub">Cargando…</div></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="cfg">⚙ Remitente</button><button id="exp">Exportar CSV</button><button id="expj" title="Copia de seguridad del estado de contacto">Guardar estado</button><button id="impj">Cargar estado</button><input type="file" id="impf" accept=".json" hidden></div></div>
+<div class="kpis" id="kpis"></div>
+<div class="bar">
+<select id="fProv"><option value="">Todas las provincias</option></select>
+<select id="fEst"><option value="pendiente">Sin email enviado</option><option value="">Todos los estados</option><option value="enviado">Email enviado</option><option value="respondio">Respondió</option><option value="descartado">Descartado</option></select>
+<select id="fCls"><option value="">Delivery: todos</option><option value="sin">Sin Glovo/Uber</option><option value="plat">En Glovo/Uber</option><option value="q">Sin comprobar</option></select>
+<select id="fPri"><option value="">Prioridad: todas</option><option>Alta</option><option>Media</option><option>Baja</option></select>
+<input type="search" id="q" placeholder="Buscar nombre, email, zona…">
+<span class="mut" id="cnt" style="margin-left:auto"></span></div>
+<table><thead><tr><th>Local</th><th>Contacto</th><th class="hide-m">Perfil</th><th>Glovo / Uber Eats</th><th>Enfoque</th><th>Prioridad</th><th>Estado</th><th></th></tr></thead><tbody id="tb"></tbody></table>
+<div class="note"><b>Cómo funciona.</b> La lista se lee de <span class="em">leads.json</span>; una tarea programada añade locales nuevos y comprueba Glovo y Uber Eats cada día laborable. Pulsa <b>Glovo</b> / <b>Uber</b> para cambiar entre <i>? → Sí → No</i> si lo compruebas tú (los enlaces “ver” abren la búsqueda). El enfoque del email cambia solo: <b>sin plataforma</b> → ofrecer empezar a repartir; <b>en Glovo/Uber</b> → ahorro de comisión y reparto propio.<br>
+<b>Ojo:</b> el estado de contacto y tus cambios se guardan <b>en este navegador</b>. Usa “Guardar estado” para pasarlo a otro equipo o compartirlo, y “Cargar estado” para recuperarlo.</div>
+</div>
+<div id="modal"><div class="box"><h3 id="mT">Borrador</h3><div class="mut" id="mS"></div>
+<label>Para</label><input id="mTo" readonly>
+<label>Asunto</label><input id="mSub">
+<label>Mensaje</label><textarea id="mBody"></textarea>
+<div class="row"><button id="mCopy">Copiar</button><a id="mMail" class="btn-acc" style="text-decoration:none;padding:6px 12px;border-radius:8px" href="#">Abrir en el correo</a><button id="mSent">Marcar como enviado</button><button id="mClose">Cerrar</button></div></div></div>
+<div id="cfgM" style="display:none"></div>
+<script>
+const FALLBACK=__FALLBACK__;
+const KS='leads-estado-v1',KC='leads-remitente-v1';
+const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let ST=load(KS,{}),CFG=load(KC,{empresa:'',firma:''}),DATA=null,KF='pendiente';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>new Date().toISOString().slice(0,10);
+function st(l){const s=ST[l.id]||{};return{estado:s.estado||l.estado||'pendiente',fecha:s.fecha||'',glovo:'glovo' in s?s.glovo:l.glovo,uber:'uber' in s?s.uber:l.uber}}
+function cls(x){if(x.glovo===true||x.uber===true)return'plat';if(x.glovo===false&&x.uber===false)return'sin';return'q'}
+const CLSN={plat:'En Glovo/Uber',sin:'Sin Glovo/Uber',q:'Sin comprobar'};
+const gq=(n,p,site)=>'https://www.google.com/search?q='+encodeURIComponent('"'+n.replace(/\s*\(.*?\)/g,'')+'" '+p+' site:'+site);
+function tpl(l,x){const E=CFG.empresa||'[tu empresa]',F=CFG.firma||'[tu nombre, cargo y teléfono]',N=(CFG.firma||'').split(',')[0].trim()||'[tu nombre]',c=cls(x);
+ const plat=[x.glovo===true?'Glovo':null,x.uber===true?'Uber Eats':null].filter(Boolean).join(' y ');
+ if(c==='plat')return{sub:'Reparto propio para '+l.nombre+' sin comisiones de plataforma',body:
+`Hola, equipo de ${l.nombre}:
+
+Me llamo ${N} y os escribo desde ${E}. Somos una empresa de reparto a domicilio que trabaja en ${l.provincia} y alrededores.
+
+Hemos visto que ya servís pedidos a domicilio a través de ${plat||'plataformas de delivery'}. Muchos locales como el vuestro nos usan para complementar o sustituir ese canal: nosotros nos encargamos de los repartidores y vosotros recibís los pedidos por vuestros propios medios (teléfono, WhatsApp o web), sin pagar la comisión por pedido de la plataforma y manteniendo la relación directa con vuestros clientes.
+
+¿Os parece que hablemos 10 minutos esta semana? Os explico cómo funcionaría con vuestro volumen y en qué zonas podríamos repartir.
+
+Un saludo,
+${F}
+${E}`};
+ return{sub:'Llevar la comida de '+l.nombre+' a domicilio',body:
+`Hola, equipo de ${l.nombre}:
+
+Me llamo ${N} y os escribo desde ${E}. Somos una empresa de reparto a domicilio que trabaja en ${l.provincia} y alrededores.
+
+Hemos visto que preparáis ${(l.perfil||'comida casera').charAt(0).toLowerCase()+(l.perfil||'comida casera').slice(1)} y nos gustaría proponeros empezar a llevarla a domicilio sin tener que contratar repartidores ni depender de una plataforma: vosotros seguís recibiendo los encargos como hasta ahora (teléfono, WhatsApp o web) y nosotros los entregamos.
+
+¿Os parece que hablemos 10 minutos esta semana? Os cuento cómo funciona, plazos y zonas de entrega.
+
+Un saludo,
+${F}
+${E}`}}
+function setS(id,patch){ST[id]=Object.assign({},ST[id]||{},patch);save(KS,ST);render()}
+function cyc(v){return v===true?false:v===false?null:true}
+function render(){
+ const L=DATA.leads,fp=$('fProv').value,fe=$('fEst').value,fc=$('fCls').value,fr=$('fPri').value,q=$('q').value.toLowerCase().trim();
+ const all=L.map(l=>({l,x:st(l)}));
+ const pend=all.filter(o=>o.x.estado==='pendiente');
+ const K=[['pendiente','Sin email enviado',pend.length],['sinP','Pendientes sin Glovo/Uber',pend.filter(o=>cls(o.x)==='sin').length],['platP','Pendientes en Glovo/Uber',pend.filter(o=>cls(o.x)==='plat').length],['qP','Pendientes sin comprobar',pend.filter(o=>cls(o.x)==='q').length],['enviado','Email enviado',all.filter(o=>o.x.estado==='enviado').length],['respondio','Respondieron',all.filter(o=>o.x.estado==='respondio').length]];
+ $('kpis').innerHTML=K.map(k=>`<div class="kpi${KF===k[0]?' on':''}" data-k="${k[0]}"><b>${k[2]}</b><span>${k[1]}</span></div>`).join('');
+ document.querySelectorAll('.kpi').forEach(d=>d.onclick=()=>{KF=d.dataset.k;const m={pendiente:['pendiente',''],sinP:['pendiente','sin'],platP:['pendiente','plat'],qP:['pendiente','q'],enviado:['enviado',''],respondio:['respondio','']}[KF];$('fEst').value=m[0];$('fCls').value=m[1];render()});
+ const pr={Alta:0,Media:1,Baja:2};
+ const rows=all.filter(({l,x})=>(!fp||l.provincia===fp)&&(!fe||x.estado===fe)&&(!fc||cls(x)===fc)&&(!fr||l.prioridad===fr)&&(!q||(l.nombre+' '+l.email+' '+l.zona+' '+l.direccion+' '+l.perfil).toLowerCase().includes(q)))
+  .sort((a,b)=>(pr[a.l.prioridad]??3)-(pr[b.l.prioridad]??3)||(b.l.alta||'').localeCompare(a.l.alta||'')||a.l.provincia.localeCompare(b.l.provincia));
+ $('cnt').textContent=rows.length+' de '+L.length+' locales';
+ const pl=(v,k,lab)=>`<span class="pl ${v===true?'si '+k:v===false?'no':'q'}" data-t="${k}" title="Clic para cambiar ? → Sí → No">${lab}${v===null||v===undefined?' ?':''}</span>`;
+ $('tb').innerHTML=rows.length?rows.map(({l,x})=>{const c=cls(x);const nuevo=l.alta>'2026-11-10'&&(Date.now()-Date.parse(l.alta))/864e5<=7;
+  return `<tr data-id="${l.id}"><td><div class="n">${esc(l.nombre)}${nuevo?'<span class="tag">nuevo</span>':''}</div><div class="mut">${esc(l.direccion)}</div><div class="mut">${esc(l.provincia)} · alta ${esc(l.alta)}</div></td>
+  <td><div class="em">${esc(l.email)}</div><div class="mut">${esc(l.telefono)}</div><div class="mut" title="${esc(l.verificacion)}">${esc(l.fuente)}</div></td>
+  <td class="hide-m"><div>${esc(l.perfil)}</div><div class="mut">Web: ${esc(l.reparto_web)}</div></td>
+  <td><div class="seg">${pl(x.glovo,'g','Glovo')}${pl(x.uber,'u','Uber')}</div><div style="margin-top:4px"><a class="lnk" target="_blank" href="${gq(l.nombre,l.provincia,'glovoapp.com')}">ver Glovo</a><a class="lnk" target="_blank" href="${gq(l.nombre,l.provincia,'ubereats.com')}">ver Uber</a></div>${l.plataformas_check?`<div class="mut">comprobado ${esc(l.plataformas_check)}</div>`:''}</td>
+  <td><div class="cls c-${c}">${CLSN[c]}</div><div class="mut">${c==='plat'?'Ahorro comisión + reparto propio':'Empezar a repartir'}</div></td>
+  <td><span class="pill p-${esc(l.prioridad)}">${esc(l.prioridad)}</span></td>
+  <td><select class="est ${x.estado}"><option value="pendiente"${x.estado==='pendiente'?' selected':''}>Pendiente</option><option value="enviado"${x.estado==='enviado'?' selected':''}>Email enviado</option><option value="respondio"${x.estado==='respondio'?' selected':''}>Respondió</option><option value="descartado"${x.estado==='descartado'?' selected':''}>Descartado</option></select>${x.fecha?`<div class="mut">${esc(x.fecha)}</div>`:''}</td>
+  <td><button class="dr">Borrador</button></td></tr>`}).join(''):`<tr><td colspan="8" class="empty">No hay locales con estos filtros.</td></tr>`;
+ document.querySelectorAll('#tb tr[data-id]').forEach(tr=>{const id=tr.dataset.id,l=L.find(z=>z.id===id),x=st(l);
+  tr.querySelectorAll('.pl').forEach(p=>p.onclick=()=>{const k=p.dataset.t==='g'?'glovo':'uber';setS(id,{[k]:cyc(x[k])})});
+  tr.querySelector('.est').onchange=e=>setS(id,{estado:e.target.value,fecha:e.target.value==='pendiente'?'':today()});
+  tr.querySelector('.dr').onclick=()=>openM(l)});
+}
+let CUR=null;
+function openM(l){CUR=l;const x=st(l),t=tpl(l,x);$('mT').textContent='Borrador · '+l.nombre;$('mS').textContent='Enfoque: '+CLSN[cls(x)]+(cls(x)==='q'?' (se usa la plantilla “sin plataforma”; comprueba Glovo/Uber antes de enviar)':'');
+ $('mTo').value=l.email;$('mSub').value=t.sub;$('mBody').value=t.body;upd();$('modal').classList.add('on')}
+function upd(){$('mMail').href='mailto:'+encodeURIComponent($('mTo').value)+'?subject='+encodeURIComponent($('mSub').value)+'&body='+encodeURIComponent($('mBody').value)}
+$('mSub').oninput=upd;$('mBody').oninput=upd;
+$('mClose').onclick=()=>$('modal').classList.remove('on');$('modal').onclick=e=>{if(e.target.id==='modal')$('modal').classList.remove('on')};
+$('mCopy').onclick=async()=>{try{await navigator.clipboard.writeText('Asunto: '+$('mSub').value+'\n\n'+$('mBody').value);$('mCopy').textContent='Copiado ✓'}catch(e){$('mBody').select()}setTimeout(()=>$('mCopy').textContent='Copiar',1500)};
+$('mSent').onclick=()=>{setS(CUR.id,{estado:'enviado',fecha:today()});$('modal').classList.remove('on')};
+$('cfg').onclick=()=>{const e=prompt('Nombre de tu empresa (aparece en los borradores):',CFG.empresa);if(e===null)return;const f=prompt('Firma: nombre, cargo y teléfono (ej. "Ana López, Responsable de cuentas, 600 000 000"):',CFG.firma);if(f===null)return;CFG={empresa:e.trim(),firma:f.trim()};save(KC,CFG)};
+function dl(name,txt,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click()}
+$('exp').onclick=()=>{const H=['Provincia','Local','Email','Teléfono','Dirección','Glovo','Uber Eats','Enfoque','Prioridad','Estado','Fecha estado','Fuente'];const f=v=>v===true?'Sí':v===false?'No':'?';
+ const R=DATA.leads.map(l=>{const x=st(l);return[l.provincia,l.nombre,l.email,l.telefono,l.direccion,f(x.glovo),f(x.uber),CLSN[cls(x)],l.prioridad,x.estado,x.fecha,l.fuente]});
+ dl('leads_delivery_'+today()+'.csv','﻿'+[H,...R].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\n'),'text/csv')};
+$('expj').onclick=()=>dl('leads_estado_'+today()+'.json',JSON.stringify(ST,null,1),'application/json');
+$('impj').onclick=()=>$('impf').click();
+$('impf').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const o=JSON.parse(t);ST=Object.assign({},ST,o);save(KS,ST);render();alert('Estado cargado: '+Object.keys(o).length+' locales')}catch(err){alert('Archivo no válido')}})};
+['fProv','fEst','fCls','fPri'].forEach(i=>$(i).onchange=()=>{KF='';render()});$('q').oninput=render;
+function init(d){DATA=d;const P=[...new Set(d.leads.map(l=>l.provincia))].sort();$('fProv').innerHTML='<option value="">Todas las provincias</option>'+P.map(p=>`<option>${p}</option>`).join('');
+ $('sub').textContent='Actualizado '+d.actualizado+' · '+d.leads.length+' locales en Madrid, Barcelona, Valencia, Alicante, Sevilla y Málaga (con sus pueblos)';render()}
+fetch('leads.json?t='+Date.now(),{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(init).catch(()=>init(FALLBACK));
+</script></body></html>
