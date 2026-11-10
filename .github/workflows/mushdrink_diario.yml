@@ -1,0 +1,75 @@
+# Añade cada mañana el día operativo de ayer (07:00 → 06:59) a todas las pestañas del panel MushDrink,
+# leyendo los pedidos (con el «Solicitado por el cliente» de Kometa) directamente de Grafana.
+# Necesita en Settings → Secrets and variables → Actions:
+#   · secreto  GRAFANA_TOKEN : token de una cuenta de servicio de Grafana con permiso de lectura (Viewer)
+#   · variable GRAFANA_URL   : https://grafana-mushdrinks.nexus-software.es
+# Mientras no exista el secreto, el job termina sin hacer nada.
+# A mano: Actions → "MushDrink · día de ayer" → Run workflow (opcionalmente con una fecha AAAA-MM-DD).
+name: "MushDrink · día de ayer"
+
+on:
+  schedule:
+    - cron: "23 6 * * *"      # 07:23 en invierno / 08:23 en verano (hora de Madrid)
+  workflow_dispatch:
+    inputs:
+      fecha:
+        description: "Día operativo (AAAA-MM-DD). Vacío = ayer"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flota-dashboards
+  cancel-in-progress: false
+
+jobs:
+  mushdrink:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Comprobar acceso a Grafana
+        id: chk
+        env:
+          TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::Falta el secreto GRAFANA_TOKEN: no se actualiza MushDrink."
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.chk.outputs.ok == '1'
+
+      - uses: actions/setup-python@v5
+        if: steps.chk.outputs.ok == '1'
+        with:
+          python-version: "3.12"
+
+      - name: Instalar librerías
+        if: steps.chk.outputs.ok == '1'
+        run: pip install pandas xlrd openpyxl
+
+      - name: Añadir el día al panel
+        if: steps.chk.outputs.ok == '1'
+        env:
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+          GRAFANA_URL: ${{ vars.GRAFANA_URL || 'https://grafana-mushdrinks.nexus-software.es' }}
+        run: python3 automatizacion/mushdrink_dia.py "${{ github.event.inputs.fecha || 'ayer' }}"
+
+      - name: Publicar
+        if: steps.chk.outputs.ok == '1'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mushdrink/index.html
+          if git diff --cached --quiet; then echo "Sin cambios."; exit 0; fi
+          git commit -q -m "MushDrink: día operativo ${{ github.event.inputs.fecha || 'de ayer' }} (Grafana, automático)"
+          for i in 1 2 3; do
+            git pull --rebase -q && git push -q && echo "Publicado OK." && exit 0
+            sleep 15
+          done
+          echo "No se pudo publicar"; exit 1
