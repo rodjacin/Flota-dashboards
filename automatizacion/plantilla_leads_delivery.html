@@ -52,7 +52,8 @@ tr:hover td{background:#1a1e27}
 <select id="fProv"><option value="">Todas las provincias</option></select>
 <select id="fEst"><option value="pendiente">Sin email enviado</option><option value="">Todos los estados</option><option value="enviado">Email enviado</option><option value="respondio">Respondió</option><option value="descartado">Descartado</option></select>
 <select id="fCls"><option value="">Delivery: todos</option><option value="sin">Sin Glovo/Uber</option><option value="plat">En Glovo/Uber</option><option value="q">Sin comprobar</option></select>
-<select id="fRad"><option value="r">Radio 10 km (Málaga: provincia)</option><option value="">Todas las distancias</option><option value="f">Solo fuera del radio</option></select>
+<select id="fRad"><option value="r" id="optR">Dentro del radio</option><option value="">Todas las distancias</option><option value="f">Solo fuera del radio</option></select>
+<select id="fTipo"><option value="">Tipo: todos</option><option value="casera">Comida casera / take away</option><option value="independiente">Restaurante independiente en Glovo/Uber</option></select>
 <select id="fPri"><option value="">Prioridad: todas</option><option>Alta</option><option>Media</option><option>Baja</option></select>
 <input type="search" id="q" placeholder="Buscar nombre, email, zona…">
 <span class="mut" id="cnt" style="margin-left:auto"></span></div>
@@ -108,19 +109,19 @@ ${E}`}}
 function setS(id,patch){ST[id]=Object.assign({},ST[id]||{},patch);save(KS,ST);render()}
 function cyc(v){return v===true?false:v===false?null:true}
 function render(){
- const L=DATA.leads,fd=$('fRad').value,fp=$('fProv').value,fe=$('fEst').value,fc=$('fCls').value,fr=$('fPri').value,q=$('q').value.toLowerCase().trim();
+ const L=DATA.leads,ft=$('fTipo').value,fd=$('fRad').value,fp=$('fProv').value,fe=$('fEst').value,fc=$('fCls').value,fr=$('fPri').value,q=$('q').value.toLowerCase().trim();
  const inR=l=>l.radio_ok!==false;const all=L.filter(l=>fd===''||(fd==='r'?inR(l):!inR(l))).map(l=>({l,x:st(l)}));
  const pend=all.filter(o=>o.x.estado==='pendiente');
  const K=[['pendiente','Sin email enviado',pend.length],['sinP','Pendientes sin Glovo/Uber',pend.filter(o=>cls(o.x)==='sin').length],['platP','Pendientes en Glovo/Uber',pend.filter(o=>cls(o.x)==='plat').length],['qP','Pendientes sin comprobar',pend.filter(o=>cls(o.x)==='q').length],['enviado','Email enviado',all.filter(o=>o.x.estado==='enviado').length],['respondio','Respondieron',all.filter(o=>o.x.estado==='respondio').length]];
  $('kpis').innerHTML=K.map(k=>`<div class="kpi${KF===k[0]?' on':''}" data-k="${k[0]}"><b>${k[2]}</b><span>${k[1]}</span></div>`).join('');
  document.querySelectorAll('.kpi').forEach(d=>d.onclick=()=>{KF=d.dataset.k;const m={pendiente:['pendiente',''],sinP:['pendiente','sin'],platP:['pendiente','plat'],qP:['pendiente','q'],enviado:['enviado',''],respondio:['respondio','']}[KF];$('fEst').value=m[0];$('fCls').value=m[1];render()});
  const pr={Alta:0,Media:1,Baja:2};
- const rows=all.filter(({l,x})=>(!fp||l.provincia===fp)&&(!fe||x.estado===fe)&&(!fc||cls(x)===fc)&&(!fr||l.prioridad===fr)&&(!q||(l.nombre+' '+l.email+' '+l.zona+' '+l.direccion+' '+l.perfil).toLowerCase().includes(q)))
+ const rows=all.filter(({l,x})=>(!fp||l.provincia===fp)&&(!fe||x.estado===fe)&&(!fc||cls(x)===fc)&&(!fr||l.prioridad===fr)&&(!ft||(l.tipo||'casera')===ft)&&(!q||(l.nombre+' '+l.email+' '+l.zona+' '+l.direccion+' '+l.perfil).toLowerCase().includes(q)))
   .sort((a,b)=>(pr[a.l.prioridad]??3)-(pr[b.l.prioridad]??3)||(b.l.alta||'').localeCompare(a.l.alta||'')||a.l.provincia.localeCompare(b.l.provincia));
  $('cnt').textContent=rows.length+' de '+L.length+' locales'+(fd==='r'?' · '+L.filter(l=>!inR(l)).length+' fuera de radio ocultos':'');
  const pl=(v,k,lab)=>`<span class="pl ${v===true?'si '+k:v===false?'no':'q'}" data-t="${k}" title="Clic para cambiar ? → Sí → No">${lab}${v===null||v===undefined?' ?':''}</span>`;
  $('tb').innerHTML=rows.length?rows.map(({l,x})=>{const c=cls(x);const nuevo=l.alta>'2026-11-10'&&(Date.now()-Date.parse(l.alta))/864e5<=7;
-  return `<tr data-id="${l.id}"><td><div class="n">${esc(l.nombre)}${nuevo?'<span class="tag">nuevo</span>':''}</div><div class="mut">${esc(l.direccion)}</div><div class="mut">${esc(l.municipio||l.provincia)}${l.km?` · ${l.km} km del centro`:''}${l.radio_ok===false?' <span class="tag" style="color:var(--warn)">fuera de radio</span>':''} · alta ${esc(l.alta)}</div></td>
+  return `<tr data-id="${l.id}"><td><div class="n">${esc(l.nombre)}${nuevo?'<span class="tag">nuevo</span>':''}${l.tipo==='independiente'?'<span class="tag">independiente</span>':''}</div><div class="mut">${esc(l.direccion)}</div><div class="mut">${esc(l.municipio||l.provincia)}${l.km?` · ${l.km} km del centro`:''}${l.radio_ok===false?' <span class="tag" style="color:var(--warn)">fuera de radio</span>':''} · alta ${esc(l.alta)}</div></td>
   <td><div class="em">${esc(l.email)}</div><div class="mut">${esc(l.telefono)}</div><div class="mut" title="${esc(l.verificacion)}">${esc(l.fuente)}</div></td>
   <td class="hide-m"><div>${esc(l.perfil)}</div><div class="mut">Web: ${esc(l.reparto_web)}</div></td>
   <td><div class="seg">${pl(x.glovo,'g','Glovo')}${pl(x.uber,'u','Uber')}</div><div style="margin-top:4px"><a class="lnk" target="_blank" href="${gq(l.nombre,l.provincia,'glovoapp.com')}">ver Glovo</a><a class="lnk" target="_blank" href="${gq(l.nombre,l.provincia,'ubereats.com')}">ver Uber</a></div>${l.plataformas_check?`<div class="mut">comprobado ${esc(l.plataformas_check)}</div>`:''}</td>
@@ -149,8 +150,8 @@ $('exp').onclick=()=>{const H=['Provincia','Local','Email','Teléfono','Direcci�
 $('expj').onclick=()=>dl('leads_estado_'+today()+'.json',JSON.stringify(ST,null,1),'application/json');
 $('impj').onclick=()=>$('impf').click();
 $('impf').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{try{const o=JSON.parse(t);ST=Object.assign({},ST,o);save(KS,ST);render();alert('Estado cargado: '+Object.keys(o).length+' locales')}catch(err){alert('Archivo no válido')}})};
-['fRad','fProv','fEst','fCls','fPri'].forEach(i=>$(i).onchange=()=>{KF='';render()});$('q').oninput=render;
+['fRad','fTipo','fProv','fEst','fCls','fPri'].forEach(i=>$(i).onchange=()=>{KF='';render()});$('q').oninput=render;
 function init(d){DATA=d;const P=[...new Set(d.leads.map(l=>l.provincia))].sort();$('fProv').innerHTML='<option value="">Todas las provincias</option>'+P.map(p=>`<option>${p}</option>`).join('');
- $('sub').textContent='Actualizado '+d.actualizado+' · '+d.leads.length+' locales · radio de '+(d.radio_km||10)+' km alrededor de Madrid, Barcelona, Valencia, Alicante y Sevilla; Málaga capital y provincia';render()}
+ $('optR').textContent='Radio '+(d.radio_km||20)+' km (Málaga: provincia)';$('sub').textContent='Actualizado '+d.actualizado+' · '+d.leads.length+' locales · radio de '+(d.radio_km||20)+' km alrededor de Madrid, Barcelona, Valencia, Alicante y Sevilla; Málaga capital y provincia';render()}
 fetch('leads.json?t='+Date.now(),{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.json()}).then(init).catch(()=>init(FALLBACK));
 </script></body></html>
