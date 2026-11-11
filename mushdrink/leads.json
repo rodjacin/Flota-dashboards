@@ -116,11 +116,12 @@
    "verificacion": "El local existe (Les Corts); email no verificado",
    "fuente": "Excel original",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Barcelona",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "el-escondrijo-barcelona",
@@ -1050,11 +1051,12 @@
    "verificacion": "El local existe (El Mosset del Cabanyal, take away casero); email no verificado",
    "fuente": "Excel original",
    "alta": "2026-11-10",
-   "estado": "pendiente",
+   "estado": "enviado",
    "municipio": "Valencia",
    "km": 0,
    "radio_ok": true,
-   "tipo": "casera"
+   "tipo": "casera",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "comidas-garrido-valencia",
@@ -1400,7 +1402,8 @@
    "verificacion": "Ficha Glovo abierta y confirmada; email literal en guía municipal de Castelldefels; sin ficha Uber en 2 búsquedas. En el borde del radio.",
    "fuente": "https://www.castelldefels.org/es/ciudad/guia-de-la-ciudad/directorio-equipamientos-y-entidades/5743",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "la-pasta-boixa-barcelona",
@@ -1424,7 +1427,8 @@
    "verificacion": "Ficha Glovo abierta y confirmada; email literal en web oficial (enlaza a Glovo, recogida en local). Uber: ficha candidata https://www.ubereats.com/es/store/la-pasta-boixa/eEtTuRjSWdijQzyi5L6Pzg no abre (sin confirmar). | 2026-11-11: Ficha Uber Eats encontrada en búsqueda pero ubereats.com no abre hoy (sin confirmar): https://www.ubereats.com/es/store/la-pasta-boixa/eEtTuRjSWdijQzyi5L6Pzg",
    "fuente": "https://www.pastaboixa.com/",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "el-pollastre-angles-barcelona",
@@ -1448,7 +1452,8 @@
    "verificacion": "Ficha Uber Eats abierta y confirmada; email literal en web oficial. Su web dice que también reparte por Glovo/Just Eat, pero no se encontró ficha Glovo (null). | 2026-11-11: Glovo buscado de nuevo, sin ficha (su web dice que está en Glovo; se deja null).",
    "fuente": "https://elpollastreangles.cat/contacta-con-nosotros",
    "alta": "2026-11-10",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "a-dinar-valencia",
@@ -1472,7 +1477,8 @@
    "verificacion": "Email en aviso legal de su web oficial. Ficha Glovo abierta y confirmada. Ficha Uber Eats encontrada en búsqueda pero ubereats.com no abre hoy (sin confirmar): https://www.ubereats.com/es/store/a-dinar/IC0VS_1KVZasrE7MQZmeGw",
    "fuente": "https://a-dinar-valencia.metro.rest/?lang=en",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "al-punt-comidas-para-llevar-valencia",
@@ -1496,7 +1502,8 @@
    "verificacion": "Email en directorio comercial municipal (Ajuntament de Torrent). Sin ficha Glovo. UE: fichas 'Al Punt' ambiguas, no se pudieron abrir (null).",
    "fuente": "https://torrent.comercioscomunitatvalenciana.com/es/comercios/view/al-punt-comidas-llevar",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "casa-de-comidas-gaby-valencia",
@@ -1520,7 +1527,8 @@
    "verificacion": "Email en directorio comercial municipal (Ajuntament de Xirivella). Sin fichas en Glovo ni Uber Eats.",
    "fuente": "https://xirivella.comercioscomunitatvalenciana.com/es/comercios/view/casa-comidas-gaby",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "buen-yantar-valencia",
@@ -1544,7 +1552,8 @@
    "verificacion": "Email en directorio comercial municipal (Ajuntament de Xirivella). Sin ficha Glovo. Ficha Uber Eats encontrada en búsqueda pero ubereats.com no abre hoy (sin confirmar): https://www.ubereats.com/es/store/buen-yantar-comida-para-llevar/rIxlpAELRSycvXivgfFTEw",
    "fuente": "https://xirivella.comercioscomunitatvalenciana.com/es/comercios/view/buen-yantar-comidas-llevar",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "casa-conchin-polleria-valencia",
@@ -1568,7 +1577,8 @@
    "verificacion": "Email en directorio comercial municipal (Ajuntament de Xirivella). Sin fichas en Glovo ni Uber Eats.",
    "fuente": "https://xirivella.comercioscomunitatvalenciana.com/es/comercios/view/casa-conchn-pollera",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "el-pollastre-dorat-valencia",
@@ -1592,7 +1602,8 @@
    "verificacion": "Email en directorio comercial municipal (Ajuntament de Burjassot). Sin fichas en Glovo ni Uber Eats.",
    "fuente": "https://burjassot.comercioscomunitatvalenciana.com/es/comercios/view/el-pollastre-dorat-2",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "cocina-de-mamaya-alicante",
@@ -1616,7 +1627,8 @@
    "verificacion": "Email en directorio comercial municipal (Ayuntamiento de Alicante). Sin fichas en Glovo ni Uber Eats.",
    "fuente": "https://alicante.comercioscomunitatvalenciana.com/es/comercios/view/cocina-mamaya",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "la-marmita-de-carmen-alicante",
@@ -1640,7 +1652,8 @@
    "verificacion": "Email en directorio comercial municipal (Ayuntamiento de Alicante). Sin fichas en Glovo ni Uber Eats.",
    "fuente": "https://alicante.comercioscomunitatvalenciana.com/es/comercios/view/la-marmita-carmen",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "el-pollo-aventurero-alicante",
@@ -1664,7 +1677,8 @@
    "verificacion": "Email en directorio comercial municipal (Ayuntamiento de Alicante); web elpolloaventurero.es. Sin fichas en Glovo ni Uber Eats.",
    "fuente": "https://alicante.comercioscomunitatvalenciana.com/es/comercios/view/el-pollo-aventurero",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "kuzina-valencia",
@@ -1688,7 +1702,8 @@
    "verificacion": "Email literal en web oficial (que enlaza Glovo y Uber Eats). Ficha Glovo abierta y confirmada. Ficha Uber Eats encontrada en búsqueda pero ubereats.com no abre hoy (sin confirmar): https://www.ubereats.com/es/store/kuzina-griego/ktAKK9CIQhacVup3hkuslw",
    "fuente": "https://www.kuzinavlc.com/blog/delivery-comida-griega-valencia",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "restaurante-rio-alicante",
@@ -1712,7 +1727,8 @@
    "verificacion": "Email en web oficial (página para llevar: Glovo, Uber Eats, Just Eat). Ficha Glovo abierta y confirmada. Ficha Uber Eats encontrada en búsqueda pero ubereats.com no abre hoy (sin confirmar): https://www.ubereats.com/es/store/restaurante-rio/p7cLzGL-TUuH5jUCTImAnA",
    "fuente": "https://www.restauranterioalicante.com/para-llevar",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   },
   {
    "id": "takochan-alicante",
@@ -1736,7 +1752,8 @@
    "verificacion": "Email en web oficial (servicios). Ficha Glovo abierta y confirmada. km = centro de municipio (dirección no publicada). Ficha Uber Eats encontrada en búsqueda pero ubereats.com no abre hoy (sin confirmar): https://www.ubereats.com/es/store/takochan/Afjp-KzqWXmf3SbQG4nDXA",
    "fuente": "https://takochan.es/services-takochan",
    "alta": "2026-11-11",
-   "estado": "pendiente"
+   "estado": "enviado",
+   "fecha_envio": "2026-11-11"
   }
  ],
  "radio_km": 20
