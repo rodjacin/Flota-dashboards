@@ -49,6 +49,10 @@ cd "$DL"
 echo "==== $(date '+%Y-%m-%d %H:%M:%S') INICIO ===="
 [ "${SALTAR_EXTRAER:-0}" = 1 ] && echo "(prueba: sin descarga del bucket)" || python3 extraer_datos_fleet.py
 python3 combinar_datos_fleet.py
+# forecast semanal publicado por Glovo en el bucket (forecast/<viernes>/forecast_demand.csv)
+for f in $(ls -d "$DL"/fleet_data/forecast/*/ 2>/dev/null); do echo "FORECAST $f: $(ls "$f" | tr '\n' ' ')"; done
+ls "$DL/fleet_data" | grep -v '^20[0-9][0-9]-' | sed 's/^/BUCKET_RAIZ /' || true
+f=$(ls -d "$DL"/fleet_data/forecast/*/forecast_demand.csv 2>/dev/null | tail -1); [ -n "$f" ] && { echo "== cabecera $f ($(wc -l < "$f") líneas)"; head -4 "$f"; cut -d, -f1-3 "$f" | sort -u | head -0; } || echo "sin forecast_demand.csv"
 python3 generar_resumen_flota.py
 python3 pedido_trazas.py "$REPO" || echo "⚠ trazas por pedido no generadas"
 python3 pedidos_restaurantes.py "$DL/dashboards/pedidos_restaurantes.html" || echo "⚠ pedidos por restaurante no generado"
