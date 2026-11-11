@@ -73,6 +73,9 @@ python3 "$AUTO/festivos_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom
 # pestaña «Alertas por temporal»: avisos AEMET (72 h) de lluvias/tormentas por zona de reparto
 python3 "$AUTO/temporal_flota.py" "$REPO/sab/index.html" sab || echo "⚠ alertas por temporal no añadidas (SAB)"
 python3 "$AUTO/temporal_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom-alc || echo "⚠ alertas por temporal no añadidas (GRA-MAD-NOM-ALC)"
+# pestaña «Forecast»: forecast_demand.csv que Glovo publica cada viernes en el bucket (forecast/<viernes>/)
+python3 "$AUTO/forecast_flota.py" "$REPO/sab/index.html" sab || echo "⚠ pestaña Forecast no añadida (SAB)"
+python3 "$AUTO/forecast_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom-alc || echo "⚠ pestaña Forecast no añadida (GRA-MAD-NOM-ALC)"
 if [ -f "$OUT/pedidos_restaurantes.html" ]; then publish "$OUT/pedidos_restaurantes.html" "$REPO/gra-mad-nom-alc/restaurantes/index.html"; fi
 cat > "$REPO/index.html" <<HTML
 <!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
