@@ -414,11 +414,21 @@ _ST_ES = {"working": "Trabajando", "ready": "Listo", "available": "Disponible", 
           "starting": "Empezando", "ending": "Terminando", "temp_not_working": "Parado temporalmente", "not_working": "No trabajando"}
 
 
+def _hm_madrid(iso):
+    """'2026-11-12T13:00:00Z' -> '14:00' en hora de Madrid"""
+    t = dt.datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    try:
+        from zoneinfo import ZoneInfo
+        return t.astimezone(ZoneInfo("Europe/Madrid")).strftime("%H:%M")
+    except Exception:
+        return (t + dt.timedelta(hours=1)).strftime("%H:%M")
+
+
 def acumular_liveops(path, snap, cities):
     """Suma la foto actual al histórico diario: por rider y día (hora de Madrid)
     [área, nombre, fotos, fotos con retraso, fotos en pausa, nº pausas (máx), seg. en pausa (máx),
      notificados (máx), aceptados (máx), tasa de aceptación (última), fotos con monedero sobre el límite,
-     saldo máximo, {estado · motivo: fotos}]"""
+     saldo máximo, {estado · motivo: fotos}, {inicio turno: [seg. retraso máx, 1ª hora conectado, fotos con retraso, fin turno]}]"""
     import re
     try:
         h = json.load(open(path, encoding="utf-8"))
@@ -456,6 +466,19 @@ def acumular_liveops(path, snap, cities):
             if re.search(r"hard|over|above", str(wi.get("limit_status") or ""), re.I): v[10] += 1
             try: v[11] = max(v[11], round(float(wi.get("balance") or 0), 2))
             except Exception: pass
+            # puntualidad por turno: {inicio turno HH:MM (Madrid): [late_seg máx, 1ª hora conectado HH:MM o None, fotos «late», fin turno HH:MM]}
+            if len(v) < 14: v.append({})
+            ini = r.get("active_shift_started_at")
+            if ini:
+                try:
+                    t_ini = _hm_madrid(ini); t_fin = _hm_madrid(r.get("active_shift_ended_at")) if r.get("active_shift_ended_at") else None
+                    T = v[13].setdefault(t_ini, [0, None, 0, t_fin])
+                    T[0] = max(T[0], int(ts.get("late_seconds") or 0))
+                    if st == "late": T[2] += 1
+                    elif T[1] is None: T[1] = _hm_madrid(snap.get("fetched_at")) if snap.get("fetched_at") else None
+                    if t_fin: T[3] = t_fin
+                except Exception:
+                    pass
             mot = (r.get("status_metadata") or {}).get("reason")
             if mot and st != "working":
                 k = _ST_ES.get(st, st) + " · " + str(mot)
