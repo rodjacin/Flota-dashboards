@@ -169,6 +169,7 @@ def js(data):
   if(!seg||!sec) return;
   const $=id=>document.getElementById(id);
   const f1=v=>v==null||isNaN(v)?'—':v.toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const s10=v=>v==null||isNaN(v)?'—':(v*10).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
   const pc=v=>v==null||isNaN(v)?'—':f1(v*100)+'%';
   // [sem,ciudad,rider,nombre,dias,mot,ent,asig,reas,capu,o10,bk,ns,plan,trab,pdx,ndx,vel]
   const R=S.filas.map(a=>({sem:a[0],c:a[1],id:a[2],nm:a[3],dias:a[4],mot:a[5],ent:a[6],asig:a[7],reas:a[8],capu:a[9],o10:a[10],bk:a[11],ns:a[12],plan:a[13],trab:a[14],pdx:a[15],ndx:a[16],vel:a[17]}));
@@ -223,25 +224,27 @@ def js(data):
     const sc=rows.map(x=>x.o.score).filter(v=>v!=null);
     const avg=sc.length?sc.reduce((a,b)=>a+b,0)/sc.length:null;
     const vObj=st.nodo==='ALL'?S.ciudades.map(c=>c+' '+f1((S.vel_obj[st.sem]||{})[c])).join(' · '):f1((S.vel_obj[st.sem]||{})[st.nodo])+' km/h';
-    $('scKpi').innerHTML=[
+    const media=c=>{const v=rows.filter(x=>x.r.c===c&&x.o.score!=null).map(x=>x.o.score);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
+    const porNodo=(st.nodo==='ALL'?S.ciudades:[st.nodo]).map(c=>{const m=media(c);return `<div style="border-color:${m==null?'#E4E7EC':tcol(m)}"><b style="color:${tcol(m)}">${s10(m)}</b><span>Score medio ${c} (sobre 10)</span></div>`;}).join('');
+    $('scKpi').innerHTML=porNodo+[
       ['Riders',rows.length.toLocaleString('es-ES')],
-      ['Score medio',pc(avg)],
-      ['≥ 90 %',sc.filter(v=>v>=0.9).length],
-      ['75–90 %',sc.filter(v=>v>=0.75&&v<0.9).length],
-      ['&lt; 75 %',sc.filter(v=>v<0.75).length],
+      ...(st.nodo==='ALL'?[['Score medio total (sobre 10)',s10(avg)]]:[]),
+      ['Score ≥ 9',sc.filter(v=>v>=0.9).length],
+      ['Score 7,5–9',sc.filter(v=>v>=0.75&&v<0.9).length],
+      ['Score &lt; 7,5',sc.filter(v=>v<0.75).length],
       ['Objetivo speed (km/h)',vObj]
     ].map(([a,b])=>`<div><b>${b}</b><span>${a}</span></div>`).join('');
     const esc=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     const tip=k=>{const p=P[k];if(!p)return '';const t=k==='speed'?'media del 10 % más rápido del nodo en la semana':(k==='pd'||k==='nd')&&p.t==null?'el de city_billing de su ciudad ('+S.ciudades.map(c=>c+' '+pc((S.dev_obj[c]||{})[k])).join(', ')+')':(p.unit==='%'?pc(p.t):p.t);return esc(p.lab+': '+p.def.charAt(0).toUpperCase()+p.def.slice(1)+'. Objetivo (100 % del score): '+t+'. Peso: '+f1(p.w)+' %.');};
-    const TIPS={id:'Rider ID de Glovo y nombre de la cuenta',c:'Nodo (ciudad) del rider',ent:'Entregas completadas en la semana',trab:'Horas trabajadas en la semana',score:'Score final = Σ peso × puntuación de cada métrica ÷ Σ pesos de las métricas con dato. 100 % = todas las métricas en objetivo.'};
+    const TIPS={id:'Rider ID de Glovo y nombre de la cuenta',c:'Nodo (ciudad) del rider',ent:'Entregas completadas en la semana',trab:'Horas trabajadas en la semana',score:'Score final sobre 10 = 10 × Σ peso × puntuación de cada métrica ÷ Σ pesos de las métricas con dato. 10 = todas las métricas en objetivo; 0 = ninguna.'};
     const th=(k,l,cls)=>`<th class="${cls||''}" data-k="${k}" title="${P[k]?tip(k):esc(TIPS[k]||'')}" style="cursor:help">${l}${st.sort===k?(st.asc?' ▲':' ▼'):''}</th>`;
-    $('scTab').innerHTML='<tr>'+th('id','Rider','l')+th('c','Nodo','l')+th('ent','Entregas')+th('trab','Horas')+K.map(k=>th(k,P[k].lab+` <span style="text-transform:none">(${f1(P[k].w)}%)</span>`)).join('')+th('score','Score')+'</tr>'+
+    $('scTab').innerHTML='<tr>'+th('id','Rider','l')+th('c','Nodo','l')+th('ent','Entregas')+th('trab','Horas')+K.map(k=>th(k,P[k].lab+` <span style="text-transform:none">(${f1(P[k].w)}%)</span>`)).join('')+th('score','Score /10')+'</tr>'+
       rows.map(({r,o})=>`<tr><td class="l"><b>${r.id}</b>${r.nm?`<span class="sub">${r.nm}</span>`:''}</td><td class="l zn">${r.c}</td><td>${r.ent}</td><td>${f1(r.trab)}</td>`+
         K.map(k=>{const x=o[k];return `<td title="${esc(P[k].lab+': '+P[k].def)} · Objetivo ${fmt(k,x.t)}">${fmt(k,x.v)}<span class="sub" style="color:${tcol(x.s)}">${x.s==null?'sin dato':pc(x.s)}</span></td>`;}).join('')+
-        `<td><span class="pill" style="background:${color(o.score)};color:${tcol(o.score)}">${pc(o.score)}</span>${o.cob<99.9?`<span class="sub">${f1(o.cob)}% del peso</span>`:''}</td></tr>`).join('')+
+        `<td><span class="pill" style="background:${color(o.score)};color:${tcol(o.score)}">${s10(o.score)}</span>${o.cob<99.9?`<span class="sub">${f1(o.cob)}% del peso</span>`:''}</td></tr>`).join('')+
       (rows.length?'':'<tr><td class="l mut" colspan="14">Sin riders para este filtro.</td></tr>');
     $('scSub').textContent=`Bucket de Glovo · rider_lv del ${S.primer_dia} al ${S.ultimo_dia}`+(S.billing?` · objetivos PD/ND de city_billing ${S.billing}`:'')+` · generado ${S.generado}`;
-    $('scNota').textContent='Score = Σ peso × puntuación ÷ Σ pesos de las métricas con dato (100 % = todas las métricas en objetivo). Debajo de cada valor, su puntuación (0–100 %). Una métrica sin dato (p. ej. sin pedidos asignados) no cuenta y su peso se reparte. Verde ≥ 90 %, ámbar 75–90 %, rojo < 75 %. Pulsa una cabecera para ordenar.';
+    $('scNota').textContent='Score sobre 10 = 10 × Σ peso × puntuación ÷ Σ pesos de las métricas con dato (10 = todas las métricas en objetivo, 0 = ninguna). Debajo de cada valor, su puntuación (0–100 %). Una métrica sin dato (p. ej. sin pedidos asignados) no cuenta y su peso se reparte. Verde ≥ 9, ámbar 7,5–9, rojo < 7,5. Pulsa una cabecera para ordenar.';
     pintarPar();
   }
   function pintarPar(){
