@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Pestaña «Rider scoring» del dashboard GRA-MAD-NOM-ALC.
+Pestaña «Rider scoring» de los dashboards GRA-MAD-NOM-ALC y SAB.
 
 Fuente: bucket de Glovo (copia local en ~/Downloads/fleet_data):
   · <día>/…/rider_lv.csv       métricas diarias por rider
@@ -17,13 +17,15 @@ navegador (así los pesos y objetivos se pueden ajustar en la propia pestaña):
   PD     desviación +     = Σ max(trabajadas − planificadas, 0) ÷ Σ planificadas objetivo de city_billing (target_positive_deviation)
   ND     desviación −     = Σ max(planificadas − trabajadas, 0) ÷ Σ planificadas objetivo de city_billing (target_negative_deviation)
 
-Uso: python3 rider_scoring.py <index.html>
+Uso: python3 rider_scoring.py <index.html> [gra-mad-nom-alc|sab]
 """
 import os, sys, glob, json, datetime as dt
 import pandas as pd
 
 FLEET = os.environ.get("FLEET_DATA") or os.path.expanduser("~/Downloads/fleet_data")
-CIUDADES = ["ALC", "GRA", "MAD", "NOM"]
+DASH = {"sab": ["SAB"], "gra-mad-nom-alc": ["ALC", "GRA", "MAD", "NOM"]}
+CIUDADES = DASH["gra-mad-nom-alc"]
+CARPETA = "gra-mad-nom-alc"
 ALIAS = {"NEM": "MAD"}
 SEMANAS = 10
 _BTN = '<button data-v="scoring" aria-pressed="false">Rider scoring</button>'
@@ -69,7 +71,7 @@ def objetivos_billing():
 
 def nombres():
     try:
-        d = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "gra-mad-nom-alc", "liveops_hist.json"), encoding="utf-8"))
+        d = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", CARPETA, "liveops_hist.json"), encoding="utf-8"))
     except Exception:
         return {}
     out = {}
@@ -241,7 +243,13 @@ def js(data):
       rows.map(({r,o})=>`<tr><td class="l"><b>${r.id}</b>${r.nm?`<span class="sub">${r.nm}</span>`:''}</td><td class="l zn">${r.c}</td><td>${r.ent}</td><td>${f1(r.trab)}</td>`+
         K.map(k=>{const x=o[k];return `<td title="${esc(P[k].lab+': '+P[k].def)} · Objetivo ${fmt(k,x.t)}">${fmt(k,x.v)}<span class="sub" style="color:${tcol(x.s)}">${x.s==null?'sin dato':pc(x.s)}</span></td>`;}).join('')+
         `<td><span class="pill" style="background:${color(o.score)};color:${tcol(o.score)}">${s10(o.score)}</span>${o.cob<99.9?`<span class="sub">${f1(o.cob)}% del peso</span>`:''}</td></tr>`).join('')+
-      (rows.length?'':'<tr><td class="l mut" colspan="14">Sin riders para este filtro.</td></tr>');
+      (rows.length?'':'<tr><td class="l mut" colspan="14">Sin riders para este filtro.</td></tr>')+
+      (rows.length?(()=>{const mean=a=>{const v=a.filter(x=>x!=null&&!isNaN(x));return v.length?v.reduce((p,q)=>p+q,0)/v.length:null;};
+        const BG='background:#E8F1F3;border-top:2px solid #0E5A6B;font-weight:700';
+        return `<tr><td class="l" style="${BG}" title="Media simple de los riders mostrados con el filtro actual (semana, nodo, mínimo de entregas y búsqueda). Valor medio de la métrica y, debajo, puntuación media.">Media global<span class="sub">${rows.length} riders</span></td><td class="l" style="${BG}">${st.nodo==='ALL'?'Todos':st.nodo}</td>`+
+          `<td style="${BG}">${f1(mean(rows.map(x=>x.r.ent)))}</td><td style="${BG}">${f1(mean(rows.map(x=>x.r.trab)))}</td>`+
+          K.map(k=>{const v=mean(rows.map(x=>x.o[k].v)),sc=mean(rows.map(x=>x.o[k].s));return `<td style="${BG}" title="${esc(P[k].lab)}: media de los riders mostrados">${fmt(k,v)}<span class="sub" style="color:${tcol(sc)}">${sc==null?'sin dato':pc(sc)}</span></td>`;}).join('')+
+          `<td style="${BG}"><span class="pill" style="background:${color(avg)};color:${tcol(avg)}">${s10(avg)}</span></td></tr>`;})():'');
     $('scSub').textContent=`Bucket de Glovo · rider_lv del ${S.primer_dia} al ${S.ultimo_dia}`+(S.billing?` · objetivos PD/ND de city_billing ${S.billing}`:'')+` · generado ${S.generado}`;
     $('scNota').textContent='Score sobre 10 = 10 × Σ peso × puntuación ÷ Σ pesos de las métricas con dato (10 = todas las métricas en objetivo, 0 = ninguna). Debajo de cada valor, su puntuación (0–100 %). Una métrica sin dato (p. ej. sin pedidos asignados) no cuenta y su peso se reparte. Verde ≥ 9, ámbar 7,5–9, rojo < 7,5. Pulsa una cabecera para ordenar.';
     pintarPar();
@@ -300,11 +308,14 @@ def integrar(html, data):
 
 
 def main():
+    global CIUDADES, CARPETA
     html_p = sys.argv[1]
+    CARPETA = sys.argv[2] if len(sys.argv) > 2 else "gra-mad-nom-alc"
+    CIUDADES = DASH[CARPETA]
     data = datos()
     h = open(html_p, encoding="utf-8").read()
     open(html_p, "w", encoding="utf-8").write(integrar(h, data))
-    print(f"rider_scoring: {len(data['filas'])} rider-semanas · {data['primer_dia']}..{data['ultimo_dia']} · "
+    print(f"rider_scoring {CARPETA}: {len(data['filas'])} rider-semanas · {data['primer_dia']}..{data['ultimo_dia']} · "
           f"speed obj {data['vel_obj'].get(max(data['vel_obj'] or ['']), {})} · PD/ND {data['dev_obj']}")
 
 
