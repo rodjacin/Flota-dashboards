@@ -275,6 +275,11 @@ def exportar(repo, snap):
                 json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
             print("%s/wtd_vivo.json: %d riders con posición" % (carpeta, len(paradas)))
             try:
+                n = guardar_actividad(os.path.join(d, ACTIVIDAD), snap, cs)
+                print("%s/%s: %d riders" % (carpeta, ACTIVIDAD, n))
+            except Exception as e:
+                print("actividad (%s): %s" % (carpeta, e))
+            try:
                 if _ts(snap.get("fetched_at") or "") and _ts(snap["fetched_at"]).minute % 5 != 0:
                     raise StopIteration      # el histórico de Live Ops cuenta fotos de 5 min
                 n = acumular_liveops(os.path.join(d, LIVEOPS_HIST), snap, cs)
@@ -412,6 +417,58 @@ LIVEOPS_HIST = "liveops_hist.json"   # histórico diario de Live Operations por 
 LIVEOPS_DIAS = 60
 _ST_ES = {"working": "Trabajando", "ready": "Listo", "available": "Disponible", "late": "Con retraso", "break": "En pausa",
           "starting": "Empezando", "ending": "Terminando", "temp_not_working": "Parado temporalmente", "not_working": "No trabajando"}
+
+
+ACTIVIDAD = "actividad_hoy.json"   # actividad del día por rider (estado actual + línea de tiempo cada 5 min), sin teléfono, email ni GPS
+_ST_COD = {"working": "w", "ready": "r", "available": "r", "late": "l", "break": "b", "starting": "s", "ending": "e",
+           "temp_not_working": "t", "not_working": "n"}
+
+
+def guardar_actividad(path, snap, cities):
+    """Foto actual de cada rider y su línea de tiempo del día (288 franjas de 5 min, hora de Madrid)."""
+    try:
+        from zoneinfo import ZoneInfo
+        ahora = _ts(snap.get("fetched_at") or "") or _now()
+        loc = ahora.astimezone(ZoneInfo("Europe/Madrid"))
+    except Exception:
+        loc = (_now() + dt.timedelta(hours=1))
+    hoy = loc.date().isoformat(); slot = (loc.hour * 60 + loc.minute) // 5
+    try:
+        a = json.load(open(path, encoding="utf-8"))
+    except Exception:
+        a = {}
+    if a.get("fecha") != hoy:
+        a = {"fecha": hoy, "tl": {}, "nm": {}}
+    act = {}
+    for code, C in (snap.get("cities") or {}).items():
+        if code not in cities:
+            continue
+        for r in C.get("riders") or []:
+            st = r.get("status") or ""
+            rid = str(r.get("employee_id"))
+            perf = r.get("performance") or {}; ts = perf.get("time_spent") or {}
+            di = r.get("deliveries_info") or {}; wi = r.get("wallet_info") or {}; sm = r.get("status_metadata") or {}
+            if st and st != "not_working":
+                tl = a["tl"].get(rid) or "." * 288
+                a["tl"][rid] = tl[:slot] + _ST_COD.get(st, "?") + tl[slot + 1:]
+            a["nm"][rid] = [code, r.get("name") or ""]
+            if st == "not_working" and rid not in a["tl"]:
+                continue
+            act[rid] = [code, r.get("name") or "", st, sm.get("reason") or "", sm.get("performed_by") or "",
+                        r.get("active_shift_started_at"), r.get("active_shift_ended_at"),
+                        bool(di.get("has_active_delivery") or di.get("has_active_deliveries") or di.get("active_delivery_ids")),
+                        di.get("notified_deliveries_count"), di.get("completed_deliveries_count"), di.get("cancelled_deliveries_count"),
+                        di.get("accepted_deliveries_count"), perf.get("utilization_rate"), perf.get("acceptance_rate"),
+                        perf.get("reassignment_rate"), ts.get("worked_seconds"), ts.get("late_seconds"), ts.get("break_seconds"),
+                        ts.get("number_of_breaks"), wi.get("balance"), wi.get("limit_status"),
+                        (r.get("zone") or {}).get("name") or "", (r.get("starting_point") or {}).get("name") or "",
+                        (r.get("vehicle") or {}).get("name") or "", r.get("location_updated_at")]
+    a["foto"] = snap.get("fetched_at"); a["act"] = act; a["slot"] = slot
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(a, fh, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, path)
+    return len(act)
 
 
 def _hm_madrid(iso):
