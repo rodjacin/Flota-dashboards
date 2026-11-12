@@ -1,0 +1,43 @@
+# Temporal: exporta (cifrado) datos del bucket para diseñar la pestaña Rider scoring. Se borra tras usarlo.
+name: tmp exportar bucket
+on: { workflow_dispatch: {} }
+jobs:
+  exportar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: ~/Downloads/fleet_data
+          key: fleet-data-none
+          restore-keys: fleet-data-
+      - name: Empaquetar y cifrar
+        run: |
+          cd ~/Downloads/fleet_data
+          ls | tail -50
+          find . -maxdepth 1 -type d -name '2026-*' | sort | tail -60 > d.txt
+          tar czf /tmp/x.tgz billing $(sed 's|$|/batch_number=1/rider_lv.csv|' d.txt | xargs ls 2>/dev/null) $(ls -d forecast 2>/dev/null)
+          ls -la /tmp/x.tgz
+          cat > /tmp/cert.pem <<'PEM'
+          -----BEGIN CERTIFICATE-----
+          MIIC/TCCAeWgAwIBAgIUUxelXj0NosL2fmZqnb5k60gV8ZYwDQYJKoZIhvcNAQEL
+          BQAwDjEMMAoGA1UEAwwDdG1wMB4XDTI2MTExMjEwMzM1NFoXDTI2MTExNTEwMzM1
+          NFowDjEMMAoGA1UEAwwDdG1wMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+          AQEA700vPgSg7gFZFDmDmpPsqExNzVeXqrPjuVvRbMFhqDNip4uo1wGPxPgZXkEa
+          zpeuEvAy5TPXMQXi8FZTfsxrqfVkcJbDfgprWrDb/j+IPcMlgBzAZ/K73m1KS/lX
+          bu8cKbo/xsApbLcLrkG3t5vRVfkVf+v38/g+psVK+kBwisr3JZ0ccoiVqUHS6HUf
+          Vp1/g1WDZnJATIb2sjfP6hEeakR2GfwGhrbKu3Vl70kUzOFxd4G6Lmd4tl3lzxtg
+          vxiWUtJywux9PuoJM54H23p9DPYI7m3cXI39oSy8314Ha6JFsv6hZB3KUrTLHI06
+          Tcw+5SBC36BZniEuBGdX5a+mTwIDAQABo1MwUTAdBgNVHQ4EFgQUR6QWQxiRNK3H
+          KhhsPcSE/fs/wWIwHwYDVR0jBBgwFoAUR6QWQxiRNK3HKhhsPcSE/fs/wWIwDwYD
+          VR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEATU+JokQ1OLtSjEBQCTCO
+          CBP6OMo5ZSTMEdu//GKXE4HVbtFP9wdv6DW4dS3nTpKnR7/evLk+U08RjykN9Cnv
+          5CE2IRAUBAY88u6TMBgNjVdFpkLWzZI1GwkMUOQEoIzgyobzLUcR8vvbKtif2I/K
+          3pHC3UZDwIpfi8bVyh9cUO66T7x6FvfMHU1R1PCbP7nOswCEvNxtb3BgjgGnpWof
+          ZhxxNMojg0qu9Q6/s7SIH0UctsAY1A03DR0+GMQqW4uu4UqiGno+QSc+v4X0rHAE
+          7KTKVy52vvhlh32GuxdGcwZMJtZNflgzmOw6n8KAIE5HDSTWz6IybdzJLDgKBYGq
+          0g==
+          -----END CERTIFICATE-----
+          PEM
+          openssl smime -encrypt -binary -aes256 -in /tmp/x.tgz -out /tmp/x.enc -outform DER /tmp/cert.pem
+      - uses: actions/upload-artifact@v4
+        with: { name: datos, path: /tmp/x.enc, retention-days: 1 }
