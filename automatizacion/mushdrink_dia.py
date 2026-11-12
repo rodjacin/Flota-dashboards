@@ -477,6 +477,7 @@ def main():
     open(a.html, 'w', encoding='utf-8').write(out)
     subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_sla_tramos.py'), a.html], check=True)
     subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_pedidos_hora.py'), a.html], check=True)
+    subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_alerta_agregadores.py'), a.html], check=True)
 
 
 if __name__ == '__main__':
