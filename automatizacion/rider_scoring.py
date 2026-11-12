@@ -176,12 +176,12 @@ def js(data):
   const P={
     ns:   {lab:'No show',  w:15.0, t:0,     tol:0.10, dir:'low',  unit:'%', m:r=>r.bk?r.ns/r.bk:null, def:'franjas no presentadas ÷ franjas reservadas'},
     rr:   {lab:'RR%',      w:22.5, t:0.035, tol:0.035,dir:'low',  unit:'%', m:r=>r.asig?r.reas/r.asig:null, def:'pedidos reasignados ÷ pedidos asignados'},
-    speed:{lab:'Speed',    w:16.3, t:null,  tol:null, dir:'high', unit:'km/h', m:r=>r.vel, def:'velocidad media (recogida + entrega, km/h); objetivo = media del 10 % más rápido del nodo en la semana'},
-    wtd10:{lab:'WTD%',     w:16.3, t:0.05,  tol:0.05, dir:'low',  unit:'%', m:r=>r.ent?r.o10/r.ent:null, def:'entregas con espera >10 min ÷ entregas completadas'},
-    capu: {lab:'CAPU',     w:5.0,  t:0,     tol:0.02, dir:'low',  unit:'%', m:r=>r.ent?r.capu/r.ent:null, def:'CAPU (fraude) ÷ entregas completadas'},
+    speed:{lab:'Speed',    w:16.3, t:null,  tol:null, dir:'high', unit:'km/h', m:r=>r.vel, def:'velocidad media del rider en km/h, sumando el trayecto hasta el restaurante y el de entrega al cliente'},
+    wtd10:{lab:'WTD%',     w:16.3, t:0.05,  tol:0.05, dir:'low',  unit:'%', m:r=>r.ent?r.o10/r.ent:null, def:'entregas con WTD de más de 10 min ÷ entregas completadas'},
+    capu: {lab:'CAPU',     w:5.0,  t:0,     tol:0.02, dir:'low',  unit:'%', m:r=>r.ent?r.capu/r.ent:null, def:'pedidos marcados como CAPU (fraude) ÷ entregas completadas'},
     motor:{lab:'Motor',    w:10.0, t:1,     tol:null, dir:'high', unit:'%', m:r=>r.dias?r.mot/r.dias:null, def:'días con vehículo motorizado ÷ días trabajados'},
-    pd:   {lab:'PD',       w:5.0,  t:null,  tol:null, dir:'low',  unit:'%', m:r=>r.plan?r.pdx/r.plan:null, def:'horas trabajadas por encima de lo planificado ÷ horas planificadas; objetivo de city_billing'},
-    nd:   {lab:'ND',       w:10.0, t:null,  tol:null, dir:'low',  unit:'%', m:r=>r.plan?r.ndx/r.plan:null, def:'horas planificadas no trabajadas ÷ horas planificadas; objetivo de city_billing'}
+    pd:   {lab:'PD',       w:5.0,  t:null,  tol:null, dir:'low',  unit:'%', m:r=>r.plan?r.pdx/r.plan:null, def:'horas trabajadas por encima de las planificadas ÷ horas planificadas'},
+    nd:   {lab:'ND',       w:10.0, t:null,  tol:null, dir:'low',  unit:'%', m:r=>r.plan?r.ndx/r.plan:null, def:'horas planificadas no trabajadas (incluye no show) ÷ horas planificadas'}
   };
   const K=Object.keys(P);
   const objetivo=(k,r)=>{
@@ -231,10 +231,13 @@ def js(data):
       ['&lt; 75 %',sc.filter(v=>v<0.75).length],
       ['Objetivo speed (km/h)',vObj]
     ].map(([a,b])=>`<div><b>${b}</b><span>${a}</span></div>`).join('');
-    const th=(k,l,cls)=>`<th class="${cls||''}" data-k="${k}">${l}${st.sort===k?(st.asc?' ▲':' ▼'):''}</th>`;
+    const esc=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const tip=k=>{const p=P[k];if(!p)return '';const t=k==='speed'?'media del 10 % más rápido del nodo en la semana':(k==='pd'||k==='nd')&&p.t==null?'el de city_billing de su ciudad ('+S.ciudades.map(c=>c+' '+pc((S.dev_obj[c]||{})[k])).join(', ')+')':(p.unit==='%'?pc(p.t):p.t);return esc(p.lab+': '+p.def.charAt(0).toUpperCase()+p.def.slice(1)+'. Objetivo (100 % del score): '+t+'. Peso: '+f1(p.w)+' %.');};
+    const TIPS={id:'Rider ID de Glovo y nombre de la cuenta',c:'Nodo (ciudad) del rider',ent:'Entregas completadas en la semana',trab:'Horas trabajadas en la semana',score:'Score final = Σ peso × puntuación de cada métrica ÷ Σ pesos de las métricas con dato. 100 % = todas las métricas en objetivo.'};
+    const th=(k,l,cls)=>`<th class="${cls||''}" data-k="${k}" title="${P[k]?tip(k):esc(TIPS[k]||'')}" style="cursor:help">${l}${st.sort===k?(st.asc?' ▲':' ▼'):''}</th>`;
     $('scTab').innerHTML='<tr>'+th('id','Rider','l')+th('c','Nodo','l')+th('ent','Entregas')+th('trab','Horas')+K.map(k=>th(k,P[k].lab+` <span style="text-transform:none">(${f1(P[k].w)}%)</span>`)).join('')+th('score','Score')+'</tr>'+
       rows.map(({r,o})=>`<tr><td class="l"><b>${r.id}</b>${r.nm?`<span class="sub">${r.nm}</span>`:''}</td><td class="l zn">${r.c}</td><td>${r.ent}</td><td>${f1(r.trab)}</td>`+
-        K.map(k=>{const x=o[k];return `<td title="Objetivo ${fmt(k,x.t)}">${fmt(k,x.v)}<span class="sub" style="color:${tcol(x.s)}">${x.s==null?'sin dato':pc(x.s)}</span></td>`;}).join('')+
+        K.map(k=>{const x=o[k];return `<td title="${esc(P[k].lab+': '+P[k].def)} · Objetivo ${fmt(k,x.t)}">${fmt(k,x.v)}<span class="sub" style="color:${tcol(x.s)}">${x.s==null?'sin dato':pc(x.s)}</span></td>`;}).join('')+
         `<td><span class="pill" style="background:${color(o.score)};color:${tcol(o.score)}">${pc(o.score)}</span>${o.cob<99.9?`<span class="sub">${f1(o.cob)}% del peso</span>`:''}</td></tr>`).join('')+
       (rows.length?'':'<tr><td class="l mut" colspan="14">Sin riders para este filtro.</td></tr>');
     $('scSub').textContent=`Bucket de Glovo · rider_lv del ${S.primer_dia} al ${S.ultimo_dia}`+(S.billing?` · objetivos PD/ND de city_billing ${S.billing}`:'')+` · generado ${S.generado}`;
@@ -247,7 +250,7 @@ def js(data):
       K.map(k=>{const p=P[k];
         const tIn=k==='speed'?'<span class="mut">top 10 % del nodo</span>':(k==='pd'||k==='nd')&&p.t==null?`<span class="mut">city_billing</span>`:`<input data-p="${k}" data-f="t" type="number" step="0.1" value="${p.unit==='%'?+(p.t*100).toFixed(2):p.t}">${p.unit==='%'?' %':''}`;
         const tolIn=p.dir==='high'?'<span class="mut">score = valor ÷ objetivo</span>':`<input data-p="${k}" data-f="tol" type="number" step="0.1" value="${p.tol!=null?+(p.tol*100).toFixed(2):''}" placeholder="= obj."> %`;
-        return `<tr><td class="l"><b>${p.lab}</b></td><td><input data-p="${k}" data-f="w" type="number" step="0.1" value="${p.w}"></td><td>${tIn}</td><td>${tolIn}</td><td class="l mut" style="white-space:normal">${p.def}</td></tr>`;}).join('')+
+        return `<tr><td class="l" title="${p.def}" style="cursor:help"><b>${p.lab}</b></td><td><input data-p="${k}" data-f="w" type="number" step="0.1" value="${p.w}"></td><td>${tIn}</td><td>${tolIn}</td><td class="l mut" style="white-space:normal">${p.def}</td></tr>`;}).join('')+
       `<tr><td class="l"><b>Total</b></td><td><b>${f1(K.reduce((a,k)=>a+(+P[k].w||0),0))}</b></td><td colspan="3"></td></tr>`;
     $('scParNota').innerHTML='Puntuación por métrica: si el valor cumple el objetivo, 100 %. Métricas «menos es mejor» (No show, RR%, WTD%, CAPU, PD, ND): bajan en línea recta desde el objetivo hasta 0 % al llegar a objetivo + tolerancia (si la tolerancia está vacía, se usa el propio objetivo, es decir, 0 % al doblarlo). Speed y Motor: valor ÷ objetivo, con tope en 100 %. Objetivos PD / ND de city_billing: '+dv+'. CAPU y Motor no tienen objetivo en el bucket: se toma 0 CAPU y 100 % de días en moto. Los cambios de esta tabla solo afectan a esta pantalla y se pierden al recargar.';
   }
