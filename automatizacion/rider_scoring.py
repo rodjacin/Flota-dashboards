@@ -231,8 +231,7 @@ def js(data):
       ...(st.nodo==='ALL'?[['Score medio total (sobre 10)',s10(avg)]]:[]),
       ['Score ≥ 9',sc.filter(v=>v>=0.9).length],
       ['Score 7,5–9',sc.filter(v=>v>=0.75&&v<0.9).length],
-      ['Score &lt; 7,5',sc.filter(v=>v<0.75).length],
-      ['Objetivo speed (km/h)',vObj]
+      ['Score &lt; 7,5',sc.filter(v=>v<0.75).length]
     ].map(([a,b])=>`<div><b>${b}</b><span>${a}</span></div>`).join('');
     const esc=t=>String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     const tip=k=>{const p=P[k];if(!p)return '';const t=k==='speed'?'media del 10 % más rápido del nodo en la semana':(k==='pd'||k==='nd')&&p.t==null?'el de city_billing de su ciudad ('+S.ciudades.map(c=>c+' '+pc((S.dev_obj[c]||{})[k])).join(', ')+')':(p.unit==='%'?pc(p.t):p.t);return esc(p.lab+': '+p.def.charAt(0).toUpperCase()+p.def.slice(1)+'. Objetivo (100 % del score): '+t+'. Peso: '+f1(p.w)+' %.');};
