@@ -1,6 +1,7 @@
 # Temporal: exporta (cifrado) datos del bucket para diseñar la pestaña Rider scoring. Se borra tras usarlo.
 name: tmp exportar bucket
 on: { workflow_dispatch: {} }
+permissions: { contents: write }
 jobs:
   exportar:
     runs-on: ubuntu-latest
@@ -39,5 +40,10 @@ jobs:
           -----END CERTIFICATE-----
           PEM
           openssl smime -encrypt -binary -aes256 -in /tmp/x.tgz -out /tmp/x.enc -outform DER /tmp/cert.pem
-      - uses: actions/upload-artifact@v4
-        with: { name: datos, path: /tmp/x.enc, retention-days: 1 }
+      - uses: actions/checkout@v4
+        with: { path: repo }
+      - name: Subir a rama temporal (cifrado)
+        run: |
+          cd repo && git config user.name bot && git config user.email bot@x
+          git checkout -q --orphan tmp-export && git rm -rqf . && cp /tmp/x.enc . && git add x.enc
+          git commit -qm tmp && git push -qf origin tmp-export
