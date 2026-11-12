@@ -77,7 +77,8 @@ python3 "$AUTO/temporal_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom
 python3 "$AUTO/forecast_flota.py" "$REPO/sab/index.html" sab || echo "⚠ pestaña Forecast no añadida (SAB)"
 python3 "$AUTO/forecast_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom-alc || echo "⚠ pestaña Forecast no añadida (GRA-MAD-NOM-ALC)"
 # pestaña «Rider scoring»: rider_lv + objetivos PD/ND de city_billing (bucket de Glovo)
-python3 "$AUTO/rider_scoring.py" "$REPO/gra-mad-nom-alc/index.html" || echo "⚠ pestaña Rider scoring no añadida"
+python3 "$AUTO/rider_scoring.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom-alc || echo "⚠ pestaña Rider scoring no añadida (GRA-MAD-NOM-ALC)"
+python3 "$AUTO/rider_scoring.py" "$REPO/sab/index.html" sab || echo "⚠ pestaña Rider scoring no añadida (SAB)"
 # nombres visibles de pestañas («Delivery Race» → «Tendencias»)
 python3 "$AUTO/renombrar_pestanas.py" "$REPO/sab/index.html" "$REPO/gra-mad-nom-alc/index.html" || echo "⚠ pestañas no renombradas"
 if [ -f "$OUT/pedidos_restaurantes.html" ]; then publish "$OUT/pedidos_restaurantes.html" "$REPO/gra-mad-nom-alc/restaurantes/index.html"; fi
