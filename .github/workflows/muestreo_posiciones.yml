@@ -63,7 +63,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           publicar() {
-            for f in gra-mad-nom-alc/wtd_vivo.json sab/wtd_vivo.json gra-mad-nom-alc/wtd_v1_hist.json sab/wtd_v1_hist.json gra-mad-nom-alc/liveops_hist.json sab/liveops_hist.json gra-mad-nom-alc/wtd_pp_hist.json sab/wtd_pp_hist.json gra-mad-nom-alc/pp_heat.json sab/pp_heat.json; do
+            for f in gra-mad-nom-alc/wtd_vivo.json sab/wtd_vivo.json gra-mad-nom-alc/wtd_v1_hist.json sab/wtd_v1_hist.json gra-mad-nom-alc/liveops_hist.json sab/liveops_hist.json gra-mad-nom-alc/wtd_pp_hist.json sab/wtd_pp_hist.json gra-mad-nom-alc/pp_heat.json sab/pp_heat.json gra-mad-nom-alc/actividad_hoy.json sab/actividad_hoy.json; do
               [ -f "$f" ] && git add "$f"
             done
             if git diff --cached --quiet; then echo "Sin cambios."; return 0; fi
@@ -87,6 +87,10 @@ jobs:
               [ -f "$c/wtd_vivo.json" ] || continue
               mkdir -p "$VIVO/$c/m"; cp "$c/wtd_vivo.json" "$VIVO/$c/m/$M.json"
               find "$VIVO/$c/m" -name '*.json' -mmin +15 -delete
+              if [ -f "$c/actividad_hoy.json" ]; then
+                mkdir -p "$VIVO/$c/a"; cp "$c/actividad_hoy.json" "$VIVO/$c/a/$M.json"
+                find "$VIVO/$c/a" -name '*.json' -mmin +15 -delete
+              fi
             done
             ( cd "$VIVO" && rm -rf .git && git init -q -b vivo && git add -A \
               && git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "vivo $M" \

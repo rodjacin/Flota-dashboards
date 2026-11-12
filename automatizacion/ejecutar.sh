@@ -82,6 +82,9 @@ python3 "$AUTO/rider_scoring.py" "$REPO/sab/index.html" sab || echo "⚠ pestañ
 # pestaña «Puntualidad»: inicio de turno y retraso al fichar (Live Operations, liveops_hist.json)
 python3 "$AUTO/puntualidad_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom-alc || echo "⚠ pestaña Puntualidad no añadida (GRA-MAD-NOM-ALC)"
 python3 "$AUTO/puntualidad_flota.py" "$REPO/sab/index.html" sab || echo "⚠ pestaña Puntualidad no añadida (SAB)"
+# pestaña «Actividad del rider»: lee actividad_hoy.json (muestreo de Live Operations cada minuto)
+python3 "$AUTO/actividad_flota.py" "$REPO/gra-mad-nom-alc/index.html" gra-mad-nom-alc || echo "⚠ pestaña Actividad no añadida (GRA-MAD-NOM-ALC)"
+python3 "$AUTO/actividad_flota.py" "$REPO/sab/index.html" sab || echo "⚠ pestaña Actividad no añadida (SAB)"
 # nombres visibles de pestañas («Delivery Race» → «Tendencias»)
 python3 "$AUTO/renombrar_pestanas.py" "$REPO/sab/index.html" "$REPO/gra-mad-nom-alc/index.html" || echo "⚠ pestañas no renombradas"
 if [ -f "$OUT/pedidos_restaurantes.html" ]; then publish "$OUT/pedidos_restaurantes.html" "$REPO/gra-mad-nom-alc/restaurantes/index.html"; fi
