@@ -6,7 +6,8 @@ Fuente de pedidos (una de las dos):
   · API de Grafana (automático): variables de entorno GRAFANA_URL y GRAFANA_TOKEN (cuenta de servicio con
     permiso de lectura del datasource PostgreSQL de MushDrink). Lee mushdrinks.raw_pickups con todas las horas de
     estado, incluida ordered_at = «Solicitado por el cliente» de Kometa.
-  · --pedidos fichero.csv: la misma consulta exportada a CSV (columnas de SQL_PEDIDOS, horas en epoch).
+  · --pedidos fichero.csv: la misma consulta exportada a CSV (columnas de SQL_PEDIDOS, horas en epoch),
+    o el export «Pedidos en Curso» de Grafana (se detecta por la columna Fec.solicitado).
 
 Agregadores (opcional): --resumen «Resumen pedidos-12.xls» «Resumen pedidos-11.xls» ... (del más reciente al más
 antiguo: ante Ids repetidos se queda el primero, igual que en las actualizaciones anteriores).
@@ -79,6 +80,18 @@ def normaliza(db):
                        'T_Entreg': (db['del'] - db.c) / 60})
     df['t_cre'] = ts(db.c).dt.floor('s')
     df['t_sol'] = ts(db.o).dt.floor('s')
+    df['code'] = df.Tienda.str.split().str[0].astype(int)
+    df['rc'] = df.code.replace(ALIAS)
+    df['id'] = pd.to_numeric(df['Cód.Pedido'], errors='coerce')
+    return df
+
+
+def normaliza_curso(df):
+    """Export «Pedidos en Curso» de Grafana (Fec.solicitado = creación, Time Ord_Cliente = min desde
+    «Solicitud del cliente a tienda» hasta la creación) → mismas columnas que normaliza()."""
+    df = df.copy()
+    df['t_cre'] = pd.to_datetime(df['Fec.solicitado'])
+    df['t_sol'] = (df.t_cre - pd.to_timedelta(pd.to_numeric(df['Time Ord_Cliente'], errors='coerce'), unit='m')).dt.floor('s')
     df['code'] = df.Tienda.str.split().str[0].astype(int)
     df['rc'] = df.code.replace(ALIAS)
     df['id'] = pd.to_numeric(df['Cód.Pedido'], errors='coerce')
@@ -211,7 +224,7 @@ def main():
     GEN = pd.Timestamp.now(tz='Europe/Madrid').strftime('%Y-%m-%d')
 
     db = pd.read_csv(a.pedidos) if a.pedidos else pedidos_api(D)
-    raw = normaliza(db)
+    raw = normaliza_curso(db) if 'Fec.solicitado' in db.columns else normaliza(db)
     t0 = dt + pd.Timedelta(hours=7)
     raw = raw[(raw.t_cre >= t0) & (raw.t_cre < t0 + pd.Timedelta(days=1))]
     w = prep(raw)
