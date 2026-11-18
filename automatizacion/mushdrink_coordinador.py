@@ -5,6 +5,7 @@ MushDrink · asigna (o cambia) el coordinador de uno o varios restaurantes en to
 Uso:
     python3 automatizacion/mushdrink_coordinador.py "Manuel Bueno" 16611="PLK Alfahuir" 34383="BK Jávea Arenal"
     python3 automatizacion/mushdrink_coordinador.py Bokko 14376            # restaurante ya conocido: basta el código
+    python3 automatizacion/mushdrink_coordinador.py "" 20605               # quitar el coordinador
 
 Toca: RS.owners/names/brand (Resumen), DS.restaurants y DS.meta.owners (Operativa), SIM.owner, KM/EC/PR/AGR.coord,
 PE/AG.owner y A.R (Alerta agregadores). Si el restaurante no existía en una tabla de nombres, lo añade.
@@ -51,7 +52,7 @@ def main():
             if c in R: R[c]['owner'] = owner
             else: v['restaurants'].append({'code': int(c), 'name': known.get(c, c), 'owner': owner, 'teo': None, 'teoDays': None, 'peak': 20, 'zona': ''})
         v['restaurants'].sort(key=lambda r: r['code'])
-        if owner not in v['meta']['owners']: v['meta']['owners'] = sorted(v['meta']['owners'] + [owner], key=str.lower)
+        if owner and owner not in v['meta']['owners']: v['meta']['owners'] = sorted(v['meta']['owners'] + [owner], key=str.lower)
         for lst in [x for x in v.values() if isinstance(x, list)]:
             for r in lst:
                 if isinstance(r, dict) and str(r.get('code')) in rests and 'owner' in r: r['owner'] = owner
