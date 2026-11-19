@@ -139,6 +139,7 @@ th.g{background:#E6EEF0;color:var(--acc)}
 td{padding:6px 8px;border-top:1px solid #EEF0F3;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 th.l,td.l{text-align:left} .sm{display:block;font-size:11px;color:var(--mut)}
 .neg{color:var(--red);font-weight:650} .ok{color:var(--grn)} .mut{color:var(--mut)} .warn{color:var(--amb)}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-weight:700;font-size:12px;background:var(--redbg);color:var(--red)}
 .flag{display:inline-block;font-size:10.5px;background:var(--ambbg);color:var(--amb);border-radius:99px;padding:1px 7px;margin-left:4px}
 .note{color:var(--mut);font-size:12px;line-height:1.6;margin:0}
 .tip{position:fixed;pointer-events:none;background:#14171F;color:#fff;font-size:12px;line-height:1.5;padding:7px 10px;border-radius:7px;z-index:20;max-width:340px}
@@ -155,6 +156,7 @@ th.l,td.l{text-align:left} .sm{display:block;font-size:11px;color:var(--mut)}
     <div class="fg"><span>Semana</span><select id="sem"></select></div>
     <div class="fg"><span>Fecha</span><div class="nav"><button id="prev">◀</button><select id="fecha"></select><button id="next">▶</button></div></div>
     <div class="fg"><span>Franja</span><select id="fr"></select></div>
+    <label style="display:flex;gap:6px;align-items:center;height:34px;font-size:13px;color:var(--ink2)"><input id="solo" type="checkbox" style="height:auto"> Solo alertas</label>
     <button class="reset" id="reset">Limpiar filtros</button>
   </div>
   <div class="kpis" id="kpis"></div>
@@ -176,8 +178,8 @@ const sl=n=>{const h=Math.floor(n/2)%24;return String(h).padStart(2,'0')+':'+(n%
 const REF=A.REF;
 const filas=[];FECHAS.forEach(f=>{const r=REF[f];Object.entries(A.P[f]).forEach(([c,L])=>{const R=A.R[c]||{n:c,o:''};const MM=r.f&&A.M[r.f]&&A.M[r.f][c]||{};
   L.forEach(([s,p,t])=>{const tiene=Object.keys(MM).length>0;const m=MM[s]||(tiene?[0,0,0,null,null]:null);if(!p&&!t&&!(MM[s]))return;
-    filas.push({f,w:wk(f),s,c,n:R.n,o:R.o||'',pd:p,rt:t,rf:r,rw:m?m[0]:null,np:m?m[1]:null,l45:m&&m[1]?m[2]/m[1]:null,hd:m?m[3]:null,tie:m?m[4]:null,dif:m?m[0]-t:null,dp:m?p-m[1]:null,ord:c.padStart(6,'0')+'|'+f+'|'+String(s).padStart(2,'0')});});});});
-const S={q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',sort:'ord',asc:true};
+    filas.push({f,w:wk(f),s,c,n:R.n,o:R.o||'',pd:p,rt:t,rf:r,rw:m?m[0]:null,np:m?m[1]:null,l45:m&&m[1]?m[2]/m[1]:null,hd:m?m[3]:null,tie:m?m[4]:null,dif:m?m[0]-t:null,dp:m?p-m[1]:null,al:!!(m&&m[0]-t<0&&m[1]&&m[2]/m[1]>0.10&&m[3]!=null&&m[3]<6&&m[4]!=null&&m[4]<12)?1:0,ord:c.padStart(6,'0')+'|'+f+'|'+String(s).padStart(2,'0')});});});});
+const S={q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',solo:false,sort:'ord',asc:true};
 const opt=(l,all)=>`<option value="">${all}</option>`+l.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');
 const uniq=(k,lab)=>[...new Map(filas.map(x=>[x[k],lab(x)])).entries()];
 $('cod').innerHTML=opt(uniq('c',x=>x.c).sort((a,b)=>+a[0]-+b[0]),'Todos');
@@ -190,15 +192,15 @@ function fillFecha(){const fs=fechasSem();$('fecha').innerHTML=`<option value=""
 const sgn=(v,neutro)=>v==null?'<span class="mut">—</span>':`<b class="${neutro?(v>0?'warn':v<0?'mut':'mut'):(v<0?'neg':v>0?'ok':'mut')}">${v>0?'+':v<0?'−':''}${Math.abs(v)}</b>`;
 const cell=(v,d,suf,cls)=>v==null?'<span class="mut">—</span>':`<span class="${cls||''}">${nf(v,d)}${suf||''}</span>`;
 function render(){
-  const rows=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha)&&(!S.fr||String(x.s)===S.fr));
+  const rows=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha)&&(!S.fr||String(x.s)===S.fr)&&(!S.solo||x.al));
   const val=x=>x[S.sort];
   rows.sort((a,b)=>{const va=val(a),vb=val(b);if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;return(va<vb?-1:va>vb?1:0)*(S.asc?1:-1);});
   const sum=k=>rows.reduce((a,x)=>a+(x[k]||0),0);
   const np=sum('np'),late=rows.reduce((a,x)=>a+(x.np&&x.l45!=null?x.l45*x.np:0),0);
   const falt=rows.filter(x=>x.dif!=null&&x.dif<0).length,dsum=rows.reduce((a,x)=>a+(x.dif||0),0);
-  $('kpis').innerHTML=[[nf(rows.length),'Franjas de 30 min'],[nf(sum('pd')),'Pedidos proyectados'],[nf(sum('np')),'Pedidos WK-1'],[(()=>{const v=sum('pd')-sum('np');return (v>0?'+':v<0?'−':'')+nf(Math.abs(v));})(),'Pedidos proyectados − WK-1'],[`<span class="${falt?'neg':''}">${falt}</span>`,'Franjas con menos riders WK-1 que proyectados'],[`<span class="${dsum<0?'neg':'ok'}">${dsum>0?'+':''}${nf(dsum)}</span>`,'Suma riders WK-1 − proyectados'],[np?nf(late/np*100,1)+' %':'—','% pedidos >45 min WK-1']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('kpis').innerHTML=[[nf(rows.length),'Franjas de 30 min'],[`<span class="${rows.some(x=>x.al)?'neg':''}">${nf(rows.filter(x=>x.al).length)}</span>`,'Franjas en alerta'],[nf(sum('pd')),'Pedidos proyectados'],[nf(sum('np')),'Pedidos WK-1'],[(()=>{const v=sum('pd')-sum('np');return (v>0?'+':v<0?'−':'')+nf(Math.abs(v));})(),'Pedidos proyectados − WK-1'],[`<span class="${falt?'neg':''}">${falt}</span>`,'Franjas con menos riders WK-1 que proyectados'],[`<span class="${dsum<0?'neg':'ok'}">${dsum>0?'+':''}${nf(dsum)}</span>`,'Suma riders WK-1 − proyectados'],[np?nf(late/np*100,1)+' %':'—','% pedidos >45 min WK-1']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
   const th=(k,l,t,cl)=>`<th class="${cl||''}" data-k="${k}" ${t?`data-t="${t}"`:''}>${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
-  $('tab').innerHTML='<thead><tr>'+th('f','Fecha','Fecha proyectada · debajo, la fecha WK-1 con la que se compara.','l')+th('s','Franja','Intervalo de 30 min por hora de solicitud del pedido. De 00:00 a 06:59 es la madrugada del mismo día operativo.','l')+th('c','Código','','l')+th('n','Restaurante','','l')+th('o','Coordinador','','l')+
+  $('tab').innerHTML='<thead><tr>'+th('o','Coordinador','','l')+th('al','Alerta','Alerta si se cumplen las 4 condiciones en la franja: riders WK-1 − proyectados &lt; 0 · % &gt;45 min WK-1 &gt; 10 % · aviso HD WK-1 &lt; 6 min · Aceptado &gt; En camino WK-1 &lt; 12 min. Es decir: hubo pedidos tarde que no se explican por HD ni por cocina, y faltaron riders.','l')+th('f','Fecha','Fecha proyectada · debajo, la fecha WK-1 con la que se compara.','l')+th('s','Franja','Intervalo de 30 min por hora de solicitud del pedido. De 00:00 a 06:59 es la madrugada del mismo día operativo.','l')+th('c','Código','','l')+th('n','Restaurante','','l')+
     th('pd','Pedidos<br>proyectados','Pedidos_Proyectados de la franja (CSV de proyección).')+th('np','Pedidos<br>WK-1','Pedidos entregados solicitados en esa franja el mismo día de la semana anterior.','g')+
     th('dp','Pedidos proy. −<br>WK-1','Pedidos proyectados menos pedidos de WK-1 en la misma franja. Positivo = se esperan más pedidos que la semana anterior; negativo = menos. Pulsa para ordenar de mayor a menor o al revés.','g')+
     th('rt','Riders<br>proyectados','Ratio_por_Cluster de la franja (CSV de proyección).')+th('rw','Riders WK-1','Riders distintos que entregaron pedidos solicitados en esa franja el mismo día de la semana anterior. En rojo si son menos que los proyectados.','g')+
@@ -206,23 +208,23 @@ function render(){
     th('l45','% &gt;45 min<br>WK-1','Pedidos de la franja con más de 45 min desde la solicitud del cliente hasta la entrega.','g')+
     th('hd','Aviso HD<br>WK-1 (min)','Media desde que el cliente confirma el pedido hasta que llega a la API de HD, pedidos de la franja.','g')+
     th('tie','Aceptado &gt; En camino<br>WK-1 (min)','Media de minutos entre que el rider acepta y marca En camino, pedidos de la franja.','g')+'</tr></thead><tbody>'+
-    rows.slice(0,4000).map(x=>`<tr><td class="l"><b>${dl(x.f)}</b><span class="sm">${x.rf.f?'vs '+dl(x.rf.f)+(x.rf.exacta?'':'<span class="flag" data-t="La WK-1 ('+dl(x.rf.w1)+') todavía no tiene datos: se usa el último mismo día de la semana con datos.">sustituta</span>'):'sin WK-1'}</span></td>
-      <td class="l"><b>${sl(x.s)}</b><span class="sm">–${sl(x.s+1)}</span></td><td class="l">${x.c}</td><td class="l"><b>${x.n}</b></td><td class="l">${x.o||'<span class="mut">—</span>'}</td>
+    rows.slice(0,4000).map(x=>`<tr${x.al?' style="background:#FFF5F4"':''}><td class="l">${x.o||'<span class="mut">—</span>'}</td><td class="l">${x.al?'<span class="pill">Alerta</span>':''}</td><td class="l"><b>${dl(x.f)}</b><span class="sm">${x.rf.f?'vs '+dl(x.rf.f)+(x.rf.exacta?'':'<span class="flag" data-t="La WK-1 ('+dl(x.rf.w1)+') todavía no tiene datos: se usa el último mismo día de la semana con datos.">sustituta</span>'):'sin WK-1'}</span></td>
+      <td class="l"><b>${sl(x.s)}</b><span class="sm">–${sl(x.s+1)}</span></td><td class="l">${x.c}</td><td class="l"><b>${x.n}</b></td>
       <td><b>${nf(x.pd)}</b></td><td>${cell(x.np,0)}</td><td>${sgn(x.dp,true)}</td><td><b>${nf(x.rt)}</b></td>
       <td>${cell(x.rw,0,'',x.rw!=null&&x.rw<x.rt?'neg':'')}</td><td>${sgn(x.dif)}</td>
       <td>${x.l45==null?'<span class="mut">—</span>':`<span class="${x.l45>=.2?'neg':x.l45>=.1?'warn':''}">${nf(x.l45*100,1)} %</span>`}</td>
       <td>${cell(x.hd,1,'',x.hd>=6?'warn':'')}</td><td>${cell(x.tie,1,'',x.tie>=12?'neg':x.tie>=10?'warn':'')}</td></tr>`).join('')+
-    (rows.length>4000?`<tr><td class="l mut" colspan="14">Se muestran 4.000 de ${nf(rows.length)} franjas: filtra por fecha, restaurante o coordinador.</td></tr>`:'')+
-    (rows.length?'':'<tr><td class="l mut" colspan="14">Sin filas con estos filtros.</td></tr>')+'</tbody>';
+    (rows.length>4000?`<tr><td class="l mut" colspan="15">Se muestran 4.000 de ${nf(rows.length)} franjas: filtra por fecha, restaurante o coordinador.</td></tr>`:'')+
+    (rows.length?'':'<tr><td class="l mut" colspan="15">Sin filas con estos filtros.</td></tr>')+'</tbody>';
   const sust=FECHAS.some(f=>REF[f].f&&!REF[f].exacta);
   $('sub').textContent='Proyección del '+dl(FECHAS[0])+' al '+dl(FECHAS[FECHAS.length-1])+' · histórico hasta el '+dl(A.hist[1])+' · generado '+A.generado+'.';
-  $('note').textContent='Una fila por restaurante y franja de 30 min. WK-1 = mismo día de la semana anterior (fecha − 7 días); los pedidos y riders WK-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya WK-1 aún no ha llegado se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders WK-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
+  $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders WK-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). WK-1 = mismo día de la semana anterior (fecha − 7 días); los pedidos y riders WK-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya WK-1 aún no ha llegado se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders WK-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
 }
 const on=(id,k,ev='onchange')=>$(id)[ev]=e=>{S[k]=ev==='oninput'?e.target.value.trim().toLowerCase():e.target.value;if(k==='sem')fillFecha();render();};
-on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');on('fr','fr');
+on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');
 const mv=d=>{const fs=fechasSem();let i=fs.indexOf(S.fecha);i=S.fecha?i+d:(d>0?0:fs.length-1);if(i>=0&&i<fs.length){S.fecha=fs[i];$('fecha').value=S.fecha;render();}};
 $('prev').onclick=()=>mv(-1);$('next').onclick=()=>mv(1);
-$('reset').onclick=()=>{Object.assign(S,{q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:''});['q','cod','rest','coord','sem','fr'].forEach(i=>$(i).value='');fillFecha();render();};
+$('reset').onclick=()=>{Object.assign(S,{q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',solo:false});$('solo').checked=false;['q','cod','rest','coord','sem','fr'].forEach(i=>$(i).value='');fillFecha();render();};
 $('tab').addEventListener('click',e=>{const h=e.target.closest('th[data-k]');if(!h)return;const k=h.dataset.k;if(S.sort===k)S.asc=!S.asc;else{S.sort=k;S.asc=['f','s','c','n','o','ord'].includes(k);}render();});
 const tip=$('tip');document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-t]');if(el){tip.textContent=el.dataset.t;tip.hidden=false;}});
 document.addEventListener('mousemove',e=>{if(!tip.hidden){tip.style.left=Math.min(e.clientX+12,innerWidth-360)+'px';tip.style.top=(e.clientY+14)+'px';}});
