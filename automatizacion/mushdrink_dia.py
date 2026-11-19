@@ -19,7 +19,8 @@ Uso:
 Después recalcula los tramos 20-23 h de «Repartidores · SLA» (mushdrink_sla_tramos.py).
 
 Reglas (comprobadas contra el 08/11 ya publicado):
-  · Pedidos del día = entregados (Entregado + No Localizable) creados entre las 07:00 y las 06:59.
+  · Pedidos del día = entregados (Entregado + No Localizable) creados entre las 07:00 y las 06:59, en todas las
+    pestañas (también «Nº pedidos/hora»): no entregados y cancelados no se cuentan.
   · Tiempo de pedido = de «Solicitado por el cliente» a entregado; >45 min = >2700 s.
   · Hora del pedido = hora de solicitud del cliente (salvo donde se indica entrega / salida / creación).
 """
@@ -227,6 +228,7 @@ def main():
     raw = normaliza_curso(db) if 'Fec.solicitado' in db.columns else normaliza(db)
     t0 = dt + pd.Timedelta(hours=7)
     raw = raw[(raw.t_cre >= t0) & (raw.t_cre < t0 + pd.Timedelta(days=1))]
+    raw = raw[raw.Estado.isin(['Entregado', 'No Localizable'])]   # solo entregados + entregados no localizables
     w = prep(raw)
     if not len(w): sys.exit(f'Sin pedidos entregados para {D}.')
     codes = sorted(w.rc.unique()); by = {c: w[w.rc == c] for c in codes}
