@@ -158,6 +158,7 @@ th.l,td.l{text-align:left} .sm{display:block;font-size:11px;color:var(--mut)}
     <div class="fg"><span>Franja</span><select id="fr"></select></div>
     <label style="display:flex;gap:6px;align-items:center;height:34px;font-size:13px;color:var(--ink2)"><input id="solo" type="checkbox" style="height:auto"> Solo alertas</label>
     <button class="reset" id="reset">Limpiar filtros</button>
+    <button class="reset" id="xls" style="background:#0E5A6B;color:#fff;border-color:#0E5A6B;font-weight:600">⬇ Descargar Excel</button>
   </div>
   <div class="kpis" id="kpis"></div>
   <div class="card" style="overflow:auto;max-height:75vh"><table id="tab"></table></div>
@@ -191,8 +192,40 @@ function fechasSem(){return FECHAS.filter(f=>!S.sem||wk(f)===S.sem);}
 function fillFecha(){const fs=fechasSem();$('fecha').innerHTML=`<option value="">Todas (${fs.length})</option>`+fs.map(f=>`<option value="${f}">${dl(f)}/${f.slice(2,4)}</option>`).join('');if(S.fecha&&!fs.includes(S.fecha))S.fecha='';$('fecha').value=S.fecha;}
 const sgn=(v,neutro)=>v==null?'<span class="mut">—</span>':`<b class="${neutro?(v>0?'warn':v<0?'mut':'mut'):(v<0?'neg':v>0?'ok':'mut')}">${v>0?'+':v<0?'−':''}${Math.abs(v)}</b>`;
 const cell=(v,d,suf,cls)=>v==null?'<span class="mut">—</span>':`<span class="${cls||''}">${nf(v,d)}${suf||''}</span>`;
+let ROWS=[];
+// ---- Excel (.xlsx) de las filas filtradas, sin librerías ----
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0;};
+function zip(files){const enc=new TextEncoder();const parts=[],cen=[];let off=0;
+  files.forEach(([name,txt])=>{const nb=enc.encode(name),db=enc.encode(txt),crc=crc32(db);
+    const lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(8,0,true);lh.setUint32(14,crc,true);lh.setUint32(18,db.length,true);lh.setUint32(22,db.length,true);lh.setUint16(26,nb.length,true);
+    parts.push(new Uint8Array(lh.buffer),nb,db);
+    const ch=new DataView(new ArrayBuffer(46));ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint32(16,crc,true);ch.setUint32(20,db.length,true);ch.setUint32(24,db.length,true);ch.setUint16(28,nb.length,true);ch.setUint32(42,off,true);
+    cen.push(new Uint8Array(ch.buffer),nb);off+=30+nb.length+db.length;});
+  const cs=cen.reduce((a,x)=>a+x.length,0);const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cen,new Uint8Array(e.buffer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
+const xe=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const colL=i=>{let s='';i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+function descargaExcel(rows){
+  const C=[['Coordinador',x=>x.o,0,16],['Alerta',x=>x.al?'Alerta':'',0,9],['Fecha',x=>x.f.split('-').reverse().join('/'),0,12],['Fecha WK-1',x=>x.rf.f?x.rf.f.split('-').reverse().join('/')+(x.rf.exacta?'':' (sustituta)'):'',0,22],
+    ['Franja',x=>sl(x.s)+'–'+sl(x.s+1),0,13],['Código',x=>+x.c,0,9],['Restaurante',x=>x.n,0,38],['Pedidos proyectados',x=>x.pd,0,12],['Pedidos WK-1',x=>x.np,0,11],['Pedidos proy. − WK-1',x=>x.dp,0,13],
+    ['Riders proyectados',x=>x.rt,0,12],['Riders WK-1',x=>x.rw,0,11],['Riders WK-1 − proyectados',x=>x.dif,0,14],['% >45 min WK-1',x=>x.l45,2,12],['Aviso HD WK-1 (min)',x=>x.hd,3,12],['Aceptado > En camino WK-1 (min)',x=>x.tie,3,16]];
+  const cellX=(r,ci,v,st)=>{const ref=colL(ci)+r;if(v==null||v==='')return '';if(typeof v==='number'&&isFinite(v))return `<c r="${ref}"${st?` s="${st}"`:''}><v>${v}</v></c>`;return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:''}><is><t>${xe(v)}</t></is></c>`;};
+  let sd='<row r="1">'+C.map((c,i)=>cellX(1,i,c[0],1)).join('')+'</row>';
+  rows.forEach((x,k)=>{const r=k+2;sd+=`<row r="${r}">`+C.map((c,i)=>cellX(r,i,c[1](x),c[2]||(i===1&&x.al?4:0))).join('')+'</row>';});
+  const last=colL(C.length-1)+(rows.length+1);
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${C.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c[3]}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData><autoFilter ref="A1:${last}"/></worksheet>`;
+  const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFB42318"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0E5A6B"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf/><xf fontId="1" fillId="2" applyFont="1" applyFill="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="10" applyNumberFormat="1"/><xf numFmtId="164" applyNumberFormat="1"/><xf fontId="2" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  const files=[['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+    ['_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Proyección vs WK-1" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">\'Proyección vs WK-1\'!$A$1:$'+colL(C.length-1)+'$'+(rows.length+1)+'</definedName></definedNames></workbook>'],
+    ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+    ['xl/worksheets/sheet1.xml',sheet],['xl/styles.xml',styles]];
+  const a=document.createElement('a');a.href=URL.createObjectURL(zip(files));
+  a.download='Proyeccion_vs_WK1'+(S.fecha?'_'+S.fecha:S.sem?'_'+S.sem:'')+(S.solo?'_alertas':'')+'.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
 function render(){
   const rows=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha)&&(!S.fr||String(x.s)===S.fr)&&(!S.solo||x.al));
+  ROWS=rows;
   const val=x=>x[S.sort];
   rows.sort((a,b)=>{const va=val(a),vb=val(b);if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;return(va<vb?-1:va>vb?1:0)*(S.asc?1:-1);});
   const sum=k=>rows.reduce((a,x)=>a+(x[k]||0),0);
@@ -221,7 +254,7 @@ function render(){
   $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders WK-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). WK-1 = mismo día de la semana anterior (fecha − 7 días); los pedidos y riders WK-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya WK-1 aún no ha llegado se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders WK-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
 }
 const on=(id,k,ev='onchange')=>$(id)[ev]=e=>{S[k]=ev==='oninput'?e.target.value.trim().toLowerCase():e.target.value;if(k==='sem')fillFecha();render();};
-on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');
+on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');$('xls').onclick=()=>descargaExcel(ROWS);$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');
 const mv=d=>{const fs=fechasSem();let i=fs.indexOf(S.fecha);i=S.fecha?i+d:(d>0?0:fs.length-1);if(i>=0&&i<fs.length){S.fecha=fs[i];$('fecha').value=S.fecha;render();}};
 $('prev').onclick=()=>mv(-1);$('next').onclick=()=>mv(1);
 $('reset').onclick=()=>{Object.assign(S,{q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',solo:false});$('solo').checked=false;['q','cod','rest','coord','sem','fr'].forEach(i=>$(i).value='');fillFecha();render();};
