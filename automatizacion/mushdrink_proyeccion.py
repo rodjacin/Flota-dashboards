@@ -175,8 +175,8 @@ const FECHAS=Object.keys(A.P).sort();
 const sl=n=>{const h=Math.floor(n/2)%24;return String(h).padStart(2,'0')+':'+(n%2?'30':'00');};
 const REF=A.REF;
 const filas=[];FECHAS.forEach(f=>{const r=REF[f];Object.entries(A.P[f]).forEach(([c,L])=>{const R=A.R[c]||{n:c,o:''};const MM=r.f&&A.M[r.f]&&A.M[r.f][c]||{};
-  L.forEach(([s,p,t])=>{const m=MM[s]||null;if(!p&&!t&&!m)return;
-    filas.push({f,w:wk(f),s,c,n:R.n,o:R.o||'',pd:p,rt:t,rf:r,rw:m?m[0]:null,np:m?m[1]:null,l45:m&&m[1]?m[2]/m[1]:null,hd:m?m[3]:null,tie:m?m[4]:null,dif:m?m[0]-t:null,ord:c.padStart(6,'0')+'|'+f+'|'+String(s).padStart(2,'0')});});});});
+  L.forEach(([s,p,t])=>{const tiene=Object.keys(MM).length>0;const m=MM[s]||(tiene?[0,0,0,null,null]:null);if(!p&&!t&&!(MM[s]))return;
+    filas.push({f,w:wk(f),s,c,n:R.n,o:R.o||'',pd:p,rt:t,rf:r,rw:m?m[0]:null,np:m?m[1]:null,l45:m&&m[1]?m[2]/m[1]:null,hd:m?m[3]:null,tie:m?m[4]:null,dif:m?m[0]-t:null,dp:m?p-m[1]:null,ord:c.padStart(6,'0')+'|'+f+'|'+String(s).padStart(2,'0')});});});});
 const S={q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',sort:'ord',asc:true};
 const opt=(l,all)=>`<option value="">${all}</option>`+l.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');
 const uniq=(k,lab)=>[...new Map(filas.map(x=>[x[k],lab(x)])).entries()];
@@ -187,6 +187,7 @@ $('fr').innerHTML=opt([...new Set(filas.map(x=>x.s))].sort((a,b)=>a-b).map(x=>[S
 $('sem').innerHTML=opt([...new Set(FECHAS.map(wk))].map(w=>{const fs=FECHAS.filter(f=>wk(f)===w);return [w,w+' · '+dl(fs[0])+'–'+dl(fs[fs.length-1])];}),'Todas');
 function fechasSem(){return FECHAS.filter(f=>!S.sem||wk(f)===S.sem);}
 function fillFecha(){const fs=fechasSem();$('fecha').innerHTML=`<option value="">Todas (${fs.length})</option>`+fs.map(f=>`<option value="${f}">${dl(f)}/${f.slice(2,4)}</option>`).join('');if(S.fecha&&!fs.includes(S.fecha))S.fecha='';$('fecha').value=S.fecha;}
+const sgn=(v,neutro)=>v==null?'<span class="mut">—</span>':`<b class="${neutro?(v>0?'warn':v<0?'mut':'mut'):(v<0?'neg':v>0?'ok':'mut')}">${v>0?'+':v<0?'−':''}${Math.abs(v)}</b>`;
 const cell=(v,d,suf,cls)=>v==null?'<span class="mut">—</span>':`<span class="${cls||''}">${nf(v,d)}${suf||''}</span>`;
 function render(){
   const rows=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha)&&(!S.fr||String(x.s)===S.fr));
@@ -195,23 +196,24 @@ function render(){
   const sum=k=>rows.reduce((a,x)=>a+(x[k]||0),0);
   const np=sum('np'),late=rows.reduce((a,x)=>a+(x.np&&x.l45!=null?x.l45*x.np:0),0);
   const falt=rows.filter(x=>x.dif!=null&&x.dif<0).length,dsum=rows.reduce((a,x)=>a+(x.dif||0),0);
-  $('kpis').innerHTML=[[nf(rows.length),'Franjas de 30 min'],[nf(sum('pd')),'Pedidos proyectados'],[nf(sum('np')),'Pedidos WK-1'],[`<span class="${falt?'neg':''}">${falt}</span>`,'Franjas con menos riders WK-1 que proyectados'],[`<span class="${dsum<0?'neg':'ok'}">${dsum>0?'+':''}${nf(dsum)}</span>`,'Suma riders WK-1 − proyectados'],[np?nf(late/np*100,1)+' %':'—','% pedidos >45 min WK-1']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('kpis').innerHTML=[[nf(rows.length),'Franjas de 30 min'],[nf(sum('pd')),'Pedidos proyectados'],[nf(sum('np')),'Pedidos WK-1'],[(()=>{const v=sum('pd')-sum('np');return (v>0?'+':v<0?'−':'')+nf(Math.abs(v));})(),'Pedidos proyectados − WK-1'],[`<span class="${falt?'neg':''}">${falt}</span>`,'Franjas con menos riders WK-1 que proyectados'],[`<span class="${dsum<0?'neg':'ok'}">${dsum>0?'+':''}${nf(dsum)}</span>`,'Suma riders WK-1 − proyectados'],[np?nf(late/np*100,1)+' %':'—','% pedidos >45 min WK-1']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
   const th=(k,l,t,cl)=>`<th class="${cl||''}" data-k="${k}" ${t?`data-t="${t}"`:''}>${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
   $('tab').innerHTML='<thead><tr>'+th('f','Fecha','Fecha proyectada · debajo, la fecha WK-1 con la que se compara.','l')+th('s','Franja','Intervalo de 30 min por hora de solicitud del pedido. De 00:00 a 06:59 es la madrugada del mismo día operativo.','l')+th('c','Código','','l')+th('n','Restaurante','','l')+th('o','Coordinador','','l')+
-    th('pd','Pedidos<br>proyectados','Pedidos_Proyectados de la franja (CSV de proyección).')+th('rt','Riders<br>proyectados','Ratio_por_Cluster de la franja (CSV de proyección).')+
-    th('rw','Riders WK-1','Riders distintos que entregaron pedidos solicitados en esa franja el mismo día de la semana anterior. En rojo si son menos que los proyectados.','g')+
-    th('dif','Riders WK-1 −<br>proyectados','Riders que entregaron en la franja en WK-1 menos riders proyectados. Negativo (rojo) = en WK-1 hubo menos riders de los que se proyectan; positivo (verde) = hubo más. Pulsa para ordenar de mayor a menor o al revés.','g')+th('np','Pedidos<br>WK-1','Pedidos entregados solicitados en esa franja el día WK-1.','g')+
+    th('pd','Pedidos<br>proyectados','Pedidos_Proyectados de la franja (CSV de proyección).')+th('np','Pedidos<br>WK-1','Pedidos entregados solicitados en esa franja el mismo día de la semana anterior.','g')+
+    th('dp','Pedidos proy. −<br>WK-1','Pedidos proyectados menos pedidos de WK-1 en la misma franja. Positivo = se esperan más pedidos que la semana anterior; negativo = menos. Pulsa para ordenar de mayor a menor o al revés.','g')+
+    th('rt','Riders<br>proyectados','Ratio_por_Cluster de la franja (CSV de proyección).')+th('rw','Riders WK-1','Riders distintos que entregaron pedidos solicitados en esa franja el mismo día de la semana anterior. En rojo si son menos que los proyectados.','g')+
+    th('dif','Riders WK-1 −<br>proyectados','Riders que entregaron en la franja en WK-1 menos riders proyectados. Negativo (rojo) = en WK-1 hubo menos riders de los que se proyectan; positivo (verde) = hubo más. Pulsa para ordenar de mayor a menor o al revés.','g')+
     th('l45','% &gt;45 min<br>WK-1','Pedidos de la franja con más de 45 min desde la solicitud del cliente hasta la entrega.','g')+
     th('hd','Aviso HD<br>WK-1 (min)','Media desde que el cliente confirma el pedido hasta que llega a la API de HD, pedidos de la franja.','g')+
     th('tie','Aceptado &gt; En camino<br>WK-1 (min)','Media de minutos entre que el rider acepta y marca En camino, pedidos de la franja.','g')+'</tr></thead><tbody>'+
     rows.slice(0,4000).map(x=>`<tr><td class="l"><b>${dl(x.f)}</b><span class="sm">${x.rf.f?'vs '+dl(x.rf.f)+(x.rf.exacta?'':'<span class="flag" data-t="La WK-1 ('+dl(x.rf.w1)+') todavía no tiene datos: se usa el último mismo día de la semana con datos.">sustituta</span>'):'sin WK-1'}</span></td>
       <td class="l"><b>${sl(x.s)}</b><span class="sm">–${sl(x.s+1)}</span></td><td class="l">${x.c}</td><td class="l"><b>${x.n}</b></td><td class="l">${x.o||'<span class="mut">—</span>'}</td>
-      <td><b>${nf(x.pd)}</b></td><td><b>${nf(x.rt)}</b></td>
-      <td>${cell(x.rw,0,'',x.rw!=null&&x.rw<x.rt?'neg':'')}</td><td>${x.dif==null?'<span class="mut">—</span>':`<b class="${x.dif<0?'neg':x.dif>0?'ok':'mut'}">${x.dif>0?'+':x.dif<0?'−':''}${Math.abs(x.dif)}</b>`}</td><td>${cell(x.np,0)}</td>
+      <td><b>${nf(x.pd)}</b></td><td>${cell(x.np,0)}</td><td>${sgn(x.dp,true)}</td><td><b>${nf(x.rt)}</b></td>
+      <td>${cell(x.rw,0,'',x.rw!=null&&x.rw<x.rt?'neg':'')}</td><td>${sgn(x.dif)}</td>
       <td>${x.l45==null?'<span class="mut">—</span>':`<span class="${x.l45>=.2?'neg':x.l45>=.1?'warn':''}">${nf(x.l45*100,1)} %</span>`}</td>
       <td>${cell(x.hd,1,'',x.hd>=6?'warn':'')}</td><td>${cell(x.tie,1,'',x.tie>=12?'neg':x.tie>=10?'warn':'')}</td></tr>`).join('')+
-    (rows.length>4000?`<tr><td class="l mut" colspan="13">Se muestran 4.000 de ${nf(rows.length)} franjas: filtra por fecha, restaurante o coordinador.</td></tr>`:'')+
-    (rows.length?'':'<tr><td class="l mut" colspan="13">Sin filas con estos filtros.</td></tr>')+'</tbody>';
+    (rows.length>4000?`<tr><td class="l mut" colspan="14">Se muestran 4.000 de ${nf(rows.length)} franjas: filtra por fecha, restaurante o coordinador.</td></tr>`:'')+
+    (rows.length?'':'<tr><td class="l mut" colspan="14">Sin filas con estos filtros.</td></tr>')+'</tbody>';
   const sust=FECHAS.some(f=>REF[f].f&&!REF[f].exacta);
   $('sub').textContent='Proyección del '+dl(FECHAS[0])+' al '+dl(FECHAS[FECHAS.length-1])+' · histórico hasta el '+dl(A.hist[1])+' · generado '+A.generado+'.';
   $('note').textContent='Una fila por restaurante y franja de 30 min. WK-1 = mismo día de la semana anterior (fecha − 7 días); los pedidos y riders WK-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya WK-1 aún no ha llegado se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders WK-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
