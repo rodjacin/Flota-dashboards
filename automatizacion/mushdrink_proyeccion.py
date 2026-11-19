@@ -161,6 +161,7 @@ th.l,td.l{text-align:left} .sm{display:block;font-size:11px;color:var(--mut)}
     <div class="fg"><span>Semana</span><select id="sem"></select></div>
     <div class="fg"><span>Fecha</span><div class="nav"><button id="prev">◀</button><select id="fecha"></select><button id="next">▶</button></div></div>
     <div class="fg"><span>Franja</span><select id="fr"></select></div>
+    <div class="fg"><span data-t="Según Riders WK-1 − proyectados en la franja: Infradimensionado &lt; 0 · Bien dimensionado = 0 · Sobredimensionado &gt; 0.">Dimensionamiento</span><select id="dim"><option value="">Todos</option><option value="infra">Infradimensionado (&lt; 0)</option><option value="bien">Bien dimensionado (= 0)</option><option value="sobre">Sobredimensionado (&gt; 0)</option></select></div>
     <label style="display:flex;gap:6px;align-items:center;height:34px;font-size:13px;color:var(--ink2)"><input id="solo" type="checkbox" style="height:auto"> Solo alertas</label>
     <button class="reset" id="reset">Limpiar filtros</button>
     <button class="reset" id="xls" style="background:#0E5A6B;color:#fff;border-color:#0E5A6B;font-weight:600">⬇ Descargar Excel</button>
@@ -185,7 +186,7 @@ const REF=A.REF;
 const filas=[];FECHAS.forEach(f=>{const r=REF[f];Object.entries(A.P[f]).forEach(([c,L])=>{const R=A.R[c]||{n:c,o:''};const MM=r.f&&A.M[r.f]&&A.M[r.f][c]||{};
   L.forEach(([s,p,t])=>{const tiene=Object.keys(MM).length>0;const m=MM[s]||(tiene?[0,0,0,null,null]:null);if(!p&&!t&&!(MM[s]))return;
     filas.push({f,w:wk(f),s,c,n:R.n,o:R.o||'',pd:p,rt:t,rf:r,rw:m?m[0]:null,np:m?m[1]:null,l45:m&&m[1]?m[2]/m[1]:null,hd:m?m[3]:null,tie:m?m[4]:null,dif:m?m[0]-t:null,dp:m?p-m[1]:null,rpr:(r.f&&A.DIA[r.f]&&A.DIA[r.f][c])?A.DIA[r.f][c][2]:null,rprD:(r.f&&A.DIA[r.f]&&A.DIA[r.f][c])||null,al:!!(m&&m[0]-t<0&&m[1]&&m[2]/m[1]>0.10&&m[3]!=null&&m[3]<6&&m[4]!=null&&m[4]<12)?1:0,ord:c.padStart(6,'0')+'|'+f+'|'+String(s).padStart(2,'0')});});});});
-const S={q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',solo:false,sort:'ord',asc:true};
+const S={q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',dim:'',solo:false,sort:'ord',asc:true};
 const opt=(l,all)=>`<option value="">${all}</option>`+l.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');
 const uniq=(k,lab)=>[...new Map(filas.map(x=>[x[k],lab(x)])).entries()];
 $('cod').innerHTML=opt(uniq('c',x=>x.c).sort((a,b)=>+a[0]-+b[0]),'Todos');
@@ -227,9 +228,9 @@ function descargaExcel(rows){
     ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
     ['xl/worksheets/sheet1.xml',sheet],['xl/styles.xml',styles]];
   const a=document.createElement('a');a.href=URL.createObjectURL(zip(files));
-  a.download='Proyeccion_vs_WK1'+(S.fecha?'_'+S.fecha:S.sem?'_'+S.sem:'')+(S.solo?'_alertas':'')+'.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
+  a.download='Proyeccion_vs_WK1'+(S.fecha?'_'+S.fecha:S.sem?'_'+S.sem:'')+(S.dim?'_'+({infra:'infradimensionado',bien:'bien_dimensionado',sobre:'sobredimensionado'})[S.dim]:'')+(S.solo?'_alertas':'')+'.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
 function render(){
-  const rows=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha)&&(!S.fr||String(x.s)===S.fr)&&(!S.solo||x.al));
+  const rows=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha)&&(!S.fr||String(x.s)===S.fr)&&(!S.solo||x.al)&&(!S.dim||(x.dif!=null&&(S.dim==='infra'?x.dif<0:S.dim==='sobre'?x.dif>0:x.dif===0))));
   ROWS=rows;
   const val=x=>x[S.sort];
   rows.sort((a,b)=>{const va=val(a),vb=val(b);if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;return(va<vb?-1:va>vb?1:0)*(S.asc?1:-1);});
@@ -259,10 +260,10 @@ function render(){
   $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders WK-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). WK-1 = mismo día de la semana anterior (fecha − 7 días); los pedidos y riders WK-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya WK-1 aún no ha llegado se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders WK-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
 }
 const on=(id,k,ev='onchange')=>$(id)[ev]=e=>{S[k]=ev==='oninput'?e.target.value.trim().toLowerCase():e.target.value;if(k==='sem')fillFecha();render();};
-on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');$('xls').onclick=()=>descargaExcel(ROWS);$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');
+on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');on('dim','dim');$('xls').onclick=()=>descargaExcel(ROWS);$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');
 const mv=d=>{const fs=fechasSem();let i=fs.indexOf(S.fecha);i=S.fecha?i+d:(d>0?0:fs.length-1);if(i>=0&&i<fs.length){S.fecha=fs[i];$('fecha').value=S.fecha;render();}};
 $('prev').onclick=()=>mv(-1);$('next').onclick=()=>mv(1);
-$('reset').onclick=()=>{Object.assign(S,{q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',solo:false});$('solo').checked=false;['q','cod','rest','coord','sem','fr'].forEach(i=>$(i).value='');fillFecha();render();};
+$('reset').onclick=()=>{Object.assign(S,{q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',dim:'',solo:false});$('dim').value='';$('solo').checked=false;['q','cod','rest','coord','sem','fr'].forEach(i=>$(i).value='');fillFecha();render();};
 $('tab').addEventListener('click',e=>{const h=e.target.closest('th[data-k]');if(!h)return;const k=h.dataset.k;if(S.sort===k)S.asc=!S.asc;else{S.sort=k;S.asc=['f','s','c','n','o','ord'].includes(k);}render();});
 const tip=$('tip');document.addEventListener('mouseover',e=>{const el=e.target.closest('[data-t]');if(el){tip.textContent=el.dataset.t;tip.hidden=false;}});
 document.addEventListener('mousemove',e=>{if(!tip.hidden){tip.style.left=Math.min(e.clientX+12,innerWidth-360)+'px';tip.style.top=(e.clientY+14)+'px';}});
