@@ -83,7 +83,7 @@ def datos(docs, proy):
             cand = [x for x in hist if x < w1 and dt.date.fromisoformat(x).weekday() == d.weekday()]
             REF[f] = {"f": cand[-1] if cand else None, "exacta": False, "w1": w1}
     # WK-1 por franja: M[fecha_ref][code] = {franja: [riders, pedidos, >45, aviso HD medio min, acept>camino medio min]}
-    M = {}
+    M = {}; DIA = {}
     for fr in sorted({r["f"] for r in REF.values() if r["f"]}):
         acc = {}
         for c, L in (AV.get(fr) or {}).items():
@@ -102,6 +102,11 @@ def datos(docs, proy):
                 h, m = s15 // 4, (s15 % 4) * 15
                 sl = (h + 24 if h < 7 else h) * 2 + m // 30
                 acc.setdefault(c, {}).setdefault(sl, [set(), 0, 0, 0.0, 0, 0.0, 0])[0].add(ri)
+        DIA.setdefault(fr, {})
+        for c, d in acc.items():
+            ped = sum(a[1] for a in d.values()); rid = set().union(*[a[0] for a in d.values()])
+            if rid and ped:
+                DIA[fr][c] = [ped, len(rid), round(ped / len(rid), 2)]
         M[fr] = {c: {str(sl): [len(a[0]), a[1], a[2], round(a[3] / a[4] / 60, 1) if a[4] else None,
                                round(a[5] / a[6] / 60, 1) if a[6] else None] for sl, a in d.items()} for c, d in acc.items()}
     codes = set(c for v in P.values() for c in v)
@@ -112,7 +117,7 @@ def datos(docs, proy):
             R[c] = {"n": r.get("name") or c, "o": r.get("owner") or ""}
     for c in codes:
         R.setdefault(c, {"n": (EC.get("names") or {}).get(c, c), "o": (EC.get("coord") or {}).get(c, "")})
-    return {"P": P, "M": M, "REF": REF, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
+    return {"P": P, "M": M, "DIA": DIA, "REF": REF, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
             "generado": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 
@@ -179,7 +184,7 @@ const sl=n=>{const h=Math.floor(n/2)%24;return String(h).padStart(2,'0')+':'+(n%
 const REF=A.REF;
 const filas=[];FECHAS.forEach(f=>{const r=REF[f];Object.entries(A.P[f]).forEach(([c,L])=>{const R=A.R[c]||{n:c,o:''};const MM=r.f&&A.M[r.f]&&A.M[r.f][c]||{};
   L.forEach(([s,p,t])=>{const tiene=Object.keys(MM).length>0;const m=MM[s]||(tiene?[0,0,0,null,null]:null);if(!p&&!t&&!(MM[s]))return;
-    filas.push({f,w:wk(f),s,c,n:R.n,o:R.o||'',pd:p,rt:t,rf:r,rw:m?m[0]:null,np:m?m[1]:null,l45:m&&m[1]?m[2]/m[1]:null,hd:m?m[3]:null,tie:m?m[4]:null,dif:m?m[0]-t:null,dp:m?p-m[1]:null,al:!!(m&&m[0]-t<0&&m[1]&&m[2]/m[1]>0.10&&m[3]!=null&&m[3]<6&&m[4]!=null&&m[4]<12)?1:0,ord:c.padStart(6,'0')+'|'+f+'|'+String(s).padStart(2,'0')});});});});
+    filas.push({f,w:wk(f),s,c,n:R.n,o:R.o||'',pd:p,rt:t,rf:r,rw:m?m[0]:null,np:m?m[1]:null,l45:m&&m[1]?m[2]/m[1]:null,hd:m?m[3]:null,tie:m?m[4]:null,dif:m?m[0]-t:null,dp:m?p-m[1]:null,rpr:(r.f&&A.DIA[r.f]&&A.DIA[r.f][c])?A.DIA[r.f][c][2]:null,rprD:(r.f&&A.DIA[r.f]&&A.DIA[r.f][c])||null,al:!!(m&&m[0]-t<0&&m[1]&&m[2]/m[1]>0.10&&m[3]!=null&&m[3]<6&&m[4]!=null&&m[4]<12)?1:0,ord:c.padStart(6,'0')+'|'+f+'|'+String(s).padStart(2,'0')});});});});
 const S={q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',solo:false,sort:'ord',asc:true};
 const opt=(l,all)=>`<option value="">${all}</option>`+l.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');
 const uniq=(k,lab)=>[...new Map(filas.map(x=>[x[k],lab(x)])).entries()];
@@ -209,7 +214,7 @@ const colL=i=>{let s='';i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m
 function descargaExcel(rows){
   const C=[['Coordinador',x=>x.o,0,16],['Alerta',x=>x.al?'Alerta':'',0,9],['Fecha',x=>x.f.split('-').reverse().join('/'),0,12],['Fecha WK-1',x=>x.rf.f?x.rf.f.split('-').reverse().join('/')+(x.rf.exacta?'':' (sustituta)'):'',0,22],
     ['Franja',x=>sl(x.s)+'–'+sl(x.s+1),0,13],['Código',x=>+x.c,0,9],['Restaurante',x=>x.n,0,38],['Pedidos proyectados',x=>x.pd,0,12],['Pedidos WK-1',x=>x.np,0,11],['Pedidos proy. − WK-1',x=>x.dp,0,13],
-    ['Riders proyectados',x=>x.rt,0,12],['Riders WK-1',x=>x.rw,0,11],['Riders WK-1 − proyectados',x=>x.dif,0,14],['% >45 min WK-1',x=>x.l45,2,12],['Aviso HD WK-1 (min)',x=>x.hd,3,12],['Aceptado > En camino WK-1 (min)',x=>x.tie,3,16]];
+    ['Riders proyectados',x=>x.rt,0,12],['Riders WK-1',x=>x.rw,0,11],['Riders WK-1 − proyectados',x=>x.dif,0,14],['Pedidos/rider WK-1 (día)',x=>x.rpr,3,13],['% >45 min WK-1',x=>x.l45,2,12],['Aviso HD WK-1 (min)',x=>x.hd,3,12],['Aceptado > En camino WK-1 (min)',x=>x.tie,3,16]];
   const cellX=(r,ci,v,st)=>{const ref=colL(ci)+r;if(v==null||v==='')return '';if(typeof v==='number'&&isFinite(v))return `<c r="${ref}"${st?` s="${st}"`:''}><v>${v}</v></c>`;return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:''}><is><t>${xe(v)}</t></is></c>`;};
   let sd='<row r="1">'+C.map((c,i)=>cellX(1,i,c[0],1)).join('')+'</row>';
   rows.forEach((x,k)=>{const r=k+2;sd+=`<row r="${r}">`+C.map((c,i)=>cellX(r,i,c[1](x),c[2]||(i===1&&x.al?4:0))).join('')+'</row>';});
@@ -238,17 +243,17 @@ function render(){
     th('dp','Pedidos proy. −<br>WK-1','Pedidos proyectados menos pedidos de WK-1 en la misma franja. Positivo = se esperan más pedidos que la semana anterior; negativo = menos. Pulsa para ordenar de mayor a menor o al revés.','g')+
     th('rt','Riders<br>proyectados','Ratio_por_Cluster de la franja (CSV de proyección).')+th('rw','Riders WK-1','Riders distintos que entregaron pedidos solicitados en esa franja el mismo día de la semana anterior. En rojo si son menos que los proyectados.','g')+
     th('dif','Riders WK-1 −<br>proyectados','Riders que entregaron en la franja en WK-1 menos riders proyectados. Negativo (rojo) = en WK-1 hubo menos riders de los que se proyectan; positivo (verde) = hubo más. Pulsa para ordenar de mayor a menor o al revés.','g')+
-    th('l45','% &gt;45 min<br>WK-1','Pedidos de la franja con más de 45 min desde la solicitud del cliente hasta la entrega.','g')+
+    th('rpr','Pedidos/rider<br>WK-1 (día)','Pedidos entregados ÷ riders distintos del restaurante en todo el día WK-1 (no solo la franja). Mismo valor en todas las franjas de ese restaurante y fecha.','g')+th('l45','% &gt;45 min<br>WK-1','Pedidos de la franja con más de 45 min desde la solicitud del cliente hasta la entrega.','g')+
     th('hd','Aviso HD<br>WK-1 (min)','Media desde que el cliente confirma el pedido hasta que llega a la API de HD, pedidos de la franja.','g')+
     th('tie','Aceptado &gt; En camino<br>WK-1 (min)','Media de minutos entre que el rider acepta y marca En camino, pedidos de la franja.','g')+'</tr></thead><tbody>'+
     rows.slice(0,4000).map(x=>`<tr${x.al?' style="background:#FFF5F4"':''}><td class="l">${x.o||'<span class="mut">—</span>'}</td><td class="l">${x.al?'<span class="pill">Alerta</span>':''}</td><td class="l"><b>${dl(x.f)}</b><span class="sm">${x.rf.f?'vs '+dl(x.rf.f)+(x.rf.exacta?'':'<span class="flag" data-t="La WK-1 ('+dl(x.rf.w1)+') todavía no tiene datos: se usa el último mismo día de la semana con datos.">sustituta</span>'):'sin WK-1'}</span></td>
       <td class="l"><b>${sl(x.s)}</b><span class="sm">–${sl(x.s+1)}</span></td><td class="l">${x.c}</td><td class="l"><b>${x.n}</b></td>
       <td><b>${nf(x.pd)}</b></td><td>${cell(x.np,0)}</td><td>${sgn(x.dp,true)}</td><td><b>${nf(x.rt)}</b></td>
-      <td>${cell(x.rw,0,'',x.rw!=null&&x.rw<x.rt?'neg':'')}</td><td>${sgn(x.dif)}</td>
+      <td>${cell(x.rw,0,'',x.rw!=null&&x.rw<x.rt?'neg':'')}</td><td>${sgn(x.dif)}</td><td>${x.rpr==null?'<span class="mut">—</span>':`<b>${nf(x.rpr,1)}</b><span class="sm">${x.rprD[0]} ped. / ${x.rprD[1]} riders</span>`}</td>
       <td>${x.l45==null?'<span class="mut">—</span>':`<span class="${x.l45>=.2?'neg':x.l45>=.1?'warn':''}">${nf(x.l45*100,1)} %</span>`}</td>
       <td>${cell(x.hd,1,'',x.hd>=6?'warn':'')}</td><td>${cell(x.tie,1,'',x.tie>=12?'neg':x.tie>=10?'warn':'')}</td></tr>`).join('')+
-    (rows.length>4000?`<tr><td class="l mut" colspan="15">Se muestran 4.000 de ${nf(rows.length)} franjas: filtra por fecha, restaurante o coordinador.</td></tr>`:'')+
-    (rows.length?'':'<tr><td class="l mut" colspan="15">Sin filas con estos filtros.</td></tr>')+'</tbody>';
+    (rows.length>4000?`<tr><td class="l mut" colspan="16">Se muestran 4.000 de ${nf(rows.length)} franjas: filtra por fecha, restaurante o coordinador.</td></tr>`:'')+
+    (rows.length?'':'<tr><td class="l mut" colspan="16">Sin filas con estos filtros.</td></tr>')+'</tbody>';
   const sust=FECHAS.some(f=>REF[f].f&&!REF[f].exacta);
   $('sub').textContent='Proyección del '+dl(FECHAS[0])+' al '+dl(FECHAS[FECHAS.length-1])+' · histórico hasta el '+dl(A.hist[1])+' · generado '+A.generado+'.';
   $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders WK-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). WK-1 = mismo día de la semana anterior (fecha − 7 días); los pedidos y riders WK-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya WK-1 aún no ha llegado se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders WK-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
