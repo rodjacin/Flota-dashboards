@@ -93,7 +93,19 @@ def datos(docs):
                     if int(flat[i]) != 0:
                         a[0] += n
         ag = {c: round(a[0] / a[1], 4) for c, a in acc.items() if a[1] >= 20 and c in R}
-    return {"dates": fechas, "R": R, "T": T, "hol": hol, "ag": ag, "ag_hasta": ag_hasta,
+    # pedidos por franja de 30 min del día operativo (07:00–06:59, franja 0 = 07:00), de «Pedidos por rider · 15 min»
+    AGG = buscar(docs, "AGG", ["data", "riders"])
+    S30 = {}
+    for k, arr in (AGG.get("data") or {}).items():
+        c, f = k.split("|")
+        if f not in fi or c not in T:
+            continue
+        v = [0] * 48
+        for i in range(0, len(arr), 3):
+            s15, n = arr[i + 1], arr[i + 2]
+            v[((s15 // 4 - 7) % 24) * 2 + (s15 % 4) // 2] += n
+        S30.setdefault(c, {})[str(fi[f])] = "".join("0123456789abcdefghijklmnopqrstuvwxyz"[min(x, 35)] for x in v)
+    return {"dates": fechas, "R": R, "T": T, "S30": S30, "hol": hol, "ag": ag, "ag_hasta": ag_hasta,
             "ag_desde": (sorted(AG["D"])[-28:][0] if AG.get("D") else None),
             "generado": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
 
@@ -133,6 +145,7 @@ th.l,td.l{text-align:left} .sm{display:block;font-size:11px;color:var(--mut)}
   <div class="sub">Sin acceso a los pedidos de otras flotas, una activación de Glovo, Uber, Catcher… se ve como una caída sostenida de los pedidos de MushDrink frente a lo habitual del restaurante, sin que caiga su zona ni haya festivo. <span id="sub"></span></div></div>
   <div class="card filters">
     <div class="fg"><span>Fecha</span><div class="nav"><button id="prev">◀</button><select id="fecha"></select><button id="next">▶</button></div></div>
+    <div class="fg"><span data-t="Día completo, o una franja de 30 min (por hora de solicitud del pedido): esperados, reales, caída, días seguidos y gráfico pasan a ser los de esa franja.">Intervalo</span><select id="slot"></select></div>
     <div class="fg"><span>Zona</span><select id="zona"></select></div>
     <div class="fg"><span>Coordinador</span><select id="coord"></select></div>
     <div class="fg"><span>Buscar</span><input id="q" type="search" placeholder="Restaurante o código"></div>
@@ -157,7 +170,11 @@ const pc=v=>v==null||!isFinite(v)?'—':nf(v*100,0)+' %';
 const N=A.dates.length, IDX=Object.fromEntries(A.dates.map((d,i)=>[d,i]));
 const codes=Object.keys(A.T);
 // matriz de pedidos: V[c][i]=[total,cena] (0 si el día existe y el restaurante no tuvo pedidos)
-const V={};codes.forEach(c=>{const a=Array.from({length:N},()=>[0,0]);A.T[c].forEach(([i,t,ce])=>a[i]=[t,ce]);V[c]=a;});
+const V={};codes.forEach(c=>{const a=Array.from({length:N},()=>[0,0,0]);A.T[c].forEach(([i,t,ce])=>a[i]=[t,ce,0]);V[c]=a;});
+const B36='0123456789abcdefghijklmnopqrstuvwxyz';
+const SL=n=>{const h=(Math.floor(n/2)+7)%24;return String(h).padStart(2,'0')+':'+(n%2?'30':'00');};
+function cargaFranja(sl){for(const c of codes){const m=(A.S30||{})[c]||{};for(let i=0;i<N;i++){const st=m[String(i)];V[c][i][2]=sl===''||!st?0:B36.indexOf(st[sl]);}}for(const k in ZR)delete ZR[k];}
+const KK=()=>S.slot===''?0:2;
 const HOL={};Object.entries(A.hol).forEach(([c,l])=>{HOL[c]={};l.forEach(x=>{HOL[c][x.slice(0,10)]=x.slice(13);});});
 const prevIdx=i=>{const d=pd(A.dates[i]);const o=[];for(let k=1;k<=4;k++){const x=new Date(d);x.setDate(x.getDate()-7*k);const s=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');if(s in IDX)o.push(IDX[s]);}return o;};
 const PREV=A.dates.map((_,i)=>prevIdx(i));
@@ -169,7 +186,7 @@ function zonaRatio(z,i,k){const key=z+'|'+i+'|'+k;if(key in ZR)return ZR[key];le
   return ZR[key]=e>=20?r/e:1;}
 function evalua(c,i,k){const e=esperado(c,i,k);if(e==null)return null;const r=V[c][i][k];const z=(A.R[c]||{}).z;const zr=Math.max(0.5,Math.min(1.5,zonaRatio(z,i,k)));
   return {r,e,raw:e>0?r/e:null,adj:e>0?r/(e*zr):null,zr};}
-const S={i:N-1,zona:'',coord:'',q:'',umb:20,dias:2,minv:8,solo:true,sort:'sev',asc:false};
+const S={i:N-1,zona:'',coord:'',q:'',umb:20,dias:2,minv:8,solo:true,sort:'sev',asc:false,slot:''};
 $('fecha').innerHTML=A.dates.map((d,i)=>`<option value="${i}">${dl(d)}/${d.slice(2,4)}</option>`).reverse().join('');
 const zonas=[...new Set(codes.map(c=>(A.R[c]||{}).z).filter(Boolean))].sort();
 $('zona').innerHTML='<option value="">Todas</option>'+zonas.map(z=>`<option>${z}</option>`).join('');
@@ -177,17 +194,17 @@ const coords=[...new Set(codes.map(c=>(A.R[c]||{}).o).filter(Boolean))].sort();
 $('coord').innerHTML='<option value="">Todos</option>'+coords.map(z=>`<option>${z}</option>`).join('');
 function analiza(c){
   const u=S.umb/100;const d=A.dates[S.i];
-  const day=evalua(c,S.i,0),cena=evalua(c,S.i,1);
+  const day=evalua(c,S.i,KK()),cena=evalua(c,S.i,1);
   if(!day||day.e<S.minv) return null;
   // racha: días seguidos hasta la fecha con caída ≥ umbral (festivos se saltan)
   let racha=0,drops=[];
-  for(let j=S.i;j>=0&&j>S.i-14;j--){const dj=A.dates[j];if(HOL[c]&&HOL[c][dj])continue;const x=evalua(c,j,0);if(!x||x.e<S.minv/2)break;const dr=1-x.adj;if(dr>=u){racha++;drops.push(dr);}else break;}
+  for(let j=S.i;j>=0&&j>S.i-14;j--){const dj=A.dates[j];if(HOL[c]&&HOL[c][dj])continue;const x=evalua(c,j,KK());if(!x||x.e<S.minv/2)break;const dr=1-x.adj;if(dr>=u){racha++;drops.push(dr);}else break;}
   const hol=HOL[c]&&HOL[c][d];
   const drop=1-day.adj, dropC=cena&&cena.e>=3?1-cena.adj:null;
   let sev=0; // 3 roja, 2 ámbar, 1 vigilar, 0 ok
   if(!hol){ if(racha>=S.dias) sev=3; else if(drop>=u||(dropC!=null&&dropC>=u+0.05)) sev=2; else if(drop>=u/2) sev=1; }
   const est=racha>=S.dias?drops.reduce((a,b)=>a+b,0)/drops.length:(drop>=u?drop:null);
-  const spark=[];for(let j=Math.max(0,S.i-13);j<=S.i;j++){const x=evalua(c,j,0);spark.push(x&&x.e>=S.minv/2?{v:x.adj,h:!!(HOL[c]&&HOL[c][A.dates[j]]),d:A.dates[j]}:null);}
+  const spark=[];for(let j=Math.max(0,S.i-13);j<=S.i;j++){const x=evalua(c,j,KK());spark.push(x&&x.e>=S.minv/2?{v:x.adj,h:!!(HOL[c]&&HOL[c][A.dates[j]]),d:A.dates[j]}:null);}
   return {c,day,cena,drop,dropC,racha,sev,est,hol,spark,ag:A.ag[c]};
 }
 function sparkSvg(s){const W=112,H=26;const n=s.length;const bw=W/n;let o=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="vertical-align:middle">`;
@@ -206,11 +223,11 @@ function render(){
   rows.sort((a,b)=>{const va=val(a),vb=val(b);if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;return(va<vb?-1:va>vb?1:0)*(S.asc?1:-1);});
   const red=all.filter(x=>x.sev===3),amb=all.filter(x=>x.sev===2);
   const perd=red.reduce((a,x)=>a+Math.max(0,x.day.e*x.day.zr-x.day.r),0);
-  $('kpis').innerHTML=[[all.length,'Restaurantes evaluados · '+dl(d)],[`<span style="color:var(--red)">${red.length}</span>`,'En alerta (caída '+S.dias+'+ días seguidos)'],[`<span style="color:var(--amb)">${amb.length}</span>`,'Con caída solo hoy'],[nf(perd),'Pedidos/día que faltan en los restaurantes en alerta']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('kpis').innerHTML=[[all.length,'Restaurantes evaluados · '+dl(d)+(S.slot===''?'':' · '+SL(+S.slot)+'–'+SL(+S.slot+1))],[`<span style="color:var(--red)">${red.length}</span>`,'En alerta (caída '+S.dias+'+ días seguidos)'],[`<span style="color:var(--amb)">${amb.length}</span>`,'Con caída solo hoy'],[nf(perd),S.slot===''?'Pedidos/día que faltan en los restaurantes en alerta':'Pedidos que faltan en la franja '+SL(+S.slot)+' en los restaurantes en alerta']].map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('');
   const th=(k,l,t,cl)=>`<th class="${cl||''}" data-k="${k}" ${t?`data-t="${t}"`:''}>${l}${S.sort===k?(S.asc?' ▲':' ▼'):''}</th>`;
   $('tab').innerHTML='<thead><tr>'+th('sev','Estado','Alerta: caída ≥ umbral varios días seguidos · Caída hoy: solo la fecha elegida (día o cena) · Vigilar: caída de la mitad del umbral.','l')+th('n','Restaurante','','l')+th('z','Zona / coordinador','','l')+
-    th('e','Esperados','Media del mismo día de la semana en las 4 semanas anteriores.')+th('r','Reales','Pedidos MushDrink entregados ese día operativo.')+
-    th('drop','Caída día','1 − reales ÷ esperados, ajustado por la tendencia de la zona ese día (si toda la zona cae, no se atribuye al restaurante).')+
+    th('e','Esperados','Media del mismo día de la semana en las 4 semanas anteriores.')+th('r','Reales',S.slot===''?'Pedidos MushDrink entregados ese día operativo.':'Pedidos MushDrink entregados solicitados en la franja '+SL(+S.slot)+'–'+SL(+S.slot+1)+'.')+
+    th('drop',S.slot===''?'Caída día':'Caída '+SL(+S.slot),'1 − reales ÷ esperados, ajustado por la tendencia de la zona ese día (si toda la zona cae, no se atribuye al restaurante).')+
     th('dropC','Caída cena','Lo mismo solo de 20:00 a 23:59, donde más venden los agregadores.')+th('racha','Días seguidos','Días operativos seguidos hasta la fecha con caída ≥ umbral (los festivos del restaurante se saltan).')+
     th('est','% estimado a otras flotas','Media de la caída en la racha: aproximación del % de pedidos que puede estar saliendo por otras flotas.')+
     th('ag','% otras flotas (último conocido)','% de pedidos repartidos por flotas distintas de MushDrink en los 28 días hasta '+(A.ag_hasta||'—')+', del informe «Resumen pedidos». Sirve de referencia: si era 0 % y ahora cae un 25 %, es probable una activación nueva.')+
@@ -223,6 +240,11 @@ function render(){
   $('sub').textContent='Datos hasta el '+dl(A.dates[N-1])+' · generado '+A.generado+'.';
   $('note').textContent='Cómo leerlo: «Esperados» es lo normal para ese restaurante ese día de la semana. La caída se ajusta por la zona: si toda la zona baja un 15 % (lluvia, partido, puente), solo cuenta lo que el restaurante cae de más. Un festivo del municipio o de la comunidad no cuenta. Una alerta no confirma la activación: confírmala abriendo Glovo, Uber Eats y Just Eat con una dirección de la zona del restaurante, o preguntando al restaurante. Las caídas también pueden deberse a cierres, obras, problemas de tablet o cambios de horario.';
 }
+(()=>{const act=new Set();Object.values(A.S30||{}).forEach(m=>Object.values(m).forEach(st=>{for(let k=0;k<48;k++)if(st[k]!=='0')act.add(k);}));
+  $('slot').innerHTML='<option value="">Día completo</option>'+[...act].sort((a,b)=>a-b).map(k=>`<option value="${k}">${SL(k)}–${SL(k+1)}</option>`).join('');})();
+$('slot').onchange=e=>{const was=S.slot;S.slot=e.target.value;cargaFranja(S.slot===''?'':+S.slot);
+  if(was===''&&S.slot!==''&&S.minv===8){S.minv=3;$('minv').value=3;} else if(S.slot===''&&was!==''&&S.minv===3){S.minv=8;$('minv').value=8;}
+  render();};
 $('fecha').onchange=e=>{S.i=+e.target.value;render();};
 $('prev').onclick=()=>{if(S.i>0){S.i--;render();}};$('next').onclick=()=>{if(S.i<N-1){S.i++;render();}};
 $('zona').onchange=e=>{S.zona=e.target.value;render();};$('coord').onchange=e=>{S.coord=e.target.value;render();};
