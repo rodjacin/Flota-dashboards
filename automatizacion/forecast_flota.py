@@ -69,14 +69,38 @@ def leer_reservas():
     return res, d.get("generado")
 
 
+def leer_fleet(zonas):
+    """Demanda subida a la Fleet Tool (entradas/Demand-forecast-fleet-DD_MM_AAAA.csv, página Demanda):
+    (fecha de lectura, {zona: {semana_lunes: horas}}) con semanas completas desde la semana en curso."""
+    fs = sorted(glob.glob(os.path.join(AUTO, "entradas", "Demand-forecast-fleet-*.csv")),
+                key=lambda f: dt.datetime.strptime(os.path.basename(f)[22:32], "%d_%m_%Y"))
+    if not fs:
+        return None, {}
+    f = fs[-1]; fecha = dt.datetime.strptime(os.path.basename(f)[22:32], "%d_%m_%Y").date()
+    tmp = {}
+    with open(f, encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            z = ALIAS.get(r["city_code"], r["city_code"])
+            if z not in zonas: continue
+            d = dt.date.fromisoformat(r["slot_started_local_at"][:10])
+            t = tmp.setdefault(z, {}).setdefault(_lunes(d).isoformat(), [0.0, set()])
+            t[0] += float(r["max_couriers_pilot"] or 0) / 2; t[1].add(d)
+    hoy = _lunes(dt.date.today()).isoformat()
+    out = {z: {s: round(h, 2) for s, (h, ds) in w.items() if len(ds) == 7 and s >= hoy} for z, w in tmp.items()}
+    return fecha.isoformat(), {z: w for z, w in out.items() if w}
+
+
 def datos(dash):
     zonas = DASH[dash]
     fc = leer_forecasts()
     fc = {p: {z: w for z, w in v.items() if z in zonas} for p, v in fc.items()}
     fc = {p: v for p, v in fc.items() if v}
+    ftk, ft = leer_fleet(zonas)
+    if ft:
+        fc[ftk] = ft                      # la demanda de la Fleet Tool cuenta como la publicación más reciente
     res, gen = leer_reservas()
     res = {z: res.get(z, {}) for z in zonas}
-    return dict(zonas=zonas, fc=fc, res=res, cal_generado=gen,
+    return dict(zonas=zonas, fc=fc, res=res, cal_generado=gen, ftk=ftk if ft else None,
                 generado=dt.datetime.now(dt.timezone(dt.timedelta(hours=1))).strftime("%d/%m/%Y %H:%M"))
 
 
@@ -126,7 +150,8 @@ def js(data):
   const D=s=>new Date(s+'T12:00:00');
   const wk=s=>{const d=D(s);d.setDate(d.getDate()+3-((d.getDay()+6)%7));const y=new Date(d.getFullYear(),0,4);return 1+Math.round(((d-y)/864e5-3+((y.getDay()+6)%7))/7);};
   const rango=s=>{const a=D(s),b=D(s);b.setDate(b.getDate()+6);return p2(a.getDate())+'/'+p2(a.getMonth()+1)+'–'+p2(b.getDate())+'/'+p2(b.getMonth()+1);};
-  const fpub=s=>{const d=D(s);return ['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()]+' '+p2(d.getDate())+'/'+p2(d.getMonth()+1);};
+  const fpub0=s=>{const d=D(s);return ['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()]+' '+p2(d.getDate())+'/'+p2(d.getMonth()+1);};
+  const fpub=s=>s===F.ftk?'Fleet Tool · '+fpub0(s):fpub0(s);
   const pubs=Object.keys(F.fc).sort();
   const dl=(v,b)=>{if(v==null||b==null||!b)return '';const p=(v-b)/b*100;return ` <span class="${p>0?'up':p<0?'dn':'mut'}">${p>0?'+':''}${n1(p)}%</span>`;};
   function pintar(){
@@ -134,25 +159,26 @@ def js(data):
     const sel=$('fcPub'); if(!sel.options.length){sel.innerHTML=pubs.slice().reverse().map(p=>`<option value="${p}">${fpub(p)}</option>`).join(''); sel.onchange=pintar;}
     const P=sel.value, Z=F.fc[P]||{}, prev=pubs[pubs.indexOf(P)-1];
     const sems=[...new Set(Object.values(Z).flatMap(w=>Object.keys(w)))].sort();
-    $('fcSub').textContent='Publicado el '+fpub(P)+' · zonas '+F.zonas.join(', ')+' · W2 a W5 = semanas '+sems.map(wk).join(', ')+' · actualizado '+F.generado;
+    const FT=P===F.ftk, wl=i=>FT?'':'W'+(i+2)+' · ';
+    $('fcSub').textContent=(FT?'Demanda subida a la Fleet Tool (página Demanda), leída el '+fpub0(P)+' · zonas '+F.zonas.join(', ')+' · semanas '+sems.map(wk).join(', '):'Publicado el '+fpub(P)+' · zonas '+F.zonas.join(', ')+' · W2 a W5 = semanas '+sems.map(wk).join(', '))+' · actualizado '+F.generado;
     const tot=s=>F.zonas.reduce((a,z)=>a+((Z[z]||{})[s]||0),0);
-    $('fcKpi').innerHTML=sems.map((s,i)=>`<div><span>W${i+2} · sem. ${wk(s)} (${rango(s)})</span><b>${n0(tot(s))} h</b></div>`).join('');
+    $('fcKpi').innerHTML=sems.map((s,i)=>`<div><span>${wl(i)}sem. ${wk(s)} (${rango(s)})</span><b>${n0(tot(s))} h</b></div>`).join('');
     const PZ=prev?F.fc[prev]||{}:{};
-    $('fcTab').innerHTML='<tr><th class="l">Zona</th>'+sems.map((s,i)=>`<th>W${i+2} · sem. ${wk(s)}<br><span style="font-weight:400;text-transform:none">${rango(s)}</span></th>`).join('')+'</tr>'+
+    $('fcTab').innerHTML='<tr><th class="l">Zona</th>'+sems.map((s,i)=>`<th>${wl(i)}sem. ${wk(s)}<br><span style="font-weight:400;text-transform:none">${rango(s)}</span></th>`).join('')+'</tr>'+
       F.zonas.filter(z=>Z[z]).map(z=>`<tr><td class="l zn">${z}</td>`+sems.map(s=>`<td>${n0(Z[z][s])} h${dl(Z[z][s],(PZ[z]||{})[s])}</td>`).join('')+'</tr>').join('')+
       (F.zonas.filter(z=>Z[z]).length>1?'<tr class="tot"><td class="l">Total</td>'+sems.map(s=>`<td>${n0(tot(s))} h${prev?dl(tot(s),F.zonas.reduce((a,z)=>a+((PZ[z]||{})[s]||0),0)||null):''}</td>`).join('')+'</tr>':'');
-    $('fcNota1').textContent='Horas de demanda que Glovo prevé por zona y semana (fichero forecast_demand.csv del '+P+'). '+(prev?'Entre paréntesis de color: variación frente a lo que preveía para la misma semana el forecast del '+fpub(prev)+'. ':'')+'W1 = semana siguiente a la publicación (no viene en el fichero).';
+    $('fcNota1').textContent=(FT?'Horas de demanda por zona y semana según la demanda subida a la Fleet Tool (suma de riders previstos por media hora ÷ 2, semanas completas). ':'Horas de demanda que Glovo prevé por zona y semana (fichero forecast_demand.csv del '+P+'). ')+(prev?'Entre paréntesis de color: variación frente a lo que preveía para la misma semana el forecast del '+fpub(prev)+'. ':'')+(FT?'':'W1 = semana siguiente a la publicación (no viene en el fichero).');
     // demanda vs reservas: semanas con forecast (de cualquier publicación, la más reciente) y reservas completas
     const ult={}; pubs.forEach(p=>Object.entries(F.fc[p]).forEach(([z,w])=>Object.entries(w).forEach(([s,v])=>{(ult[z]=ult[z]||{})[s]={v,p};})));
     const filas=[]; F.zonas.forEach(z=>Object.entries(F.res[z]||{}).forEach(([s,h])=>{const f=(ult[z]||{})[s]; filas.push({z,s,h,f});}));
     filas.sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:a.z<b.z?-1:1);
     const conF=filas.filter(x=>x.f);
     $('fcRes').innerHTML='<tr><th class="l">Semana</th><th class="l">Zona</th><th>Demanda prevista</th><th>Horas reservadas</th><th>Diferencia</th><th>Cobertura</th><th class="l">Forecast usado</th></tr>'+
-      (conF.length?conF.map(x=>{const g=x.h-x.f.v;return `<tr><td class="l">sem. ${wk(x.s)} · ${rango(x.s)}</td><td class="l zn">${x.z}</td><td>${n0(x.f.v)} h</td><td>${n0(x.h)} h</td><td class="gap ${g<0?'neg':'pos'}">${g>0?'+':''}${n0(g)} h</td><td>${n1(x.h/x.f.v*100)}%</td><td class="l mut">publicado ${fpub(x.f.p)}</td></tr>`;}).join('')
+      (conF.length?conF.map(x=>{const g=x.h-x.f.v;return `<tr><td class="l">sem. ${wk(x.s)} · ${rango(x.s)}</td><td class="l zn">${x.z}</td><td>${n0(x.f.v)} h</td><td>${n0(x.h)} h</td><td class="gap ${g<0?'neg':'pos'}">${g>0?'+':''}${n0(g)} h</td><td>${n1(x.h/x.f.v*100)}%</td><td class="l mut">${x.f.p===F.ftk?fpub(x.f.p):'publicado '+fpub(x.f.p)}</td></tr>`;}).join('')
        :`<tr><td class="l mut" colspan="7">Aún no hay ninguna semana con forecast y reservas a la vez. Las reservas leídas de la Fleet Tool cubren ${filas.length?[...new Set(filas.map(x=>'sem. '+wk(x.s)))].join(', '):'ninguna semana completa'}; el forecast publicado empieza en la semana ${sems.length?wk(sems[0]):'—'}.</td></tr>`);
     $('fcNota2').textContent='Horas reservadas = medias horas reservadas en el calendario de la Fleet Tool (presentadas + no show + en evaluación) ÷ 2, solo semanas leídas completas. '+(F.cal_generado?'Última lectura del calendario: '+F.cal_generado.replace('T',' ').slice(0,16)+'.':'');
     const allS=[...new Set(pubs.flatMap(p=>Object.values(F.fc[p]).flatMap(w=>Object.keys(w))))].sort();
-    $('fcHist').innerHTML='<tr><th class="l">Semana</th>'+pubs.map(p=>`<th>Publ. ${fpub(p)}</th>`).join('')+'</tr>'+
+    $('fcHist').innerHTML='<tr><th class="l">Semana</th>'+pubs.map(p=>`<th>${p===F.ftk?fpub(p):'Publ. '+fpub(p)}</th>`).join('')+'</tr>'+
       allS.map(s=>`<tr><td class="l">sem. ${wk(s)} · ${rango(s)}</td>`+pubs.map(p=>{const v=F.zonas.reduce((a,z)=>a+((F.fc[p][z]||{})[s]||0),0);return `<td>${v?n0(v)+' h':'—'}</td>`;}).join('')+'</tr>').join('');
   }
   seg.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
