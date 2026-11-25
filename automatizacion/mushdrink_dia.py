@@ -184,10 +184,11 @@ def agrupa(x, gap=120):
                 if cur: groups.append(cur)
                 cur = [o]; t0 = o.t_ong
         if cur: groups.append(cur)
-    C = collections.defaultdict(lambda: [0, 0, 0])   # salidas, pedidos >45, Σ s del 1er En camino a la última entrega
+    C = collections.defaultdict(lambda: [0, 0, 0, 0])   # salidas, >45, Σ s 1er En camino→última entrega, Σ s 1er→último En camino
     for g in groups:
         k = (g[0].t_ong.hour, min(len(g), 4)); C[k][0] += 1; C[k][1] += sum(1 for o in g if o.tp > 2700)
         C[k][2] += max(o.t_del for o in g).timestamp() - g[0].t_ong.timestamp()
+        C[k][3] += g[-1].t_ong.timestamp() - g[0].t_ong.timestamp()
     return C
 
 
@@ -481,12 +482,13 @@ def main():
     # doc15 · Agrupación de pedidos
     def f_agr(v):
         add_date(v['dates']); v['dow'][D] = DOW; v['week'][D] = WK
-        hk = lambda h: h + 24 if h < 7 else h; R = {}; T = {}
+        hk = lambda h: h + 24 if h < 7 else h; R = {}; T = {}; E = {}
         for c in codes:
             C = sorted(agrupa(by[c]).items(), key=lambda t: (hk(t[0][0]), t[0][1]))
-            R[str(c)] = [z for (h, s), (n, l, r) in C for z in (int(h), int(s), int(n), int(l))]
-            T[str(c)] = [z for (h, s), (n, l, r) in C for z in (int(h), int(s), int(round(r)))]
-        v['R'][D] = R; v.setdefault('T', {})[D] = T; v['generated'] = GEN; return v
+            R[str(c)] = [z for (h, s), (n, l, r, e) in C for z in (int(h), int(s), int(n), int(l))]
+            T[str(c)] = [z for (h, s), (n, l, r, e) in C for z in (int(h), int(s), int(round(r)))]
+            E[str(c)] = [z for (h, s), (n, l, r, e) in C for z in (int(h), int(s), int(round(e)))]
+        v['R'][D] = R; v.setdefault('T', {})[D] = T; v.setdefault('E', {})[D] = E; v['generated'] = GEN; return v
     setv(15, 'AGR', f_agr)
     # doc15 · Stacking (datos por pedido: rider, Aceptado, En camino)
     sys.path.insert(0, HERE)
