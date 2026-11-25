@@ -71,7 +71,7 @@ def pin_set(docs, D, w, k=15):
     d = docs[k]
     ms = re.search(r'const STK\s*=\s*', d); stk, es = json.JSONDecoder().raw_decode(d[ms.end():])
     RI = {r: i for i, r in enumerate(stk['riders'])}
-    x = w[w.Repartidor.notna() & w.T_Comprob.notna()]
+    x = w[w.Repartidor.notna() & w.T_Comprob.notna() & w.T_Acept.notna()]   # solo pedidos que pasaron por Aceptado
     out = {}
     for c, y in x.groupby('rc'):
         L = []
