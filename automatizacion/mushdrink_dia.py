@@ -173,22 +173,26 @@ def ec_h(allx, RIDX):
     return out
 
 
-def agrupa(x, gap=120):
-    """Salidas (En camino) del mismo rider y restaurante con <2 min respecto a la primera del grupo."""
+def agrupa(x, gap=180):
+    """Agrupaciones con el criterio de stacking: pedidos del mismo rider y restaurante aceptados en menos de 3 min
+    desde el primero que aceptó (Aceptado = creación + tiempo pendiente). Tramo = hora del primer En camino del grupo."""
+    x = x.assign(acc=x.t_cre + pd.to_timedelta(x.pac, unit='s'))
+    x = x[x.acc.notna() & x.t_ong.notna()]
     groups = []
-    for _, y in x.sort_values('t_ong').groupby(['Repartidor', 'rc']):
+    for _, y in x.sort_values('acc').groupby(['Repartidor', 'rc']):
         cur = []; t0 = None
         for _, o in y.iterrows():
-            if cur and (o.t_ong - t0).total_seconds() < gap: cur.append(o)
+            if cur and (o.acc - t0).total_seconds() < gap: cur.append(o)
             else:
                 if cur: groups.append(cur)
-                cur = [o]; t0 = o.t_ong
+                cur = [o]; t0 = o.acc
         if cur: groups.append(cur)
     C = collections.defaultdict(lambda: [0, 0, 0, 0])   # salidas, >45, Σ s 1er En camino→última entrega, Σ s 1er→último En camino
     for g in groups:
-        k = (g[0].t_ong.hour, min(len(g), 4)); C[k][0] += 1; C[k][1] += sum(1 for o in g if o.tp > 2700)
-        C[k][2] += max(o.t_del for o in g).timestamp() - g[0].t_ong.timestamp()
-        C[k][3] += g[-1].t_ong.timestamp() - g[0].t_ong.timestamp()
+        o0 = min(o.t_ong for o in g); o1 = max(o.t_ong for o in g)
+        k = (o0.hour, min(len(g), 4)); C[k][0] += 1; C[k][1] += sum(1 for o in g if o.tp > 2700)
+        C[k][2] += max(o.t_del for o in g).timestamp() - o0.timestamp()
+        C[k][3] += o1.timestamp() - o0.timestamp()
     return C
 
 
