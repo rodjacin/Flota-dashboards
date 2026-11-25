@@ -76,6 +76,45 @@ def mes_anterior(d):
     return out
 
 
+COBRO = 28   # día de cobro
+
+
+def sab_cobro(y, m):
+    """Sábado del fin de semana de cobro del mes (y, m): el que contiene el 28 o, si no cae en fin de semana, el siguiente."""
+    d = dt.date(y, m, COBRO)
+    return d - dt.timedelta(days=1) if d.weekday() == 6 else d + dt.timedelta(days=(5 - d.weekday()) % 7)
+
+
+def finde_cobro(sat):
+    """Si el fin de semana que empieza en `sat` es de cobro, devuelve (año, mes) del cobro; si no, None."""
+    for k in (0, -1):
+        y, m = sat.year, sat.month + k
+        if m == 0: y, m = y - 1, 12
+        if sab_cobro(y, m) == sat: return (y, m)
+    return None
+
+
+def referencia(d):
+    """Fecha M-1 con la que se compara d y si es fin de semana de cobro.
+    · Laborables: mes_anterior(d).
+    · Fin de semana de cobro (el que contiene el 28 o el siguiente): el fin de semana de cobro del mes anterior.
+    · Otro fin de semana: el n-ésimo fin de semana del mes anterior (por su sábado); si ese es de cobro, el anterior
+      (o el siguiente si no hay anterior en el mes)."""
+    if d.weekday() < 5:
+        return mes_anterior(d), False
+    sat = d - dt.timedelta(days=d.weekday() - 5); off = d - sat
+    c = finde_cobro(sat)
+    if c:
+        y, m = c[0], c[1] - 1
+        if m == 0: y, m = y - 1, 12
+        return sab_cobro(y, m) + off, True
+    r = mes_anterior(sat)
+    if finde_cobro(r):
+        r2 = r - dt.timedelta(days=7)
+        r = r2 if r2.month == r.month else r + dt.timedelta(days=7)
+    return r + off, False
+
+
 def datos(docs, proy):
     EC = getv(docs[9], "EC"); AV = getv(docs[3], "AVHD"); DS = getv(docs[3], "DS"); AGG = getv(docs[2], "AGG")
     # proyección por franja: P[fecha][code] = [[franja, pedidos, riders teóricos], …]
@@ -92,12 +131,12 @@ def datos(docs, proy):
     hist = sorted(AV)
     REF = {}
     for f in P:
-        d = dt.date.fromisoformat(f); w1 = mes_anterior(d).isoformat()
+        d = dt.date.fromisoformat(f); w1d, cob = referencia(d); w1 = w1d.isoformat()
         if w1 in AV:
-            REF[f] = {"f": w1, "exacta": True}
+            REF[f] = {"f": w1, "exacta": True, "cobro": cob}
         else:
             cand = [x for x in hist if x < w1 and dt.date.fromisoformat(x).weekday() == d.weekday()]
-            REF[f] = {"f": cand[-1] if cand else None, "exacta": False, "w1": w1}
+            REF[f] = {"f": cand[-1] if cand else None, "exacta": False, "w1": w1, "cobro": cob}
     # M-1 por franja: M[fecha_ref][code] = {franja: [riders, pedidos, >45, aviso HD medio min, acept>camino medio min]}
     M = {}; DIA = {}
     for fr in sorted({r["f"] for r in REF.values() if r["f"]}):
@@ -170,7 +209,7 @@ th.l,td.l{text-align:left} .sm{display:block;font-size:11px;color:var(--mut)}
 </style></head><body>
 <div class="wrap">
   <div><h1>Proyección por franja de 30 min vs mismo día de la misma semana del mes anterior (M-1)</h1>
-  <div class="sub">Pedidos y riders proyectados en cada franja de 30 min, frente a la misma franja del mismo día de la semana en la misma semana del mes anterior (1.er sábado de diciembre → 1.er sábado de noviembre): riders que entregaron, pedidos, % &gt;45 min, aviso HD y Aceptado &gt; En camino. <span id="sub"></span></div></div>
+  <div class="sub">Pedidos y riders proyectados en cada franja de 30 min, frente a la misma franja del mismo día de la semana en la misma semana del mes anterior (1.er martes de diciembre → 1.er martes de noviembre; el fin de semana de cobro, día 28, con el de cobro del mes anterior): riders que entregaron, pedidos, % &gt;45 min, aviso HD y Aceptado &gt; En camino. <span id="sub"></span></div></div>
   <div class="card filters">
     <div class="fg"><span>Buscador</span><input id="q" type="search" placeholder="Restaurante o código"></div>
     <div class="fg"><span>Código</span><select id="cod"></select></div>
@@ -266,7 +305,7 @@ function render(){
     th('rpr','Pedidos/rider<br>M-1 (día)','Pedidos entregados ÷ riders distintos del restaurante en todo el día M-1 (no solo la franja). Mismo valor en todas las franjas de ese restaurante y fecha.','g')+th('l45','% &gt;45 min<br>M-1','Pedidos de la franja con más de 45 min desde la solicitud del cliente hasta la entrega.','g')+
     th('hd','Aviso HD<br>M-1 (min)','Media desde que el cliente confirma el pedido hasta que llega a la API de HD, pedidos de la franja.','g')+
     th('tie','Aceptado &gt; En camino<br>M-1 (min)','Media de minutos entre que el rider acepta y marca En camino, pedidos de la franja.','g')+'</tr></thead><tbody>'+
-    rows.slice(0,4000).map(x=>`<tr${x.al?' style="background:#FFF5F4"':''}><td class="l">${x.o||'<span class="mut">—</span>'}</td><td class="l">${x.al?'<span class="pill">Alerta</span>':''}</td><td class="l"><b>${dl(x.f)}</b><span class="sm">${x.rf.f?'vs '+dl(x.rf.f)+(x.rf.exacta?'':'<span class="flag" data-t="La M-1 ('+dl(x.rf.w1)+') no tiene datos: se usa el último mismo día de la semana con datos.">sustituta</span>'):'sin M-1'}</span></td>
+    rows.slice(0,4000).map(x=>`<tr${x.al?' style="background:#FFF5F4"':''}><td class="l">${x.o||'<span class="mut">—</span>'}</td><td class="l">${x.al?'<span class="pill">Alerta</span>':''}</td><td class="l"><b>${dl(x.f)}</b><span class="sm">${x.rf.f?'vs '+dl(x.rf.f)+(x.rf.cobro?'<span class="flag" data-t="Fin de semana de cobro (día 28): se compara con el fin de semana de cobro del mes anterior.">cobro</span>':'')+(x.rf.exacta?'':'<span class="flag" data-t="La M-1 ('+dl(x.rf.w1)+') no tiene datos: se usa el último mismo día de la semana con datos.">sustituta</span>'):'sin M-1'}</span></td>
       <td class="l"><b>${sl(x.s)}</b><span class="sm">–${sl(x.s+1)}</span></td><td class="l">${x.c}</td><td class="l"><b>${x.n}</b>${x.rv?'<span class="flag" data-t="Cambio_de_proyecciones: A revisar por flota">A revisar</span>':''}</td>
       <td><b>${nf(x.pd)}</b></td><td>${cell(x.np,0)}</td><td>${sgn(x.dp,true)}</td><td><b>${nf(x.rt)}</b></td><td>${cell(x.ra,0)}</td><td>${sgn(x.dra)}</td>
       <td>${cell(x.rw,0,'',x.rw!=null&&x.rw<x.rt?'neg':'')}</td><td>${sgn(x.dif)}</td><td>${x.rpr==null?'<span class="mut">—</span>':`<b>${nf(x.rpr,1)}</b><span class="sm">${x.rprD[0]} ped. / ${x.rprD[1]} riders</span>`}</td>
@@ -276,7 +315,7 @@ function render(){
     (rows.length?'':'<tr><td class="l mut" colspan="18">Sin filas con estos filtros.</td></tr>')+'</tbody>';
   const sust=FECHAS.some(f=>REF[f].f&&!REF[f].exacta);
   $('sub').textContent='Proyección del '+dl(FECHAS[0])+' al '+dl(FECHAS[FECHAS.length-1])+' · histórico hasta el '+dl(A.hist[1])+' · generado '+A.generado+'.';
-  $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders M-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min, más de 17 pedidos por rider en el día y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). M-1 = mismo día de la semana en la misma semana del mes anterior (p. ej. 1.er sábado de diciembre → 1.er sábado de noviembre; si el mes anterior no tiene 5.º, se usa el último); los pedidos y riders M-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya M-1 aún no tiene datos se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders M-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
+  $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders M-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min, más de 17 pedidos por rider en el día y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). M-1 = mismo día de la semana en la misma semana del mes anterior (p. ej. 1.er martes de diciembre → 1.er martes de noviembre; si el mes anterior no tiene 5.º, se usa el último). Fines de semana: el fin de semana de cobro (el que contiene el día 28 o el siguiente) se compara con el fin de semana de cobro del mes anterior (marcado «cobro»); el resto, con el mismo n.º de fin de semana del mes anterior sin contar el de cobro, emparejando sábado con sábado y domingo con su sábado; los pedidos y riders M-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya M-1 aún no tiene datos se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders M-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
 }
 const on=(id,k,ev='onchange')=>$(id)[ev]=e=>{S[k]=ev==='oninput'?e.target.value.trim().toLowerCase():e.target.value;if(k==='sem')fillFecha();render();};
 on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');on('dim','dim');$('xls').onclick=()=>descargaExcel(ROWS);$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');on('rev','rev');
