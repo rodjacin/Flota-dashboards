@@ -52,6 +52,7 @@ def stk_set(docs, D, w, k=15):
         R = json.JSONDecoder().raw_decode(docs[3][ds.end():])[0]['restaurants']
         v['names'] = {str(r['code']): r['name'] for r in R}
         v['brand'] = {str(r['code']): ('PLK' if 'plk' in r['name'].lower() else 'BK') for r in R}
+        v['owner'] = {str(r['code']): r.get('owner') or '' for r in R}
     if D not in v['dates']: v['dates'].append(D); v['dates'].sort()
     if m:
         docs[k] = d[:m.end()] + J(v) + d[m.end() + e:]
