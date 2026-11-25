@@ -62,6 +62,41 @@ def stk_set(docs, D, w, k=15):
     return sum(len(L) // F for L in v['D'][D].values())
 
 
+def pin_set(docs, D, w, k=15):
+    """Tiempo de comprobación de recogida (PIN: desde que se pide el código hasta que el rider lo introduce) por pedido,
+    variable PIN de la pestaña: {dates, D: {fecha: {código: [rider, segundos, …]}}} con los índices de rider de STK.
+    Solo si los pedidos traen la columna T_Comprob (export de Torre de Control con «T. COMPROBACIÓN DE RECOGIDA»)."""
+    if 'T_Comprob' not in w.columns or w.T_Comprob.notna().sum() == 0:
+        return 0
+    d = docs[k]
+    ms = re.search(r'const STK\s*=\s*', d); stk, es = json.JSONDecoder().raw_decode(d[ms.end():])
+    RI = {r: i for i, r in enumerate(stk['riders'])}
+    x = w[w.Repartidor.notna() & w.T_Comprob.notna()]
+    out = {}
+    for c, y in x.groupby('rc'):
+        L = []
+        for _, o in y.iterrows():
+            r = o.Repartidor
+            if r not in RI: RI[r] = len(stk['riders']); stk['riders'].append(r)
+            L += [RI[r], int(round(o.T_Comprob * 60))]
+        out[str(int(c))] = L
+    d = d[:ms.end()] + J(stk) + d[ms.end() + es:]
+    m = re.search(r'const PIN\s*=\s*', d)
+    if m:
+        v, e = json.JSONDecoder().raw_decode(d[m.end():])
+    else:
+        v, e = {"dates": [], "D": {}}, None
+    v['D'][D] = out
+    if D not in v['dates']: v['dates'].append(D); v['dates'].sort()
+    if m:
+        d = d[:m.end()] + J(v) + d[m.end() + e:]
+    else:
+        a = d.index('const AGR')
+        d = d[:a] + 'const PIN = ' + J(v) + ';\n' + d[a:]
+    docs[k] = d
+    return sum(len(L) // 2 for L in out.values())
+
+
 if __name__ == '__main__':
     sys.path.insert(0, HERE)
     import mushdrink_dia as M
@@ -76,5 +111,6 @@ if __name__ == '__main__':
     i = h.index('const DOCS=') + len('const DOCS=')
     docs, e = json.JSONDecoder().raw_decode(h[i:])
     n = stk_set(docs, D, w)
+    print(f'PIN {D}: {pin_set(docs, D, w)} pedidos con tiempo de comprobación de recogida')
     open(P, 'w', encoding='utf-8').write(h[:i] + json.dumps(docs, ensure_ascii=False).replace('</', '<\\/') + h[i + e:])
     print(f'Stacking {D}: {n} pedidos con Aceptado y En camino')

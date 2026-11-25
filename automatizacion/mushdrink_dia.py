@@ -496,8 +496,9 @@ def main():
     setv(15, 'AGR', f_agr)
     # doc15 · Stacking (datos por pedido: rider, Aceptado, En camino)
     sys.path.insert(0, HERE)
-    from mushdrink_stacking import stk_set
+    from mushdrink_stacking import stk_set, pin_set
     print(f'Stacking: {stk_set(docs, D, w)} pedidos con Aceptado y En camino')
+    print(f'PIN: {pin_set(docs, D, w)} pedidos con comprobación de recogida')
 
     out = html[:i0] + json.dumps(docs, ensure_ascii=False).replace('</', '<\\/') + html[i0 + e0:]
     out = re.sub(r'<span class="updated">actualizado [0-9-]+</span>', f'<span class="updated">actualizado {GEN}</span>', out)
