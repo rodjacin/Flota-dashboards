@@ -282,9 +282,9 @@ function descargaExcel(){
   const ra=a=>a.raN?a.ra:null,p45=a=>a.np?a.l/a.np:null;
   const C=[['Coordinador',x=>x.o,0,16],['Fecha',x=>x.f.split('-').reverse().join('/'),0,12],['Código',x=>+x.c,0,9],['Restaurante',x=>x.n,0,38],
     ['Pedidos proyectados almuerzo (13:00–16:00)',x=>x.al.pd,0,16],['Riders proyectados almuerzo (ratio por cluster, suma 13:00–16:00)',x=>x.al.rt,0,18],
-    ['Riders actuales almuerzo (recursos asignados, 13:00–16:00)',x=>ra(x.al),0,18],['% tiempo de pedido >45 min almuerzo (M-1, 13:00–16:00)',x=>p45(x.al),2,18],
+    ['Riders actuales almuerzo (recursos asignados, 13:00–16:00)',x=>ra(x.al),0,18],['Riders asignados − proyectados almuerzo (13:00–16:00)',x=>ra(x.al)==null?null:ra(x.al)-x.al.rt,0,18],['% tiempo de pedido >45 min almuerzo (M-1, 13:00–16:00)',x=>p45(x.al),2,18],
     ['Pedidos proyectados cena (20:00–23:00)',x=>x.ce.pd,0,16],['Riders proyectados cena (ratio por cluster, suma 20:00–23:00)',x=>x.ce.rt,0,18],
-    ['Riders actuales cena (recursos asignados, 20:00–23:00)',x=>ra(x.ce),0,18],['% tiempo de pedido >45 min cena (M-1, 20:00–23:00)',x=>p45(x.ce),2,18]];
+    ['Riders actuales cena (recursos asignados, 20:00–23:00)',x=>ra(x.ce),0,18],['Riders asignados − proyectados cena (20:00–23:00)',x=>ra(x.ce)==null?null:ra(x.ce)-x.ce.rt,0,18],['% tiempo de pedido >45 min cena (M-1, 20:00–23:00)',x=>p45(x.ce),2,18]];
   const cellX=(r,ci,v,st)=>{const ref=colL(ci)+r;if(v==null||v==='')return '';if(typeof v==='number'&&isFinite(v))return `<c r="${ref}"${st?` s="${st}"`:''}><v>${v}</v></c>`;return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:''}><is><t>${xe(v)}</t></is></c>`;};
   let sd='<row r="1">'+C.map((c,i)=>cellX(1,i,c[0],1)).join('')+'</row>';
   rows.forEach((x,k)=>{const r=k+2;sd+=`<row r="${r}">`+C.map((c,i)=>cellX(r,i,c[1](x),c[2])).join('')+'</row>';});
