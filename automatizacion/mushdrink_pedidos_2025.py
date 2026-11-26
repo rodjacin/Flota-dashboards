@@ -4,7 +4,7 @@ MushDrink · pedidos reales del año anterior por restaurante, día y hora (para
 
 Lee los Excel de pedidos de restaurante (export «Resumen pedidos»: Confirmado, Código, Fallo de Entrega…)
 y acumula en mushdrink/pedidos_anio_anterior.json: {"D": {fecha: {código: {hora: pedidos}}},
-"R": {fecha: {código: {hora: [id anónimo del rider]}}}} (riders identificables: sin «Motorista …»; sin nombres).
+"R": {fecha: {código: {hora: [id anónimo del rider]}}}} (solo riders MushDrink con código MUD; sin nombres).
 Cuenta solo los pedidos entregados del restaurante (todas las flotas y canales): sin cancelados ni «No tramitado».
 Un fichero nuevo sustituye los restaurantes y fechas que trae (los demás se conservan).
 
@@ -32,9 +32,9 @@ def main():
     D = collections.defaultdict(lambda: collections.defaultdict(dict))
     for (f, c, h), n in x.groupby([t.dt.strftime("%Y-%m-%d"), x["Código"].astype(int).astype(str), t.dt.hour]).size().items():
         D[f][c][str(h)] = int(n)
-    # riders identificables por hora (sin «Motorista Uber Eats» / «Motorista Glovo», que no distinguen personas)
+    # riders MushDrink con código (MUD####) por hora; el resto de flotas no cuenta
     rep = x.Repartidor.fillna("").astype(str).str.strip()
-    ok = (rep != "") & ~rep.str.lower().str.startswith("motorista")
+    ok = rep.str.match(r"(?i)^MUD\d+")
     old = json.load(open(STORE, encoding="utf-8")) if os.path.exists(STORE) else {"D": {}}
     old.pop("riders", None)
     hid = lambda r: hashlib.sha1(r.encode("utf-8")).hexdigest()[:8]   # identificador anónimo: sin nombres ni DNI en el repo
