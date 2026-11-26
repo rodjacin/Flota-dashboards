@@ -178,6 +178,15 @@ def datos(docs, proy):
                 DIA[fr][c] = [ped, len(rid), round(ped / len(rid), 2)]
         M[fr] = {c: {str(sl): [len(a[0]), a[1], a[2], round(a[3] / a[4] / 60, 1) if a[4] else None,
                                round(a[5] / a[6] / 60, 1) if a[6] else None] for sl, a in d.items()} for c, d in acc.items()}
+    # riders distintos que ENTREGARON pedidos en M-1 por tramo (hora de entrega, pestaña «Horas valle»):
+    # TR[fecha_ref][code] = [almuerzo 13:00–16:00, cena 20:00–23:00]
+    HV = getv(docs[10], "PR") or {}; TR = {}
+    for fr in sorted({r["f"] for r in REF.values() if r["f"]}):
+        for c, dd in (HV.get("H") or {}).items():
+            L = dd.get(fr)
+            if not L: continue
+            al = set().union(*[set(x[2]) for x in L if 13 <= x[0] < 16]); ce = set().union(*[set(x[2]) for x in L if 20 <= x[0] < 23])
+            TR.setdefault(fr, {})[c] = [len(al), len(ce)]
     codes = set(c for v in P.values() for c in v)
     R = {}
     for r in DS["restaurants"]:
@@ -186,7 +195,7 @@ def datos(docs, proy):
             R[c] = {"n": r.get("name") or c, "o": r.get("owner") or ""}
     for c in codes:
         R.setdefault(c, {"n": (EC.get("names") or {}).get(c, c), "o": (EC.get("coord") or {}).get(c, "")})
-    return {"P": P, "M": M, "DIA": DIA, "REF": REF, "AR": AR, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
+    return {"P": P, "M": M, "DIA": DIA, "REF": REF, "AR": AR, "TR": TR, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
             "generado": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 
@@ -290,18 +299,18 @@ function descargaExcel(){
   const base=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha));
   const T={al:[26,32],ce:[40,46]};const G=new Map();
   base.forEach(x=>{const k=x.f+'|'+x.c;let g=G.get(k);if(!g){g={o:x.o,f:x.f,c:x.c,n:x.n,tot:0,pk:null,rr:null};for(const t in T)g[t]={pd:0,rt:0,ra:0,raN:0,np:0,l:0};G.set(k,g);}
-    g.tot+=x.pd||0;if(x.pd>0&&(!g.pk||x.pd>g.pk.pd||(x.pd===g.pk.pd&&x.rt>g.pk.rt)))g.pk={pd:x.pd,rt:x.rt,s:x.s};if(x.rprD){g.rr=x.rprD[2];g.rM=x.rprD[1];}
+    g.tot+=x.pd||0;if(x.pd>0&&(!g.pk||x.pd>g.pk.pd||(x.pd===g.pk.pd&&x.rt>g.pk.rt)))g.pk={pd:x.pd,rt:x.rt,s:x.s};if(x.rprD){g.rr=x.rprD[2];g.rM=x.rprD[1];}if(x.rf&&x.rf.f){const tr=(A.TR&&A.TR[x.rf.f]&&A.TR[x.rf.f][x.c])||[0,0];g.al.tr=tr[0];g.ce.tr=tr[1];}
     for(const t in T){if(x.s<T[t][0]||x.s>=T[t][1])continue;const a=g[t];a.pd+=x.pd||0;a.rt+=x.rt||0;if(x.ra!=null){a.ra+=x.ra;a.raN++;}
       if(x.np){a.np+=x.np;a.l+=Math.round((x.l45||0)*x.np);}}});
   const rows=[...G.values()].sort((a,b)=>(a.o||'').localeCompare(b.o||'')||a.f.localeCompare(b.f)||(+a.c)-(+b.c));
-  const ra=a=>a.raN?a.ra:null,p45=a=>a.np?a.l/a.np:null,rp=x=>x.rM?x.tot/x.rM:null,
+  const ra=a=>a.tr!=null?a.tr:null,p45=a=>a.np?a.l/a.np:null,rp=x=>x.rM?x.tot/x.rM:null,
     alerta=(x,t)=>{const r=rp(x),q=p45(x[t]);return r!=null&&r>17&&q!=null&&q>0.12?'⚠️ Alerta':'';};
   const C=[['Coordinador',x=>x.o,0,16],['Fecha',x=>x.f.split('-').reverse().join('/'),0,12],['Código',x=>+x.c,0,9],['Restaurante',x=>x.n,0,38],['ALERTA ALMUERZO (ratio proyectado >17 y % >45 min almuerzo >12 %)',x=>alerta(x,'al'),0,18,7,v=>v?8:0],['ALERTA CENA (ratio proyectado >17 y % >45 min cena >12 %)',x=>alerta(x,'ce'),0,18,7,v=>v?8:0],
     ['Ratio proyectado (pedidos proyectados del día / riders reales M-1 del día)',rp,3,20],['Ratio real M-1 (pedidos del día M-1 / riders que repartieron ese día)',x=>x.rr,3,20],
     ['Pedidos proyectados almuerzo (13:00–16:00)',x=>x.al.pd,0,16],['Pedidos reales almuerzo M-1 (13:00–16:00)',x=>x.al.np,0,16],['Riders proyectados almuerzo (ratio por cluster, suma 13:00–16:00)',x=>x.al.rt,0,18],
-    ['Riders actuales almuerzo (recursos asignados, 13:00–16:00)',x=>ra(x.al),0,18],['RIDERS NECESARIOS ALMUERZO',x=>ra(x.al)==null?x.al.rt:Math.max(x.al.rt,ra(x.al)),0,20,5,6],['Riders asignados − proyectados almuerzo (13:00–16:00)',x=>ra(x.al)==null?null:ra(x.al)-x.al.rt,0,18],['% tiempo de pedido >45 min almuerzo (M-1, 13:00–16:00)',x=>p45(x.al),2,18],
+    ['Riders actuales almuerzo (riders que entregaron pedidos en M-1, 13:00–16:00)',x=>ra(x.al),0,18],['RIDERS NECESARIOS ALMUERZO',x=>ra(x.al)==null?x.al.rt:Math.max(x.al.rt,ra(x.al)),0,20,5,6],['Riders actuales − proyectados almuerzo (13:00–16:00)',x=>ra(x.al)==null?null:ra(x.al)-x.al.rt,0,18],['% tiempo de pedido >45 min almuerzo (M-1, 13:00–16:00)',x=>p45(x.al),2,18],
     ['Pedidos proyectados cena (20:00–23:00)',x=>x.ce.pd,0,16],['Pedidos reales cena M-1 (20:00–23:00)',x=>x.ce.np,0,16],['Riders proyectados cena (ratio por cluster, suma 20:00–23:00)',x=>x.ce.rt,0,18],
-    ['Riders actuales cena (recursos asignados, 20:00–23:00)',x=>ra(x.ce),0,18],['RIDERS NECESARIOS CENA',x=>ra(x.ce)==null?x.ce.rt:Math.max(x.ce.rt,ra(x.ce)),0,20,5,6],['Riders asignados − proyectados cena (20:00–23:00)',x=>ra(x.ce)==null?null:ra(x.ce)-x.ce.rt,0,18],['% tiempo de pedido >45 min cena (M-1, 20:00–23:00)',x=>p45(x.ce),2,18]];
+    ['Riders actuales cena (riders que entregaron pedidos en M-1, 20:00–23:00)',x=>ra(x.ce),0,18],['RIDERS NECESARIOS CENA',x=>ra(x.ce)==null?x.ce.rt:Math.max(x.ce.rt,ra(x.ce)),0,20,5,6],['Riders actuales − proyectados cena (20:00–23:00)',x=>ra(x.ce)==null?null:ra(x.ce)-x.ce.rt,0,18],['% tiempo de pedido >45 min cena (M-1, 20:00–23:00)',x=>p45(x.ce),2,18]];
   const cellX=(r,ci,v,st)=>{const ref=colL(ci)+r;if(v==null||v==='')return '';if(typeof v==='number'&&isFinite(v))return `<c r="${ref}"${st?` s="${st}"`:''}><v>${v}</v></c>`;return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:''}><is><t>${xe(v)}</t></is></c>`;};
   let sd='<row r="1">'+C.map((c,i)=>cellX(1,i,c[0],c[4]||1)).join('')+'</row>';
   rows.forEach((x,k)=>{const r=k+2;sd+=`<row r="${r}">`+C.map((c,i)=>{const v=c[1](x);return cellX(r,i,v,typeof c[5]==='function'?c[5](v):(c[5]||c[2]));}).join('')+'</row>';});
