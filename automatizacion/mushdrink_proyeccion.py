@@ -17,7 +17,7 @@ Las proyecciones se acumulan en mushdrink/proyeccion_pedidos.csv (un CSV nuevo s
 Uso: python3 mushdrink_proyeccion.py [mushdrink/index.html] [--csv ProyeccionPedidos.csv]
      (mushdrink_dia.py lo llama cada día para refrescar la M-1)
 """
-import os, re, sys, json, csv, argparse, datetime as dt
+import os, re, sys, json, csv, argparse, collections, datetime as dt
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MARCA = "<!-- PROYECCION_WK1 -->"
@@ -206,6 +206,14 @@ def datos(docs, proy):
         for b in ("BK", "PLK"):
             cs = sorted([c for c in L45 if marca(c) == b and L45[c]], key=lambda c: -L45[c]); tot = sum(L45[c] for c in cs)
             for j, c in enumerate(cs): PS.setdefault(fr, {})[c] = [L45[c] / tot, j + 1, b]
+    # riders M-1 del día con al menos 3 pedidos en el restaurante («Pedidos por rider · 15 min»): R3[fr][code]
+    R3 = {}; frs = {r["f"] for r in REF.values() if r["f"]}
+    for k, arr in AGG["data"].items():
+        c, f = k.split("|")
+        if f not in frs: continue
+        n = collections.Counter()
+        for i in range(0, len(arr), 3): n[arr[i]] += arr[i + 2]
+        R3.setdefault(f, {})[c] = sum(1 for v in n.values() if v >= 3)
     codes = set(c for v in P.values() for c in v)
     R = {}
     for r in DS["restaurants"]:
@@ -214,7 +222,7 @@ def datos(docs, proy):
             R[c] = {"n": r.get("name") or c, "o": r.get("owner") or ""}
     for c in codes:
         R.setdefault(c, {"n": (EC.get("names") or {}).get(c, c), "o": (EC.get("coord") or {}).get(c, "")})
-    return {"P": P, "M": M, "DIA": DIA, "REF": REF, "AR": AR, "TR": TR, "TT": TT, "PS": PS, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
+    return {"P": P, "M": M, "DIA": DIA, "REF": REF, "AR": AR, "TR": TR, "TT": TT, "PS": PS, "R3": R3, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
             "generado": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 
@@ -318,14 +326,14 @@ function descargaExcel(){
   const base=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha));
   const T={al:[26,32],ce:[40,46]};const G=new Map();
   base.forEach(x=>{const k=x.f+'|'+x.c;let g=G.get(k);if(!g){g={o:x.o,f:x.f,c:x.c,n:x.n,tot:0,pk:null,rr:null};for(const t in T)g[t]={pd:0,rt:0,ra:0,raN:0,np:0,l:0};G.set(k,g);}
-    g.tot+=x.pd||0;if(x.pd>0&&(!g.pk||x.pd>g.pk.pd||(x.pd===g.pk.pd&&x.rt>g.pk.rt)))g.pk={pd:x.pd,rt:x.rt,s:x.s};if(x.rprD){g.rr=x.rprD[2];g.rM=x.rprD[1];}if(x.rf&&x.rf.f){const tr=(A.TR&&A.TR[x.rf.f]&&A.TR[x.rf.f][x.c])||[0,0];g.al.tr=tr[0];g.ce.tr=tr[1];const tt=(A.TT&&A.TT[x.rf.f]&&A.TT[x.rf.f][x.c])||[null,null];g.al.tt=tt[0];g.ce.tt=tt[1];g.ps=(A.PS&&A.PS[x.rf.f]&&A.PS[x.rf.f][x.c])||null;}g.rf=x.rf;
+    g.tot+=x.pd||0;if(x.pd>0&&(!g.pk||x.pd>g.pk.pd||(x.pd===g.pk.pd&&x.rt>g.pk.rt)))g.pk={pd:x.pd,rt:x.rt,s:x.s};if(x.rprD){g.rr=x.rprD[2];g.rM=x.rprD[1];}if(x.rf&&x.rf.f){const tr=(A.TR&&A.TR[x.rf.f]&&A.TR[x.rf.f][x.c])||[0,0];g.al.tr=tr[0];g.ce.tr=tr[1];const tt=(A.TT&&A.TT[x.rf.f]&&A.TT[x.rf.f][x.c])||[null,null];g.al.tt=tt[0];g.ce.tt=tt[1];g.ps=(A.PS&&A.PS[x.rf.f]&&A.PS[x.rf.f][x.c])||null;}g.rf=x.rf;if(x.rf&&x.rf.f&&A.R3&&A.R3[x.rf.f])g.r3=A.R3[x.rf.f][x.c]||0;
     for(const t in T){if(x.s<T[t][0]||x.s>=T[t][1])continue;const a=g[t];a.pd+=x.pd||0;a.rt=Math.max(a.rt,x.rt||0);if(x.ra!=null){a.ra+=x.ra;a.raN++;}
       if(x.np){a.np+=x.np;a.l+=Math.round((x.l45||0)*x.np);}}});
   const rows=[...G.values()].sort((a,b)=>(a.o||'').localeCompare(b.o||'')||a.f.localeCompare(b.f)||(+a.c)-(+b.c));
-  const mas1=(x,t)=>{const q=p45(x[t]);return x.ps&&x.ps[1]<=20&&q!=null&&q>0.12?1:0;},ra=a=>a.tr!=null?a.tr:null,nec=a=>ra(a)==null?a.rt:Math.min(a.rt,ra(a)),p45=a=>a.np?a.l/a.np:null,rp=x=>x.rM?x.tot/x.rM:null,
+  const mas1=(x,t)=>{const q=p45(x[t]);return x.ps&&x.ps[1]<=20&&q!=null&&q>0.12?1:0;},ra=a=>a.tr!=null?a.tr:null,nec=a=>ra(a)==null?a.rt:Math.min(a.rt,ra(a)),p45=a=>a.np?a.l/a.np:null,rp=x=>x.r3?x.tot/x.r3:null,
     alerta=(x,t)=>{const r=rp(x),q=p45(x[t]);return r!=null&&r>17&&q!=null&&q>0.12?'⚠️ Alerta':'';};
   const C=[['Coordinador',x=>x.o,0,16],['Fecha',x=>x.f.split('-').reverse().join('/'),0,12],['Fecha M-1 comparada',x=>x.rf&&x.rf.f?x.rf.f.split('-').reverse().join('/')+(x.rf.exacta?'':' (sustituta)')+(x.rf.cobro?' (cobro)':''):'',0,14],['Código',x=>+x.c,0,9],['Restaurante',x=>x.n,0,38],['ALERTA ALMUERZO (ratio proyectado >17 y % >45 min almuerzo >12 %)',x=>alerta(x,'al'),0,18,7,v=>v?8:0],['ALERTA CENA (ratio proyectado >17 y % >45 min cena >12 %)',x=>alerta(x,'ce'),0,18,7,v=>v?8:0],['ALERTA INCENTIVOS (ratio proyectado <17 y +1 rider; tramo con más pedidos >45 min)',x=>{const r=rp(x);if(r==null||r>=17)return '';const c=['al','ce'].filter(t=>mas1(x,t));if(!c.length)return '';const t=c.length===1?c[0]:(x.al.l!==x.ce.l?(x.al.l>x.ce.l?'al':'ce'):(p45(x.al)>=p45(x.ce)?'al':'ce'));return t==='al'?'Incentivos almuerzo':'Incentivos cena';},0,24,7,v=>v?8:0],['Alerta por tiempos de cocina (Aceptado > En camino M-1 >12 min en 13:00–16:00 o 20:00–23:00)',x=>{const a=x.al.tt!=null&&x.al.tt>12,c=x.ce.tt!=null&&x.ce.tt>12;return a&&c?'Alerta cocina almuerzo y cena':a?'Alerta cocina almuerzo':c?'Alerta cocina cena':'';},0,24,7,v=>v?8:0],['Peso en los pedidos >45 min de su marca (M-1, top 20 BK y PLK)',x=>x.ps&&x.ps[1]<=20?x.ps[0]:null,2,18],['Puesto en su marca (top 20)',x=>x.ps&&x.ps[1]<=20?x.ps[2]+' #'+x.ps[1]:'',0,12],
-    ['Ratio proyectado (pedidos proyectados del día / riders reales M-1 del día)',rp,3,20],['Ratio real M-1 (pedidos del día M-1 / riders que repartieron ese día)',x=>x.rr,3,20],
+    ['Ratio proyectado (pedidos proyectados del día / riders M-1 del día con 3 o más pedidos)',rp,3,20],['Ratio real M-1 (pedidos del día M-1 / riders que repartieron ese día)',x=>x.rr,3,20],
     ['Pedidos proyectados almuerzo (13:00–16:00)',x=>x.al.pd,0,16],['Pedidos reales almuerzo M-1 (13:00–16:00)',x=>x.al.np,0,16],['Riders proyectados almuerzo (ratio por cluster, máximo de las franjas 13:00–16:00)',x=>x.al.rt,0,18],
     ['Riders actuales almuerzo (riders que entregaron pedidos en M-1, 13:00–16:00)',x=>ra(x.al),0,18],['RIDERS NECESARIOS ALMUERZO',x=>nec(x.al)+mas1(x,'al'),0,20,5,6],['Riders actuales − proyectados almuerzo (13:00–16:00)',x=>ra(x.al)==null?null:ra(x.al)-x.al.rt,0,18],['% tiempo de pedido >45 min almuerzo (M-1, 13:00–16:00)',x=>p45(x.al),2,18],['Aceptado > En camino medio almuerzo (M-1, min)',x=>x.al.tt,3,16],
     ['Pedidos proyectados cena (20:00–23:00)',x=>x.ce.pd,0,16],['Pedidos reales cena M-1 (20:00–23:00)',x=>x.ce.np,0,16],['Riders proyectados cena (ratio por cluster, máximo de las franjas 20:00–23:00)',x=>x.ce.rt,0,18],
