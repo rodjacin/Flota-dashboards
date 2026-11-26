@@ -270,13 +270,24 @@ function zip(files){const enc=new TextEncoder();const parts=[],cen=[];let off=0;
   return new Blob([...parts,...cen,new Uint8Array(e.buffer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
 const xe=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const colL=i=>{let s='';i++;while(i){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
-function descargaExcel(rows){
-  const C=[['Coordinador',x=>x.o,0,16],['Alerta',x=>x.al?'Alerta':'',0,9],['Fecha',x=>x.f.split('-').reverse().join('/'),0,12],['Fecha M-1',x=>x.rf.f?x.rf.f.split('-').reverse().join('/')+(x.rf.exacta?'':' (sustituta)'):'',0,22],
-    ['Franja',x=>sl(x.s)+'–'+sl(x.s+1),0,13],['Código',x=>+x.c,0,9],['Restaurante',x=>x.n,0,38],['Cambio de proyecciones',x=>x.rv?'A revisar por flota':'',0,20],['Pedidos proyectados',x=>x.pd,0,12],['Pedidos M-1',x=>x.np,0,11],['Pedidos proy. − M-1',x=>x.dp,0,13],
-    ['Riders proyectados',x=>x.rt,0,12],['Recursos asignados',x=>x.ra,0,11],['Asignados − proyectados',x=>x.dra,0,13],['Riders M-1',x=>x.rw,0,11],['Riders M-1 − proyectados',x=>x.dif,0,14],['Pedidos/rider M-1 (día)',x=>x.rpr,3,13],['% >45 min M-1',x=>x.l45,2,12],['Aviso HD M-1 (min)',x=>x.hd,3,12],['Aceptado > En camino M-1 (min)',x=>x.tie,3,16]];
+function descargaExcel(){
+  // una fila por restaurante y fecha: almuerzo = franjas 13:00–15:30 (13:00–16:00) · cena = 20:00–22:30 (20:00–23:00)
+  // respeta los filtros de restaurante, coordinador, semana y fecha (no los de franja, alertas o dimensionamiento)
+  const base=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha));
+  const T={al:[26,32],ce:[40,46]};const G=new Map();
+  base.forEach(x=>{const k=x.f+'|'+x.c;let g=G.get(k);if(!g){g={o:x.o,f:x.f,c:x.c,n:x.n};for(const t in T)g[t]={pd:0,rt:0,ra:0,raN:0,np:0,l:0};G.set(k,g);}
+    for(const t in T){if(x.s<T[t][0]||x.s>=T[t][1])continue;const a=g[t];a.pd+=x.pd||0;a.rt+=x.rt||0;if(x.ra!=null){a.ra+=x.ra;a.raN++;}
+      if(x.np){a.np+=x.np;a.l+=Math.round((x.l45||0)*x.np);}}});
+  const rows=[...G.values()].sort((a,b)=>(a.o||'').localeCompare(b.o||'')||a.f.localeCompare(b.f)||(+a.c)-(+b.c));
+  const ra=a=>a.raN?a.ra:null,p45=a=>a.np?a.l/a.np:null;
+  const C=[['Coordinador',x=>x.o,0,16],['Fecha',x=>x.f.split('-').reverse().join('/'),0,12],['Código',x=>+x.c,0,9],['Restaurante',x=>x.n,0,38],
+    ['Pedidos proyectados almuerzo (13:00–16:00)',x=>x.al.pd,0,16],['Riders proyectados almuerzo (ratio por cluster, suma 13:00–16:00)',x=>x.al.rt,0,18],
+    ['Riders actuales almuerzo (recursos asignados, 13:00–16:00)',x=>ra(x.al),0,18],['% tiempo de pedido >45 min almuerzo (M-1, 13:00–16:00)',x=>p45(x.al),2,18],
+    ['Pedidos proyectados cena (20:00–23:00)',x=>x.ce.pd,0,16],['Riders proyectados cena (ratio por cluster, suma 20:00–23:00)',x=>x.ce.rt,0,18],
+    ['Riders actuales cena (recursos asignados, 20:00–23:00)',x=>ra(x.ce),0,18],['% tiempo de pedido >45 min cena (M-1, 20:00–23:00)',x=>p45(x.ce),2,18]];
   const cellX=(r,ci,v,st)=>{const ref=colL(ci)+r;if(v==null||v==='')return '';if(typeof v==='number'&&isFinite(v))return `<c r="${ref}"${st?` s="${st}"`:''}><v>${v}</v></c>`;return `<c r="${ref}" t="inlineStr"${st?` s="${st}"`:''}><is><t>${xe(v)}</t></is></c>`;};
   let sd='<row r="1">'+C.map((c,i)=>cellX(1,i,c[0],1)).join('')+'</row>';
-  rows.forEach((x,k)=>{const r=k+2;sd+=`<row r="${r}">`+C.map((c,i)=>cellX(r,i,c[1](x),c[2]||(i===1&&x.al?4:0))).join('')+'</row>';});
+  rows.forEach((x,k)=>{const r=k+2;sd+=`<row r="${r}">`+C.map((c,i)=>cellX(r,i,c[1](x),c[2])).join('')+'</row>';});
   const last=colL(C.length-1)+(rows.length+1);
   const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${C.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c[3]}" customWidth="1"/>`).join('')}</cols><sheetData>${sd}</sheetData><autoFilter ref="A1:${last}"/></worksheet>`;
   const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFB42318"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0E5A6B"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf/><xf fontId="1" fillId="2" applyFont="1" applyFill="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="10" applyNumberFormat="1"/><xf numFmtId="164" applyNumberFormat="1"/><xf fontId="2" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
@@ -286,7 +297,7 @@ function descargaExcel(rows){
     ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
     ['xl/worksheets/sheet1.xml',sheet],['xl/styles.xml',styles]];
   const a=document.createElement('a');a.href=URL.createObjectURL(zip(files));
-  a.download='Proyeccion_vs_M1'+(S.fecha?'_'+S.fecha:S.sem?'_'+S.sem:'')+(S.dim?'_'+({infra:'infradimensionado',bien:'bien_dimensionado',sobre:'sobredimensionado'})[S.dim]:'')+(S.solo?'_alertas':'')+(S.rev==='1'?'_a_revisar':'')+'.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
+  a.download='Proyeccion_vs_M1_almuerzo_cena'+(S.fecha?'_'+S.fecha:S.sem?'_'+S.sem:'')+'.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
 function render(){
   const rows=filas.filter(x=>(!S.q||(x.c+' '+x.n).toLowerCase().includes(S.q))&&(!S.cod||x.c===S.cod)&&(!S.rest||x.n===S.rest)&&(!S.coord||x.o===S.coord)&&(!S.sem||x.w===S.sem)&&(!S.fecha||x.f===S.fecha)&&(!S.fr||String(x.s)===S.fr)&&(!S.rev||String(x.rv)===S.rev)&&(!S.solo||x.al)&&(!S.dim||(x.dif!=null&&(S.dim==='infra'?x.dif<0:S.dim==='sobre'?x.dif>0:x.dif===0))));
   ROWS=rows;
@@ -318,7 +329,7 @@ function render(){
   $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders M-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min, más de 17 pedidos por rider en el día y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). M-1 = mismo día de la semana en la misma semana del mes anterior (p. ej. 1.er martes de diciembre → 1.er martes de noviembre; si el mes anterior no tiene 5.º, se usa el último). Fines de semana: el fin de semana de cobro (el que contiene el día 28 o el siguiente) se compara con el fin de semana de cobro del mes anterior (marcado «cobro»); el resto, con el mismo n.º de fin de semana del mes anterior sin contar el de cobro, emparejando sábado con sábado y domingo con su sábado; los pedidos y riders M-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya M-1 aún no tiene datos se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders M-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
 }
 const on=(id,k,ev='onchange')=>$(id)[ev]=e=>{S[k]=ev==='oninput'?e.target.value.trim().toLowerCase():e.target.value;if(k==='sem')fillFecha();render();};
-on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');on('dim','dim');$('xls').onclick=()=>descargaExcel(ROWS);$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');on('rev','rev');
+on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');on('dim','dim');$('xls').onclick=()=>descargaExcel();$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');on('rev','rev');
 const mv=d=>{const fs=fechasSem();let i=fs.indexOf(S.fecha);i=S.fecha?i+d:(d>0?0:fs.length-1);if(i>=0&&i<fs.length){S.fecha=fs[i];$('fecha').value=S.fecha;render();}};
 $('prev').onclick=()=>mv(-1);$('next').onclick=()=>mv(1);
 $('reset').onclick=()=>{Object.assign(S,{q:'',cod:'',rest:'',coord:'',sem:'',fecha:'',fr:'',dim:'',rev:'',solo:false});$('dim').value='';$('rev').value='';$('solo').checked=false;['q','cod','rest','coord','sem','fr'].forEach(i=>$(i).value='');fillFecha();render();};
