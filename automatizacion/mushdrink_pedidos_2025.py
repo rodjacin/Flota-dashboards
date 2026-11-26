@@ -4,7 +4,7 @@ MushDrink · pedidos reales del año anterior por restaurante, día y hora (para
 
 Lee los Excel de pedidos de restaurante (export «Resumen pedidos»: Confirmado, Código, Fallo de Entrega…)
 y acumula en mushdrink/pedidos_anio_anterior.json: {"D": {fecha: {código: {hora: pedidos}}}}.
-Cuenta todos los pedidos del restaurante (todas las flotas y canales), salvo los cancelados.
+Cuenta solo los pedidos entregados del restaurante (todas las flotas y canales): sin cancelados ni «No tramitado».
 Un fichero nuevo sustituye los restaurantes y fechas que trae (los demás se conservan).
 
 Uso: python3 automatizacion/mushdrink_pedidos_2025.py fichero1.xlsx [fichero2.xlsx …]
@@ -25,7 +25,8 @@ def main():
             if "Confirmado" in x.columns and "Código" in x.columns: fr.append(x)
     x = pd.concat(fr, ignore_index=True).drop_duplicates("Id")
     x = x[x["Código"].notna() & x.Confirmado.notna()]
-    x = x[~x["Fallo de Entrega"].fillna("").astype(str).str.startswith("Cancelado")]
+    fe = x["Fallo de Entrega"].fillna("").astype(str).str.strip()
+    x = x[(fe == "") | fe.str.contains("Entregado")]      # solo entregados (vacío, «Entregado - …», «Cerrado Automático - Entregado»)
     t = pd.to_datetime(x.Confirmado)
     D = collections.defaultdict(lambda: collections.defaultdict(dict))
     for (f, c, h), n in x.groupby([t.dt.strftime("%Y-%m-%d"), x["Código"].astype(int).astype(str), t.dt.hour]).size().items():
