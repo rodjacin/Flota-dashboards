@@ -125,6 +125,20 @@ def datos(docs, proy):
     for f in P:
         for c in P[f]:
             P[f][c].sort()
+    # fechas cuyo CSV no trae Recursos_Asignados: se toman los de la fecha proyectada anterior del mismo día de la
+    # semana que sí los trae (p. ej. WK50 ← WK49, que son los fichajes IN/OUT de Kometa de la semana 9–15/11),
+    # por restaurante y franja
+    AR = {}
+    con = sorted(f for f in P if any(x[3] is not None for L in P[f].values() for x in L))
+    for f in sorted(P):
+        if f in con: continue
+        wd = dt.date.fromisoformat(f).weekday()
+        src = [g for g in con if g < f and dt.date.fromisoformat(g).weekday() == wd]
+        if not src: continue
+        g = src[-1]; AR[f] = g
+        for c, L in P[f].items():
+            S = {x[0]: x[3] for x in P[g].get(c, [])}
+            for x in L: x[3] = S.get(x[0])
     # fecha M-1 de cada fecha proyectada: el mismo día de la semana en la misma semana del mes anterior
     # (n-ésimo lunes, martes… del mes → n-ésimo del mes anterior; si no existe el 5.º, el último);
     # si no hay datos, el último mismo día de la semana con datos
@@ -172,7 +186,7 @@ def datos(docs, proy):
             R[c] = {"n": r.get("name") or c, "o": r.get("owner") or ""}
     for c in codes:
         R.setdefault(c, {"n": (EC.get("names") or {}).get(c, c), "o": (EC.get("coord") or {}).get(c, "")})
-    return {"P": P, "M": M, "DIA": DIA, "REF": REF, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
+    return {"P": P, "M": M, "DIA": DIA, "REF": REF, "AR": AR, "R": R, "hist": [hist[0], hist[-1]] if hist else None,
             "generado": dt.datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 
@@ -328,7 +342,7 @@ function render(){
     (rows.length?'':'<tr><td class="l mut" colspan="18">Sin filas con estos filtros.</td></tr>')+'</tbody>';
   const sust=FECHAS.some(f=>REF[f].f&&!REF[f].exacta);
   $('sub').textContent='Proyección del '+dl(FECHAS[0])+' al '+dl(FECHAS[FECHAS.length-1])+' · histórico hasta el '+dl(A.hist[1])+' · generado '+A.generado+'.';
-  $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders M-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min, más de 17 pedidos por rider en el día y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). M-1 = mismo día de la semana en la misma semana del mes anterior (p. ej. 1.er martes de diciembre → 1.er martes de noviembre; si el mes anterior no tiene 5.º, se usa el último). Fines de semana: el fin de semana de cobro (el que contiene el día 28 o el siguiente) se compara con el fin de semana de cobro del mes anterior (marcado «cobro»); el resto, con el mismo n.º de fin de semana del mes anterior sin contar el de cobro, emparejando sábado con sábado y domingo con su sábado; los pedidos y riders M-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya M-1 aún no tiene datos se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+' Colores: riders M-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
+  $('note').textContent='Una fila por restaurante y franja de 30 min. Alerta = riders M-1 por debajo de lo proyectado, más del 10 % de pedidos >45 min, más de 17 pedidos por rider en el día y, a la vez, aviso HD <6 min y Aceptado > En camino <12 min (el retraso no viene de HD ni de cocina, sino de falta de riders). M-1 = mismo día de la semana en la misma semana del mes anterior (p. ej. 1.er martes de diciembre → 1.er martes de noviembre; si el mes anterior no tiene 5.º, se usa el último). Fines de semana: el fin de semana de cobro (el que contiene el día 28 o el siguiente) se compara con el fin de semana de cobro del mes anterior (marcado «cobro»); el resto, con el mismo n.º de fin de semana del mes anterior sin contar el de cobro, emparejando sábado con sábado y domingo con su sábado; los pedidos y riders M-1 se asignan a la franja por la hora de solicitud del pedido.'+(sust?' Las fechas cuya M-1 aún no tiene datos se comparan con el último mismo día de la semana con datos (marcado «sustituta»); se actualizan solas al cargar cada día.':'')+(A.AR&&Object.keys(A.AR).length?' Recursos asignados: '+Object.keys(A.AR).sort().map(f=>dl(f)+' ← '+dl(A.AR[f])).join(', ')+' (el CSV de esas fechas no los trae; se usan los del mismo día de la semana de la proyección anterior, fichajes IN/OUT de Kometa de la semana 9–15/11).':'')+' Colores: riders M-1 en rojo si son menos que los teóricos · % >45 min naranja desde 10 % y rojo desde 20 % · aviso HD naranja desde 6 min · Aceptado > En camino naranja desde 10 min y rojo desde 12 min.';
 }
 const on=(id,k,ev='onchange')=>$(id)[ev]=e=>{S[k]=ev==='oninput'?e.target.value.trim().toLowerCase():e.target.value;if(k==='sem')fillFecha();render();};
 on('q','q','oninput');on('cod','cod');on('rest','rest');on('coord','coord');on('sem','sem');on('fecha','fecha');on('dim','dim');$('xls').onclick=()=>descargaExcel();$('solo').onchange=e=>{S.solo=e.target.checked;render();};on('fr','fr');on('rev','rev');
