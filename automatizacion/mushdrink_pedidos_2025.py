@@ -5,7 +5,7 @@ MushDrink · pedidos reales del año anterior por restaurante, día y hora (para
 Lee los Excel de pedidos de restaurante (export «Resumen pedidos»: Confirmado, Código, Fallo de Entrega…)
 y acumula en mushdrink/pedidos_anio_anterior.json: {"D": {fecha: {código: {hora: pedidos}}}}.
 Cuenta todos los pedidos del restaurante (todas las flotas y canales), salvo los cancelados.
-Un fichero nuevo sustituye las fechas que trae.
+Un fichero nuevo sustituye los restaurantes y fechas que trae (los demás se conservan).
 
 Uso: python3 automatizacion/mushdrink_pedidos_2025.py fichero1.xlsx [fichero2.xlsx …]
      (después: python3 automatizacion/mushdrink_proyeccion.py)
@@ -31,7 +31,8 @@ def main():
     for (f, c, h), n in x.groupby([t.dt.strftime("%Y-%m-%d"), x["Código"].astype(int).astype(str), t.dt.hour]).size().items():
         D[f][c][str(h)] = int(n)
     old = json.load(open(STORE, encoding="utf-8")) if os.path.exists(STORE) else {"D": {}}
-    old["D"].update({f: dict(v) for f, v in D.items()})
+    for f, v in D.items():                      # por fecha y restaurante: un fichero de BK no borra los PLK del mismo día
+        old["D"].setdefault(f, {}).update(dict(v))
     old["D"] = dict(sorted(old["D"].items()))
     json.dump(old, open(STORE, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     print(f"pedidos año anterior: {len(x)} pedidos · {len(D)} fechas ({min(D)}..{max(D)}) · "
