@@ -72,7 +72,7 @@ CSS = r"""
 """
 
 TOPBAR = """  <div class="topbar">
-    <div class="brand" title="Kometa Delivery"><img class="klogo" src="{LOGO}" alt="Kometa Delivery"><b>MushDrink</b><span class="sep"></span><span>Kometa Delivery</span></div>
+    <div class="brand" title="Kometa Delivery"><img class="klogo" src="{LOGO}" alt="Kometa Delivery"><b>MushDrink - Kometa</b></div>
     <nav class="secs" id="secs"></nav>
     <button id="find" title="Buscar pestaña (tecla /)">⌕ <span>Buscar pestaña</span> <kbd>/</kbd></button>
     {UPDATED}
