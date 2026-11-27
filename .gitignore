@@ -1,3 +1,7 @@
 dist/
 .fuse_hidden*
 __pycache__/
+
+# Datos del panel MushDrink: viven en el repo privado rodjacin/mushdrink-datos (en Actions se enlazan aquí)
+/mushdrink
+.datos/
