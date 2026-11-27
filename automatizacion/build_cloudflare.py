@@ -1,4 +1,4 @@
-"""Genera dist/ para Cloudflare Pages (límite 25 MiB por archivo).
+"""Genera dist/ para Cloudflare Workers (límite 25 MiB por archivo).
 
 - Copia el sitio tal cual (index.html, gra-mad-nom-alc/, sab/, mushdrink/leads.json, ...).
 - mushdrink/index.html: cada pestaña del array DOCS pasa a su propio archivo
@@ -63,9 +63,37 @@ def externalize(doc, k, outdir):
     return doc
 
 
+CHUNK = 12 * 1024 * 1024   # caracteres por trozo (< 25 MiB aun con acentos)
+
+
 def split_mushdrink():
+    """Contenedor Kometa (MDboot): el array DOCS se trocea en ficheros de texto y el navegador los une.
+    Así cada pestaña sigue recibiendo su HTML completo (Evolución y Performance diario leen los datos de
+    las demás pestañas) y ningún fichero supera el límite de Cloudflare."""
     p = os.path.join(DIST, 'mushdrink', 'index.html')
     h = open(p, encoding='utf-8').read()
+    if 'MDboot(DOCS)' not in h:
+        return split_mushdrink_antiguo(h, p)
+    i = h.index('const DOCS=') + len('const DOCS=')
+    e = i + json.JSONDecoder().raw_decode(h[i:])[1]
+    texto = h[i:e]
+    outdir = os.path.dirname(p)
+    names = []
+    for k in range(0, len(texto), CHUNK):
+        fn = f'_docs{k // CHUNK:02d}.txt'
+        open(os.path.join(outdir, fn), 'w', encoding='utf-8').write(texto[k:k + CHUNK])
+        names.append(fn)
+    fin = h.index('MDboot(DOCS);', e) + len('MDboot(DOCS);')
+    cargador = ('(async()=>{const P=' + json.dumps(names) + ';const b=document.getElementById("loading");if(b)b.classList.add("on");'
+                'try{const t=(await Promise.all(P.map(u=>fetch(u,{cache:"no-cache"}).then(r=>{if(!r.ok)throw new Error(u+" "+r.status);return r.text();})))).join("");'
+                'MDboot(JSON.parse(t));}catch(err){console.error(err);document.getElementById("stage").innerHTML='
+                '\'<div style="padding:40px;text-align:center;color:#5E7471;font:14px Inter,system-ui">No se han podido cargar los datos del panel. Recarga la página.</div>\';}})();')
+    # el resto del script de DOCS (si lo hubiera) se mantiene
+    h = h[:h.rindex('const DOCS=', 0, i)] + cargador + h[fin:]
+    open(p, 'w', encoding='utf-8').write(h)
+
+
+def split_mushdrink_antiguo(h, p):
     i = h.index('const DOCS=') + len('const DOCS=')
     e = h.index('];\nconst stage', i) + 1
     docs = json.loads(h[i:e])
