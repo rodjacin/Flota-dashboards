@@ -25,8 +25,8 @@ CSS = r"""
   .tabs{display:none}
   .topbar{display:flex;align-items:center;gap:12px;background:#fff;padding:0 14px;height:50px;flex:0 0 auto;border-bottom:1px solid var(--line)}
   .brand{display:flex;align-items:center;gap:9px;white-space:nowrap;margin-right:4px}
-  .brand .logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--aqua),#2CC5B3);display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;position:relative}
-  .brand .logo:after{content:"";position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;border-radius:50%;background:var(--orange);border:2px solid #fff}
+  .brand .klogo{width:32px;height:32px;display:block;flex:0 0 auto}
+  .brand .sep{width:1px;height:22px;background:var(--line);margin:0 2px}
   .brand b{font-size:14.5px;letter-spacing:-.1px} .brand span{color:var(--mut);font-size:12.5px;font-weight:500}
   .secs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0}
   .secs::-webkit-scrollbar{display:none}
@@ -72,7 +72,7 @@ CSS = r"""
 """
 
 TOPBAR = """  <div class="topbar">
-    <div class="brand"><div class="logo">M</div><b>MushDrink</b><span>Panel operativo</span></div>
+    <div class="brand" title="Kometa Delivery"><img class="klogo" src="{LOGO}" alt="Kometa Delivery"><b>MushDrink</b><span class="sep"></span><span>Kometa Delivery</span></div>
     <nav class="secs" id="secs"></nav>
     <button id="find" title="Buscar pestaña (tecla /)">⌕ <span>Buscar pestaña</span> <kbd>/</kbd></button>
     {UPDATED}
@@ -81,6 +81,11 @@ TOPBAR = """  <div class="topbar">
   <nav class="subbar" id="sub"></nav>
   <div class="stage" id="stage"><div id="loading"></div></div>
   <div id="pal" role="dialog" aria-modal="true"><div class="bx"><input id="palq" type="search" placeholder="Buscar pestaña o sección…" autocomplete="off"><div id="pall"></div></div></div>"""
+
+
+def logo_uri():
+    import base64
+    return 'data:image/png;base64,' + base64.b64encode(open(os.path.join(HERE, 'kometa_logo.png'), 'rb').read()).decode()
 
 
 def shell_js():
@@ -105,7 +110,7 @@ def split(h):
 def head(extra=''):
     return ('<!DOCTYPE html>\n<html lang="es"><head><meta name="robots" content="noindex,nofollow"><meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + MARCA_SHELL + '\n'
-            '<title>Panel operativo · MushDrink</title>\n<style>' + CSS + '</style>\n'
+            '<title>Panel operativo · MushDrink</title>\n<link rel="icon" type="image/png" href="' + logo_uri() + '">\n<style>' + CSS + '</style>\n'
             '<script>\n' + shell_js() + '\n</script>' + extra + '</head>\n<body>\n')
 
 
@@ -127,7 +132,7 @@ def apply(path):
     h = open(path, encoding='utf-8').read()
     tabs, upd, docs, tail = split(h)
     tabs, docs = add_evo(tabs, docs)
-    out = (head() + TOPBAR.replace('{UPDATED}', upd).replace('{TABS}', tabs) +
+    out = (head() + TOPBAR.replace('{LOGO}', logo_uri()).replace('{UPDATED}', upd).replace('{TABS}', tabs) +
            '\n<script>\nconst DOCS=' + dump_docs(docs) + ';\nMDboot(DOCS);\n</script>' + tail)
     open(path, 'w', encoding='utf-8').write(out)
     print(f'mushdrink_rediseno: {len(docs)} pestañas · tema Kometa aplicado en {path}')
@@ -174,7 +179,7 @@ PREVIEW_OVERLAY = """<div id="pload" style="position:fixed;inset:0;background:#F
 
 def preview(outdir):
     os.makedirs(outdir, exist_ok=True)
-    body = TOPBAR.replace('{UPDATED}', '<span class="updated">…</span>').replace('{TABS}', '')
+    body = TOPBAR.replace('{LOGO}', logo_uri()).replace('{UPDATED}', '<span class="updated">…</span>').replace('{TABS}', '')
     out = head().replace('<meta name="robots"', '<meta name="robots"') + PREVIEW_OVERLAY + body + PREVIEW_JS + '\n</body></html>\n'
     open(os.path.join(outdir, 'index.html'), 'w', encoding='utf-8').write(out)
     open(os.path.join(outdir, 'evolucion.html'), 'w', encoding='utf-8').write(evo_doc())
