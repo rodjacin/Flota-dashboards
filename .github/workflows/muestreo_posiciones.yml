@@ -69,7 +69,7 @@ jobs:
             if git diff --cached --quiet; then echo "Sin cambios."; return 0; fi
             git commit -q -m "Paradas en vivo $(date '+%d/%m/%Y %H:%M')"
             for i in 1 2 3; do
-              git pull --rebase -q && git push -q && echo "Publicado OK." && return 0
+              git pull --rebase -q && git push -q && echo "Publicado OK." && { gh workflow run publicar_pages.yml --ref main >/dev/null 2>&1 || true; } && return 0
               sleep 10
             done
             echo "No se pudo publicar esta muestra (se reintenta en la siguiente)"

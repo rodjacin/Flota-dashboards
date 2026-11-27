@@ -12,7 +12,7 @@ on:
 
 permissions:
   contents: write
-  pages: write
+  actions: write
 
 concurrency:
   group: flota-dashboards
@@ -79,4 +79,4 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" >/dev/null && echo "Pages en marcha"
+        run: gh workflow run publicar_pages.yml --ref main && echo "Pages en marcha"
