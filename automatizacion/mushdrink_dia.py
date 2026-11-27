@@ -534,6 +534,7 @@ def main():
     subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_sla_tramos.py'), a.html], check=True)
     subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_pedidos_hora.py'), a.html], check=True)
     subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_alerta_agregadores.py'), a.html], check=True)
+    subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_pin_operativa.py'), a.html], check=True)
     subprocess.run([sys.executable, os.path.join(HERE, 'mushdrink_proyeccion.py'), a.html], check=True)
 
 
