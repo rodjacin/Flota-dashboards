@@ -55,6 +55,7 @@ function MDboot(DOCS){
   const stage=$('stage'), frames={};
   const frame=i=>{if(frames[i])return frames[i];const f=document.createElement('iframe');
     f.setAttribute('sandbox','allow-scripts allow-popups allow-same-origin allow-downloads allow-modals');
+    f.setAttribute('allow','web-share; clipboard-write');
     stage.appendChild(f); frames[i]=f; $('loading').classList.add('on');
     f.addEventListener('load',()=>$('loading').classList.remove('on'),{once:true});
     setTimeout(()=>{f.srcdoc=tematiza(DOCS[i]);},20); return f;};
