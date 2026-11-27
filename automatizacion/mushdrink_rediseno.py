@@ -14,6 +14,17 @@ la pestaña «Operativa restaurantes», así que se actualiza sola con cada día
 import argparse, json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# Las plantillas con datos de negocio (p. ej. Evolución del negocio) viven en el repo PRIVADO
+# rodjacin/mushdrink-datos, carpeta plantillas/ (junto a mushdrink/, que aquí es un enlace a ese repo).
+PRIVADAS = os.path.join(os.path.dirname(os.path.realpath(os.path.join(HERE, '..', 'mushdrink'))), 'plantillas')
+
+
+def plantilla(nombre):
+    for d in (PRIVADAS, HERE):
+        f = os.path.join(d, nombre)
+        if os.path.exists(f):
+            return open(f, encoding='utf-8').read()
+    sys.exit(f'No encuentro {nombre}: ¿está enlazado mushdrink/ con el repo privado mushdrink-datos?')
 MARCA_EVO = '<!-- EVOLUCION_NEGOCIO -->'
 TAB_EVO = 'Evolución del negocio'
 MARCA_SHELL = '<!-- KOMETA_SHELL -->'
@@ -93,7 +104,7 @@ def shell_js():
 
 
 def evo_doc():
-    return open(os.path.join(HERE, 'plantilla_evolucion_negocio.html'), encoding='utf-8').read()
+    return plantilla('plantilla_evolucion_negocio.html')
 
 
 def split(h):
@@ -124,8 +135,8 @@ EXTRA = [(MARCA_EVO, TAB_EVO, 'plantilla_evolucion_negocio.html'),
 
 
 def add_evo(tabs, docs):
-    for marca, tab, plantilla in EXTRA:
-        html = open(os.path.join(HERE, plantilla), encoding='utf-8').read()
+    for marca, tab, fichero in EXTRA:
+        html = plantilla(fichero)
         k = next((i for i, d in enumerate(docs) if d.startswith(marca)), None)
         if k is None:
             docs.append(html); k = len(docs) - 1
