@@ -6,6 +6,9 @@
 #   2. Grafana: secreto GRAFANA_TOKEN (cuenta de servicio de solo lectura) y variable GRAFANA_URL.
 # Sin ninguno de los dos, el job termina sin hacer nada.
 # A mano: Actions → "MushDrink · día de ayer" → Run workflow (opcionalmente con una fecha AAAA-MM-DD).
+# Los datos del panel viven en el repo PRIVADO rodjacin/mushdrink-datos (carpeta mushdrink/); se descargan en
+# .datos/ con el secreto DATOS_TOKEN (token de GitHub con Contents: read and write solo en ese repo) y
+# mushdrink/ apunta ahí, así que los scripts no cambian. Este repo público solo tiene el código.
 name: "MushDrink · día de ayer"
 
 on:
@@ -50,12 +53,25 @@ jobs:
       - uses: actions/checkout@v4
         if: steps.chk.outputs.ok == '1'
 
+      - name: Datos privados (rodjacin/mushdrink-datos)
+        if: steps.chk.outputs.ok == '1'
+        uses: actions/checkout@v4
+        with:
+          repository: rodjacin/mushdrink-datos
+          token: ${{ secrets.DATOS_TOKEN }}
+          path: .datos
+          fetch-depth: 60
+
+      - name: Enlazar mushdrink/ con los datos privados
+        if: steps.chk.outputs.ok == '1'
+        run: rm -rf mushdrink && ln -s .datos/mushdrink mushdrink && ls -la mushdrink/
+
       - name: ¿Ya publicado hoy?
         id: dup
         if: steps.chk.outputs.ok == '1' && github.event_name == 'schedule'
+        working-directory: .datos
         run: |
-          git fetch -q --depth=60 origin "${GITHUB_REF_NAME}"
-          if git log -60 --format=%s "origin/${GITHUB_REF_NAME}" | grep -q "MushDrink: día operativo ${{ steps.chk.outputs.fecha }}"; then
+          if git log -60 --format=%s | grep -q "MushDrink: día operativo ${{ steps.chk.outputs.fecha }}"; then
             echo "El ${{ steps.chk.outputs.fecha }} ya está publicado."; echo "skip=1" >> "$GITHUB_OUTPUT"; fi
 
       - uses: actions/setup-python@v5
@@ -88,10 +104,11 @@ jobs:
 
       - name: Publicar
         if: steps.chk.outputs.ok == '1' && steps.dup.outputs.skip != '1'
+        working-directory: .datos
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mushdrink/index.html
+          git add -A mushdrink
           if git diff --cached --quiet; then echo "Sin cambios."; exit 0; fi
           git commit -q -m "MushDrink: día operativo ${{ steps.chk.outputs.fecha }} (${{ steps.chk.outputs.fuente }}, automático)"
           for i in 1 2 3; do

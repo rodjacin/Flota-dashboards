@@ -3,6 +3,7 @@
 # Necesita dos secretos en GitHub (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN   token con la plantilla «Edit Cloudflare Workers»
 #   CLOUDFLARE_ACCOUNT_ID  ID de la cuenta de Cloudflare
+#   DATOS_TOKEN            token de GitHub con acceso al repo privado rodjacin/mushdrink-datos (datos del panel)
 # Sin ellos, el job termina sin hacer nada.
 name: "Publicar en Cloudflare"
 
@@ -15,7 +16,7 @@ on:
     types: [completed]
   push:
     branches: [main]
-    paths: ["mushdrink/**", "gra-mad-nom-alc/**", "sab/**", "index.html", "wrangler.jsonc", "automatizacion/build_cloudflare.py"]
+    paths: ["gra-mad-nom-alc/**", "sab/**", "index.html", "wrangler.jsonc", "automatizacion/build_cloudflare.py"]
 
 permissions:
   contents: read
@@ -42,6 +43,20 @@ jobs:
         if: steps.chk.outputs.ok == '1'
         with:
           ref: main
+
+      - name: Datos privados de MushDrink (rodjacin/mushdrink-datos)
+        if: steps.chk.outputs.ok == '1'
+        uses: actions/checkout@v4
+        with:
+          repository: rodjacin/mushdrink-datos
+          token: ${{ secrets.DATOS_TOKEN }}
+          path: .datos
+
+      - name: Enlazar mushdrink/ con los datos privados
+        if: steps.chk.outputs.ok == '1'
+        run: |
+          test -s .datos/mushdrink/index.html || { echo "::error::Sin datos de MushDrink: no se publica"; exit 1; }
+          rm -rf mushdrink && ln -s .datos/mushdrink mushdrink
 
       - uses: actions/setup-python@v5
         if: steps.chk.outputs.ok == '1'
