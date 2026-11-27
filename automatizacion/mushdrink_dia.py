@@ -87,6 +87,31 @@ def normaliza(db):
     return df
 
 
+def lee_raw_data(path):
+    """Export «Reportes > Raw data» de Kometa Delivery Admin (CSV con ';', decimales con coma, tiempos en minutos)
+    → mismas columnas que normaliza(). Entregada + «Entregado no localizable» = No Localizable."""
+    df = pd.read_csv(path, sep=';', encoding='utf-8-sig', dtype=str)
+    num = lambda c: pd.to_numeric(df[c].str.replace(',', '.', regex=False), errors='coerce')
+    obs = df['OBSERVACIONES'].fillna('').str.strip().str.lower()
+    est = df['ESTADO PEDIDO'].map({'Entregada': 'Entregado', 'No entregada': 'No Entregado', 'Cancelada': 'Cancelado'}).fillna(df['ESTADO PEDIDO'])
+    est = est.where(~((est == 'Entregado') & (obs == 'entregado no localizable')), 'No Localizable')
+    out = pd.DataFrame({'Zona': df['NOMBRE AREA'], 'Tienda': df['NOMBRE TIENDA'], 'ID Servicio': df['CODIGO INTERNO'],
+                        'Cód.Pedido': df['CODIGO PEDIDO'], 'Estado': est, 'Repartidor': df['NOMBRE REPARTIDOR'],
+                        'T.Pendiente': num('T. PENDIENTE'), 'T_Acept': num('T. ACEPTADO'), 'T_enTienda': num('T. EN TIENDA'),
+                        'T_Camino': num('T. EN CAMINO'), 'T_Llegó': num('T. EN CLIENTE'), 'T_Entreg': num('T. TOTAL')})
+    out['t_cre'] = pd.to_datetime(df['FECHA CREACIÓN'].str.extract(r'(\d\d/\d\d/\d{4} \d\d:\d\d:\d\d)')[0], format='%d/%m/%Y %H:%M:%S')
+    out['t_sol'] = pd.to_datetime(df['FECHA DE SOLICITUD'] + ' ' + df['HORA DE SOLICITUD'], format='%d/%m/%Y %H:%M:%S', errors='coerce')
+    out['code'] = out.Tienda.str.split().str[0].astype(int)
+    out['rc'] = out.code.replace(ALIAS)
+    out['id'] = pd.to_numeric(out['Cód.Pedido'], errors='coerce')
+    return out
+
+
+def es_raw_data(path):
+    with open(path, encoding='utf-8-sig', errors='replace') as f:
+        return f.readline().startswith('FECHA CREACI')
+
+
 def normaliza_curso(df):
     """Export «Pedidos en Curso» de Grafana (Fec.solicitado = creación, Time Ord_Cliente = min desde
     «Solicitud del cliente a tienda» hasta la creación) → mismas columnas que normaliza()."""
@@ -230,8 +255,11 @@ def main():
     dt = pd.Timestamp(D); WK = int(dt.isocalendar().week); DOW = int(dt.dayofweek); DM = dt.strftime('%d/%m')
     GEN = pd.Timestamp.now(tz='Europe/Madrid').strftime('%Y-%m-%d')
 
-    db = pd.read_csv(a.pedidos) if a.pedidos else pedidos_api(D)
-    raw = normaliza_curso(db) if 'Fec.solicitado' in db.columns else normaliza(db)
+    if a.pedidos and es_raw_data(a.pedidos):
+        raw = lee_raw_data(a.pedidos)                      # export «Reportes > Raw data» de Kometa
+    else:
+        db = pd.read_csv(a.pedidos) if a.pedidos else pedidos_api(D)
+        raw = normaliza_curso(db) if 'Fec.solicitado' in db.columns else normaliza(db)
     t0 = dt + pd.Timedelta(hours=7)
     raw = raw[(raw.t_cre >= t0) & (raw.t_cre < t0 + pd.Timedelta(days=1))]
     raw = raw[raw.Estado.isin(['Entregado', 'No Localizable'])]   # solo entregados + entregados no localizables

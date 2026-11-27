@@ -1,15 +1,16 @@
-# Añade cada mañana el día operativo de ayer (07:00 → 06:59) a todas las pestañas del panel MushDrink,
-# leyendo los pedidos (con el «Solicitado por el cliente» de Kometa) directamente de Grafana.
-# Necesita en Settings → Secrets and variables → Actions:
-#   · secreto  GRAFANA_TOKEN : token de una cuenta de servicio de Grafana con permiso de lectura (Viewer)
-#   · variable GRAFANA_URL   : https://grafana-mushdrinks.nexus-software.es
-# Mientras no exista el secreto, el job termina sin hacer nada.
+# Cada mañana a las 08:00 (hora de Madrid) añade el día operativo de ayer (07:00 → 06:59) a todas las pestañas
+# del panel MushDrink y lo publica.
+# Fuente de pedidos, por orden de preferencia (Settings → Secrets and variables → Actions):
+#   1. Kometa Delivery Admin · «Reportes > Raw data»: secretos KOMETA_EMAIL y KOMETA_PASSWORD
+#      (usuario de la plataforma, mejor uno dedicado y sin verificación en dos pasos).
+#   2. Grafana: secreto GRAFANA_TOKEN (cuenta de servicio de solo lectura) y variable GRAFANA_URL.
+# Sin ninguno de los dos, el job termina sin hacer nada.
 # A mano: Actions → "MushDrink · día de ayer" → Run workflow (opcionalmente con una fecha AAAA-MM-DD).
 name: "MushDrink · día de ayer"
 
 on:
   schedule:
-    - cron: "23 6 * * *"      # 07:23 en invierno / 08:23 en verano (hora de Madrid)
+    - cron: "0 6,7 * * *"     # 07:00 y 08:00 UTC; solo sigue el que cae a las 08:00 de Madrid (invierno y verano)
   workflow_dispatch:
     inputs:
       fecha:
@@ -27,47 +28,72 @@ concurrency:
 jobs:
   mushdrink:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
-      - name: Comprobar acceso a Grafana
+      - name: Decidir fecha y fuente
         id: chk
         env:
-          TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+          KOMETA_EMAIL: ${{ secrets.KOMETA_EMAIL }}
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+          FECHA: ${{ github.event.inputs.fecha }}
         run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::notice::Falta el secreto GRAFANA_TOKEN: no se actualiza MushDrink."
-            echo "ok=0" >> "$GITHUB_OUTPUT"
-          else
-            echo "ok=1" >> "$GITHUB_OUTPUT"
+          H=$(TZ=Europe/Madrid date +%H)
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$H" -lt 8 ]; then
+            echo "Antes de las 08:00 en Madrid ($H h): lo hará la siguiente ejecución."; echo "ok=0" >> "$GITHUB_OUTPUT"; exit 0
           fi
+          D="${FECHA:-$(TZ=Europe/Madrid date -d 'yesterday' +%F)}"
+          echo "fecha=$D" >> "$GITHUB_OUTPUT"
+          if [ -n "$KOMETA_EMAIL" ]; then echo "fuente=kometa" >> "$GITHUB_OUTPUT"; echo "ok=1" >> "$GITHUB_OUTPUT"
+          elif [ -n "$GRAFANA_TOKEN" ]; then echo "fuente=grafana" >> "$GITHUB_OUTPUT"; echo "ok=1" >> "$GITHUB_OUTPUT"
+          else echo "::notice::Faltan KOMETA_EMAIL/KOMETA_PASSWORD o GRAFANA_TOKEN: no se actualiza MushDrink."; echo "ok=0" >> "$GITHUB_OUTPUT"; fi
 
       - uses: actions/checkout@v4
         if: steps.chk.outputs.ok == '1'
 
+      - name: ¿Ya publicado hoy?
+        id: dup
+        if: steps.chk.outputs.ok == '1' && github.event_name == 'schedule'
+        run: |
+          git fetch -q --depth=60 origin "${GITHUB_REF_NAME}"
+          if git log -60 --format=%s "origin/${GITHUB_REF_NAME}" | grep -q "MushDrink: día operativo ${{ steps.chk.outputs.fecha }}"; then
+            echo "El ${{ steps.chk.outputs.fecha }} ya está publicado."; echo "skip=1" >> "$GITHUB_OUTPUT"; fi
+
       - uses: actions/setup-python@v5
-        if: steps.chk.outputs.ok == '1'
+        if: steps.chk.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         with:
           python-version: "3.12"
 
       - name: Instalar librerías
-        if: steps.chk.outputs.ok == '1'
+        if: steps.chk.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         run: pip install pandas xlrd openpyxl
 
+      - name: Descargar Raw data de Kometa
+        if: steps.chk.outputs.ok == '1' && steps.dup.outputs.skip != '1' && steps.chk.outputs.fuente == 'kometa'
+        env:
+          KOMETA_EMAIL: ${{ secrets.KOMETA_EMAIL }}
+          KOMETA_PASSWORD: ${{ secrets.KOMETA_PASSWORD }}
+        run: python3 automatizacion/kometa_raw_data.py "${{ steps.chk.outputs.fecha }}" --salida "$RUNNER_TEMP/raw_data.csv"
+
       - name: Añadir el día al panel
-        if: steps.chk.outputs.ok == '1'
+        if: steps.chk.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         env:
           GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
           GRAFANA_URL: ${{ vars.GRAFANA_URL || 'https://grafana-mushdrinks.nexus-software.es' }}
-        run: python3 automatizacion/mushdrink_dia.py "${{ github.event.inputs.fecha || 'ayer' }}"
+        run: |
+          if [ "${{ steps.chk.outputs.fuente }}" = "kometa" ]; then
+            python3 automatizacion/mushdrink_dia.py "${{ steps.chk.outputs.fecha }}" --pedidos "$RUNNER_TEMP/raw_data.csv"
+          else
+            python3 automatizacion/mushdrink_dia.py "${{ steps.chk.outputs.fecha }}"
+          fi
 
       - name: Publicar
-        if: steps.chk.outputs.ok == '1'
+        if: steps.chk.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mushdrink/index.html
           if git diff --cached --quiet; then echo "Sin cambios."; exit 0; fi
-          git commit -q -m "MushDrink: día operativo ${{ github.event.inputs.fecha || 'de ayer' }} (Grafana, automático)"
+          git commit -q -m "MushDrink: día operativo ${{ steps.chk.outputs.fecha }} (${{ steps.chk.outputs.fuente }}, automático)"
           for i in 1 2 3; do
             git pull --rebase -q && git push -q && echo "Publicado OK." && exit 0
             sleep 15
