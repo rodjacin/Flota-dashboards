@@ -38,6 +38,11 @@
   table.x tr.tot td:first-child{border-bottom-left-radius:12px} table.x tr.tot td:last-child{border-bottom-right-radius:12px}
   table.x th .ar{font-size:9px;color:var(--orange);margin-left:4px}
   .lg{display:flex;gap:12px;align-items:center;font-size:11.5px;color:var(--mut);margin:8px 2px 0}
+  table.x tr.al td{background:#FFF6F3} table.x tr.al td:first-child{box-shadow:inset 4px 0 0 #C2402B}
+  table.x tbody tr.al:hover td{background:#FFEFEA}
+  .v.a{color:#fff!important;font-weight:800!important;box-shadow:0 1px 3px rgba(194,64,43,.35)}
+  .fl{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#C2402B;color:#fff;font-size:11px;font-weight:800;margin-right:7px;vertical-align:1px}
+  .lg .sep{width:1px;height:14px;background:var(--line)} .lg .v{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;margin-right:4px}
   .lg i{display:inline-block;width:28px;height:10px;border-radius:5px;background:linear-gradient(90deg,#D7F0E4,#FFF1CF,#FBD6CE);vertical-align:-1px;margin:0 4px}
   .note{color:var(--mut);font-size:11.5px;margin-top:8px}
   .empty{padding:40px;text-align:center;color:var(--mut)}
@@ -81,14 +86,16 @@ let st={f:fechas[0],m:'PLK',k:2,dir:-1};
 try{ const m=localStorage.getItem('md-perf-marca'); if(m) st.m=m; }catch(e){}
 
 const hms=s=>{ if(s==null||!isFinite(s)) return '—'; s=Math.round(s); return Math.floor(s/3600)+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const LIM_RATIO=17, LIM_45=0.15;   // se remarcan: más de 17 pedidos por repartidor y más del 15 % de pedidos >45 min
+const alerta=r=>COLS.some(c=>c.alert&&c.alert(r));
 const COLS=[
   {h:'Restaurantes',cls:'n',v:r=>r.name,f:r=>r.name},
   {h:'Código',cls:'c',v:r=>r.code,f:r=>r.code},
   {h:'Promedio de Tiempo en reparto',v:r=>r.rep,f:r=>hms(r.rep),scale:true},
   {h:'Pedidos',v:r=>r.o,f:r=>r.o},
   {h:'Repartidores',v:r=>r.rd,f:r=>r.rd},
-  {h:'Pedidos / Repartidores',v:r=>r.ratio,f:r=>r.ratio==null?'—':Math.round(r.ratio)},
-  {h:'Pedidos > 45 min',v:r=>r.p,f:r=>r.p==null?'—':Math.round(r.p*100)+'%',scale:true}
+  {h:'Pedidos / Repartidores',v:r=>r.ratio,f:r=>r.ratio==null?'—':Math.round(r.ratio),alert:r=>r.ratio!=null&&r.ratio>LIM_RATIO,acol:'#E0701A'},
+  {h:'Pedidos > 45 min',v:r=>r.p,f:r=>r.p==null?'—':Math.round(r.p*100)+'%',scale:true,alert:r=>r.p!=null&&r.p>LIM_45,acol:'#C2402B'}
 ];
 function datos(){
   const L=(byDate[st.f]||[]).filter(r=>st.m==='ALL'||marca(r.code)===st.m);
@@ -117,10 +124,12 @@ function pinta(){
   if(!D.rows.length){ $('tb').innerHTML='<div class="empty">Sin pedidos para esta fecha y marca.</div>'; return; }
   const SC=COLS.map(c=>c.scale?escala(D.rows.map(c.v)):null);
   let h='<table class="x"><thead><tr>'+COLS.map((c,i)=>`<th data-k="${i}">${esc(c.h)}${st.k===i?`<span class="ar">${st.dir<0?'▼':'▲'}</span>`:''}</th>`).join('')+'</tr></thead><tbody>';
-  h+=D.rows.map(r=>'<tr>'+COLS.map((c,i)=>{const k=SC[i]&&SC[i](c.v(r));return `<td class="${c.cls||''}">${k?`<span class="v" style="background:${k.bg};color:${k.tx}">${esc(c.f(r))}</span>`:esc(c.f(r))}</td>`;}).join('')+'</tr>').join('');
+  h+=D.rows.map(r=>`<tr class="${alerta(r)?'al':''}">`+COLS.map((c,i)=>{const a=c.alert&&c.alert(r);const k=!a&&SC[i]&&SC[i](c.v(r));
+    const t=esc(c.f(r)); return `<td class="${c.cls||''}">${i===0&&alerta(r)?'<span class="fl">!</span>':''}${a?`<span class="v a" style="background:${c.acol}">${t}</span>`:k?`<span class="v" style="background:${k.bg};color:${k.tx}">${t}</span>`:t}</td>`;}).join('')+'</tr>').join('');
   h+='<tr class="tot">'+COLS.map(c=>`<td class="${c.cls||''}">${esc(c.f(D.tot))}</td>`).join('')+'</tr></tbody></table>';
   $('tb').innerHTML=h;
-  $('lg').innerHTML=`<span>Color por columna (${D.rows.length} restaurantes):</span><span>mejor<i></i>peor</span>`;
+  const nA=D.rows.filter(alerta).length;
+  $('lg').innerHTML=`<span>Color por columna (${D.rows.length} restaurantes):</span><span>mejor<i></i>peor</span><span class="sep"></span><span><b class="v a" style="background:#C2402B">&gt;15 %</b> pedidos &gt;45 min</span><span><b class="v a" style="background:#E0701A">&gt;17</b> pedidos por repartidor</span><span><b>${nA}</b> restaurante${nA===1?'':'s'} remarcado${nA===1?'':'s'}</span>`;
   $('tb').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=+th.dataset.k; if(st.k===k) st.dir*=-1; else {st.k=k; st.dir=k<=1?1:-1;} pinta();});
 }
 $('fF').onchange=e=>{st.f=e.target.value;pinta();};
@@ -134,7 +143,7 @@ function imagen(){
   const cv=document.createElement('canvas'), g=cv.getContext('2d'); const all=D.rows.concat([D.tot]);
   const W=COLS.map((c,i)=>{ g.font='650 10.5px '+F; let w=g.measureText(c.h.toUpperCase()).width+4;
     all.forEach(r=>{ g.font=(r===D.tot||i===0?'700 ':'500 ')+'13px '+F; w=Math.max(w,g.measureText(String(c.f(r))).width+(c.scale?24:0)); });
-    return Math.ceil(w)+(i===0?30:26); });
+    return Math.ceil(w)+(i===0?54:26); });
   const tw=W.reduce((a,b)=>a+b,0), cw=tw+pad*2, ch=titleH+headH+rowH*all.length+footH+pad;
   cv.width=cw*S; cv.height=ch*S; g.scale(S,S);
   const rr=(x,y,w,h,r)=>{g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,r);else g.rect(x,y,w,h);};
@@ -152,18 +161,20 @@ function imagen(){
   COLS.forEach((c,i)=>{ g.fillStyle='#5E7471'; g.font='650 10.5px '+F; g.textAlign=i===0?'left':'right'; g.fillText(c.h.toUpperCase(),i===0?x+16:x+W[i]-12,ty+headH/2); x+=W[i]; });
   let y=ty+headH;
   all.forEach((r,ri)=>{ const tot=r===D.tot; x=pad;
+    const al=!tot&&alerta(r);
     if(tot){ g.fillStyle='#E3F5F2'; g.fillRect(pad,y,tw,rowH); g.fillStyle='#14A394'; g.fillRect(pad,y,tw,2); }
-    else { g.fillStyle='#EEF4F3'; g.fillRect(pad,y+rowH-1,tw,1); }
-    COLS.forEach((c,i)=>{ const v=String(c.f(r)); const k=!tot&&SC[i]&&SC[i](c.v(r));
+    else { if(al){ g.fillStyle='#FFF6F3'; g.fillRect(pad,y,tw,rowH); g.fillStyle='#C2402B'; g.fillRect(pad,y,4,rowH); } g.fillStyle='#EEF4F3'; g.fillRect(pad,y+rowH-1,tw,1); }
+    COLS.forEach((c,i)=>{ const v=String(c.f(r)); const a=!tot&&c.alert&&c.alert(r); const k=a?{bg:c.acol,tx:'#fff'}:(!tot&&SC[i]&&SC[i](c.v(r)));
+      if(i===0&&al){ g.fillStyle='#C2402B'; g.beginPath(); g.arc(x+16+8,y+rowH/2,8,0,Math.PI*2); g.fill(); g.fillStyle='#fff'; g.font='800 11px '+F; g.textAlign='center'; g.fillText('!',x+24,y+rowH/2+1); }
       g.font=(tot||i===0?'700 ':'500 ')+'13px '+F; const xr=x+W[i]-12;
-      if(k){ g.font='650 12.5px '+F; const w=Math.max(66,g.measureText(v).width+18); g.fillStyle=k.bg; rr(xr-w,y+5,w,rowH-10,10); g.fill();
+      if(k){ g.font=(a?'800 ':'650 ')+'12.5px '+F; const w=Math.max(66,g.measureText(v).width+18); g.fillStyle=k.bg; rr(xr-w,y+5,w,rowH-10,10); g.fill();
         g.fillStyle=k.tx; g.textAlign='center'; g.fillText(v,xr-w/2,y+rowH/2+1); }
-      else { g.fillStyle=i===1&&!tot?'#5E7471':'#16302C'; if(i===1&&!tot) g.font='500 12px '+F; g.textAlign=i===0?'left':'right'; g.fillText(v,i===0?x+16:xr,y+rowH/2+1); }
+      else { g.fillStyle=i===1&&!tot?'#5E7471':'#16302C'; if(i===1&&!tot) g.font='500 12px '+F; g.textAlign=i===0?'left':'right'; g.fillText(v,i===0?x+16+(al?24:0):xr,y+rowH/2+1); }
       x+=W[i]; });
     y+=rowH; });
   g.restore();
   g.textAlign='left'; g.textBaseline='alphabetic'; g.fillStyle='#8FA3A0'; g.font='500 11px '+F;
-  g.fillText('MushDrink - Kometa · Panel operativo · tiempo de reparto = de «En camino» a «Entregado»',pad,ch-14);
+  g.fillText('MushDrink - Kometa · Panel operativo · tiempo de reparto = de «En camino» a «Entregado» · remarcados: >15 % pedidos >45 min o >17 pedidos por repartidor',pad,ch-14);
   return cv;
 }
 function wrap(g,t,max){ const w=t.split(' '), L=[]; let cur=''; w.forEach(p=>{ const s=cur?cur+' '+p:p; if(g.measureText(s).width>max&&cur){L.push(cur);cur=p;} else cur=s; }); if(cur) L.push(cur); return L; }
