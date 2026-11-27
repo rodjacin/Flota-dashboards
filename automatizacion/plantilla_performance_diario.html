@@ -23,14 +23,22 @@
   .btn.pri:hover{background:var(--aqua-d);color:#fff}
   .msg{font-size:12px;color:var(--aqua-d);min-height:17px;margin:-4px 0 6px}
   .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto}
-  /* tabla con el formato del informe (Excel) */
-  table.x{border-collapse:collapse;font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;font-size:15px;color:#000;margin:0 auto;font-variant-numeric:tabular-nums}
-  table.x th{background:#DDEBF7;font-weight:700;padding:5px 10px;border:1px solid #BFD3EA;text-align:center;line-height:1.25;cursor:pointer;user-select:none}
-  table.x th.l{text-align:center}
-  table.x td{padding:2px 10px;border:1px solid #D9D9D9;text-align:center;white-space:nowrap}
-  table.x td.n{text-align:left;min-width:250px}
-  table.x tr.tot td{background:#DDEBF7;font-weight:700;border-top:1.5px solid #9BBBE0}
-  table.x th .ar{font-size:9px;color:#6b7c93;margin-left:3px}
+  /* tabla con el estilo del panel */
+  .card{padding:0}
+  table.x{border-collapse:separate;border-spacing:0;width:100%;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
+  table.x th{position:sticky;top:0;background:#F4F9F8;color:var(--mut);font-size:10.5px;font-weight:650;text-transform:uppercase;letter-spacing:.35px;padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;cursor:pointer;user-select:none}
+  table.x th:first-child,table.x td:first-child{text-align:left;padding-left:16px}
+  table.x th:hover{color:var(--aqua-d)}
+  table.x td{padding:7px 12px;border-bottom:1px solid #EEF4F3;text-align:right;white-space:nowrap}
+  table.x td.n{font-weight:600;min-width:230px}
+  table.x td.c{color:var(--mut);font-size:12px}
+  table.x tbody tr:hover td{background:#F7FBFA}
+  table.x td .v{display:inline-block;min-width:66px;text-align:center;padding:3px 9px;border-radius:999px;font-weight:650;font-size:12.5px}
+  table.x tr.tot td{background:var(--aqua-l);font-weight:750;border-top:2px solid var(--aqua);border-bottom:0}
+  table.x tr.tot td:first-child{border-bottom-left-radius:12px} table.x tr.tot td:last-child{border-bottom-right-radius:12px}
+  table.x th .ar{font-size:9px;color:var(--orange);margin-left:4px}
+  .lg{display:flex;gap:12px;align-items:center;font-size:11.5px;color:var(--mut);margin:8px 2px 0}
+  .lg i{display:inline-block;width:28px;height:10px;border-radius:5px;background:linear-gradient(90deg,#D7F0E4,#FFF1CF,#FBD6CE);vertical-align:-1px;margin:0 4px}
   .note{color:var(--mut);font-size:11.5px;margin-top:8px}
   .empty{padding:40px;text-align:center;color:var(--mut)}
 </style>
@@ -47,6 +55,7 @@
   </div>
   <div class="msg" id="msg"></div>
   <div class="card"><div id="tb"><div class="empty">Cargando datos del panel…</div></div></div>
+  <div class="lg" id="lg"></div>
   <div class="note">Día operativo de 07:00 a 06:59. Promedio de tiempo en reparto = de «En camino» a «Entregado». Repartidores = riders distintos que entregaron en el restaurante ese día (un rider puede contar en varios). Pedidos &gt; 45 min = % de pedidos con tiempo total desde la solicitud del cliente &gt; 45 min.</div>
 </div>
 <script>
@@ -74,7 +83,7 @@ try{ const m=localStorage.getItem('md-perf-marca'); if(m) st.m=m; }catch(e){}
 const hms=s=>{ if(s==null||!isFinite(s)) return '—'; s=Math.round(s); return Math.floor(s/3600)+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
 const COLS=[
   {h:'Restaurantes',cls:'n',v:r=>r.name,f:r=>r.name},
-  {h:'Código',v:r=>r.code,f:r=>r.code},
+  {h:'Código',cls:'c',v:r=>r.code,f:r=>r.code},
   {h:'Promedio de Tiempo en reparto',v:r=>r.rep,f:r=>hms(r.rep),scale:true},
   {h:'Pedidos',v:r=>r.o,f:r=>r.o},
   {h:'Repartidores',v:r=>r.rd,f:r=>r.rd},
@@ -90,14 +99,17 @@ function datos(){
   const tot={name:'Total general',code:'',o:T.o,rd:T.rd,rep:T.rn?T.rs/T.rn:null,ratio:T.rd?T.o/T.rd:null,p:T.o?T.l/T.o:null};
   return {rows,tot};
 }
-// escala de 3 colores como Excel: mínimo verde · percentil 50 amarillo · máximo rojo
-const G=[99,190,123],Y=[255,235,132],Rr=[248,105,107];
+// escala de 3 tonos suaves del panel: mínimo verde · mediana ámbar · máximo rojo
+const G=[215,240,228],Y=[255,241,207],Rr=[251,214,206];
+const TX=[[31,122,82],[138,98,0],[178,58,38]];
 const mix=(a,b,t)=>a.map((x,i)=>Math.round(x+(b[i]-x)*t));
 function escala(vals){ const v=vals.filter(x=>x!=null).sort((a,b)=>a-b); if(!v.length) return ()=>null;
   const mn=v[0],mx=v[v.length-1],q=(v.length-1)*.5,lo=Math.floor(q),md=v[lo]+(v[Math.ceil(q)]-v[lo])*(q-lo);
-  return x=>{ if(x==null) return null; let c; if(mx===mn) c=Y; else if(x<=md) c=mix(G,Y,md===mn?1:(x-mn)/(md-mn)); else c=mix(Y,Rr,mx===md?1:(x-md)/(mx-md)); return 'rgb('+c.join(',')+')'; }; }
+  return x=>{ if(x==null) return null; let c,t; if(mx===mn){c=Y;t=1;} else if(x<=md){const k=md===mn?1:(x-mn)/(md-mn);c=mix(G,Y,k);t=k<.5?0:1;} else {const k=mx===md?1:(x-md)/(mx-md);c=mix(Y,Rr,k);t=k<.5?1:2;}
+    return {bg:'rgb('+c.join(',')+')',tx:'rgb('+TX[t].join(',')+')'}; }; }
 
 let ULT=null;
+let LOGO=null; try{ const src=window.parent.document.querySelector('.klogo'); if(src){ LOGO=new Image(); LOGO.src=src.src; } }catch(e){}
 function pinta(){
   const D=datos(); ULT=D;
   document.querySelectorAll('#fM button').forEach(b=>b.classList.toggle('on',b.dataset.v===st.m));
@@ -105,9 +117,10 @@ function pinta(){
   if(!D.rows.length){ $('tb').innerHTML='<div class="empty">Sin pedidos para esta fecha y marca.</div>'; return; }
   const SC=COLS.map(c=>c.scale?escala(D.rows.map(c.v)):null);
   let h='<table class="x"><thead><tr>'+COLS.map((c,i)=>`<th data-k="${i}">${esc(c.h)}${st.k===i?`<span class="ar">${st.dir<0?'▼':'▲'}</span>`:''}</th>`).join('')+'</tr></thead><tbody>';
-  h+=D.rows.map(r=>'<tr>'+COLS.map((c,i)=>{const bg=SC[i]&&SC[i](c.v(r));return `<td class="${c.cls||''}"${bg?` style="background:${bg}"`:''}>${esc(c.f(r))}</td>`;}).join('')+'</tr>').join('');
+  h+=D.rows.map(r=>'<tr>'+COLS.map((c,i)=>{const k=SC[i]&&SC[i](c.v(r));return `<td class="${c.cls||''}">${k?`<span class="v" style="background:${k.bg};color:${k.tx}">${esc(c.f(r))}</span>`:esc(c.f(r))}</td>`;}).join('')+'</tr>').join('');
   h+='<tr class="tot">'+COLS.map(c=>`<td class="${c.cls||''}">${esc(c.f(D.tot))}</td>`).join('')+'</tr></tbody></table>';
   $('tb').innerHTML=h;
+  $('lg').innerHTML=`<span>Color por columna (${D.rows.length} restaurantes):</span><span>mejor<i></i>peor</span>`;
   $('tb').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=+th.dataset.k; if(st.k===k) st.dir*=-1; else {st.k=k; st.dir=k<=1?1:-1;} pinta();});
 }
 $('fF').onchange=e=>{st.f=e.target.value;pinta();};
@@ -116,30 +129,41 @@ $('fM').onclick=e=>{const b=e.target.closest('button'); if(!b) return; st.m=b.da
 // ---------- imagen de la tabla (mismo formato) para WhatsApp ----------
 function imagen(){
   const D=ULT; if(!D||!D.rows.length) return null;
-  const S=2, F='Calibri, Carlito, "Segoe UI", Arial, sans-serif', rowH=26, headH=46, pad=12, titleH=30;
+  const S=2, F='Inter,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif', rowH=30, headH=40, pad=22, titleH=74, footH=36;
   const SC=COLS.map(c=>c.scale?escala(D.rows.map(c.v)):null);
-  const cv=document.createElement('canvas'), g=cv.getContext('2d');
-  const all=D.rows.concat([D.tot]);
-  const W=COLS.map((c,i)=>{ g.font='700 15px '+F; let w=0;
-    const words=c.h.split(' '); const lines=wrap(g,c.h,i===0?200:120); lines.forEach(l=>w=Math.max(w,g.measureText(l).width));
-    all.forEach(r=>{ g.font=(r===D.tot?'700 ':'400 ')+'15px '+F; w=Math.max(w,g.measureText(String(c.f(r))).width); });
-    return Math.ceil(w)+(i===0?20:24); });
-  const tw=W.reduce((a,b)=>a+b,0), cw=tw+pad*2, ch=titleH+headH+rowH*all.length+pad*2;
-  cv.width=cw*S; cv.height=ch*S; g.scale(S,S); g.fillStyle='#fff'; g.fillRect(0,0,cw,ch);
-  g.fillStyle='#16302C'; g.font='700 14px '+F; g.textBaseline='middle'; g.textAlign='left';
-  g.fillText('Performance diario · '+fl(st.f)+(st.m==='ALL'?'':' · '+st.m),pad,pad+titleH/2-4);
-  let y=pad+titleH, x=pad;
-  COLS.forEach((c,i)=>{ g.fillStyle='#DDEBF7'; g.fillRect(x,y,W[i],headH); g.strokeStyle='#BFD3EA'; g.strokeRect(x+.5,y+.5,W[i],headH);
-    g.fillStyle='#000'; g.font='700 15px '+F; g.textAlign='center'; const L=wrap(g,c.h,W[i]-12);
-    L.forEach((l,k)=>g.fillText(l,x+W[i]/2,y+headH/2+(k-(L.length-1)/2)*17)); x+=W[i]; });
-  y+=headH;
-  all.forEach(r=>{ x=pad; const tot=r===D.tot;
-    COLS.forEach((c,i)=>{ const bg=tot?'#DDEBF7':(SC[i]&&SC[i](c.v(r)))||'#fff'; g.fillStyle=bg; g.fillRect(x,y,W[i],rowH);
-      g.strokeStyle='#D9D9D9'; g.strokeRect(x+.5,y+.5,W[i],rowH);
-      g.fillStyle='#000'; g.font=(tot?'700 ':'400 ')+'15px '+F; g.textAlign=i===0?'left':'center';
-      g.fillText(String(c.f(r)),i===0?x+6:x+W[i]/2,y+rowH/2+1); x+=W[i]; });
-    if(tot){ g.strokeStyle='#9BBBE0'; g.lineWidth=1.5; g.beginPath(); g.moveTo(pad,y+.5); g.lineTo(pad+tw,y+.5); g.stroke(); g.lineWidth=1; }
+  const cv=document.createElement('canvas'), g=cv.getContext('2d'); const all=D.rows.concat([D.tot]);
+  const W=COLS.map((c,i)=>{ g.font='650 10.5px '+F; let w=g.measureText(c.h.toUpperCase()).width+4;
+    all.forEach(r=>{ g.font=(r===D.tot||i===0?'700 ':'500 ')+'13px '+F; w=Math.max(w,g.measureText(String(c.f(r))).width+(c.scale?24:0)); });
+    return Math.ceil(w)+(i===0?30:26); });
+  const tw=W.reduce((a,b)=>a+b,0), cw=tw+pad*2, ch=titleH+headH+rowH*all.length+footH+pad;
+  cv.width=cw*S; cv.height=ch*S; g.scale(S,S);
+  const rr=(x,y,w,h,r)=>{g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,r);else g.rect(x,y,w,h);};
+  g.fillStyle='#F4F9F8'; g.fillRect(0,0,cw,ch);
+  g.fillStyle='#14A394'; g.fillRect(0,0,cw,5); g.fillStyle='#F28C28'; g.fillRect(cw-110,0,110,5);
+  let lx=pad; const logo=LOGO; if(logo&&logo.complete){ g.drawImage(logo,pad,20,34,34); lx=pad+44; }
+  g.textBaseline='alphabetic'; g.textAlign='left'; g.fillStyle='#16302C'; g.font='750 18px '+F; g.fillText('Performance diario'+(st.m==='ALL'?'':' · '+st.m),lx,36);
+  g.fillStyle='#5E7471'; g.font='500 12.5px '+F; g.fillText(fl(st.f)+'  ·  '+D.rows.length+' restaurantes  ·  día operativo 07:00–06:59',lx,54);
+  // tarjeta
+  const ty=titleH, th=headH+rowH*all.length;
+  g.save(); g.shadowColor='rgba(16,52,48,.08)'; g.shadowBlur=10; g.shadowOffsetY=2; g.fillStyle='#fff'; rr(pad,ty,tw,th,12); g.fill(); g.restore();
+  g.save(); rr(pad,ty,tw,th,12); g.clip();
+  g.fillStyle='#F4F9F8'; g.fillRect(pad,ty,tw,headH);
+  let x=pad; g.textBaseline='middle';
+  COLS.forEach((c,i)=>{ g.fillStyle='#5E7471'; g.font='650 10.5px '+F; g.textAlign=i===0?'left':'right'; g.fillText(c.h.toUpperCase(),i===0?x+16:x+W[i]-12,ty+headH/2); x+=W[i]; });
+  let y=ty+headH;
+  all.forEach((r,ri)=>{ const tot=r===D.tot; x=pad;
+    if(tot){ g.fillStyle='#E3F5F2'; g.fillRect(pad,y,tw,rowH); g.fillStyle='#14A394'; g.fillRect(pad,y,tw,2); }
+    else { g.fillStyle='#EEF4F3'; g.fillRect(pad,y+rowH-1,tw,1); }
+    COLS.forEach((c,i)=>{ const v=String(c.f(r)); const k=!tot&&SC[i]&&SC[i](c.v(r));
+      g.font=(tot||i===0?'700 ':'500 ')+'13px '+F; const xr=x+W[i]-12;
+      if(k){ g.font='650 12.5px '+F; const w=Math.max(66,g.measureText(v).width+18); g.fillStyle=k.bg; rr(xr-w,y+5,w,rowH-10,10); g.fill();
+        g.fillStyle=k.tx; g.textAlign='center'; g.fillText(v,xr-w/2,y+rowH/2+1); }
+      else { g.fillStyle=i===1&&!tot?'#5E7471':'#16302C'; if(i===1&&!tot) g.font='500 12px '+F; g.textAlign=i===0?'left':'right'; g.fillText(v,i===0?x+16:xr,y+rowH/2+1); }
+      x+=W[i]; });
     y+=rowH; });
+  g.restore();
+  g.textAlign='left'; g.textBaseline='alphabetic'; g.fillStyle='#8FA3A0'; g.font='500 11px '+F;
+  g.fillText('MushDrink - Kometa · Panel operativo · tiempo de reparto = de «En camino» a «Entregado»',pad,ch-14);
   return cv;
 }
 function wrap(g,t,max){ const w=t.split(' '), L=[]; let cur=''; w.forEach(p=>{ const s=cur?cur+' '+p:p; if(g.measureText(s).width>max&&cur){L.push(cur);cur=p;} else cur=s; }); if(cur) L.push(cur); return L; }
