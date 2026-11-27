@@ -1,0 +1,159 @@
+<!-- PERFORMANCE_DIARIO --><!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance diario</title>
+<style>
+  :root{--aqua:#14A394;--aqua-d:#0B6F66;--aqua-l:#E3F5F2;--orange:#F28C28;--bg:#F4F9F8;--line:#DCE9E6;--ink:#16302C;--mut:#5E7471}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 Inter,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1100px;margin:0 auto;padding:12px 16px 30px}
+  .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .bar h1{margin:0;font-size:17px;margin-right:6px}
+  .bar label{font-size:11px;font-weight:650;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}
+  select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:#fff;color:var(--mut);font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;cursor:pointer}
+  .seg button.on{background:var(--aqua);color:#fff}
+  .grow{flex:1}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:9px;cursor:pointer}
+  .btn:hover{border-color:var(--aqua);color:var(--aqua-d)}
+  .btn.pri{background:var(--aqua);border-color:var(--aqua);color:#fff}
+  .btn.pri:hover{background:var(--aqua-d);color:#fff}
+  .msg{font-size:12px;color:var(--aqua-d);min-height:17px;margin:-4px 0 6px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto}
+  /* tabla con el formato del informe (Excel) */
+  table.x{border-collapse:collapse;font-family:Calibri,Carlito,"Segoe UI",Arial,sans-serif;font-size:15px;color:#000;margin:0 auto;font-variant-numeric:tabular-nums}
+  table.x th{background:#DDEBF7;font-weight:700;padding:5px 10px;border:1px solid #BFD3EA;text-align:center;line-height:1.25;cursor:pointer;user-select:none}
+  table.x th.l{text-align:center}
+  table.x td{padding:2px 10px;border:1px solid #D9D9D9;text-align:center;white-space:nowrap}
+  table.x td.n{text-align:left;min-width:250px}
+  table.x tr.tot td{background:#DDEBF7;font-weight:700;border-top:1.5px solid #9BBBE0}
+  table.x th .ar{font-size:9px;color:#6b7c93;margin-left:3px}
+  .note{color:var(--mut);font-size:11.5px;margin-top:8px}
+  .empty{padding:40px;text-align:center;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <h1>Performance diario</h1>
+    <label for="fF">Fecha</label><select id="fF"></select>
+    <label>Marca</label><div class="seg" id="fM"><button data-v="PLK">PLK</button><button data-v="BK">BK</button><button data-v="ALL">Todas</button></div>
+    <span class="grow"></span>
+    <button class="btn" id="bDl" title="Descargar la tabla como imagen PNG">⤓ Descargar</button>
+    <button class="btn pri" id="bCp" title="Copia la tabla como imagen para pegarla en WhatsApp">⧉ Copiar</button>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div class="card"><div id="tb"><div class="empty">Cargando datos del panel…</div></div></div>
+  <div class="note">Día operativo de 07:00 a 06:59. Promedio de tiempo en reparto = de «En camino» a «Entregado». Repartidores = riders distintos que entregaron en el restaurante ese día (un rider puede contar en varios). Pedidos &gt; 45 min = % de pedidos con tiempo total desde la solicitud del cliente &gt; 45 min.</div>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function grabAt(doc,i){ let d=0,ins=false,j=i; for(;j<doc.length;j++){const c=doc.charCodeAt(j);
+  if(ins){ if(c===92){j++;continue;} if(c===34) ins=false; } else if(c===34) ins=true; else if(c===123||c===91) d++; else if(c===125||c===93){ d--; if(d===0) break; } }
+  return JSON.parse(doc.slice(i,j+1)); }
+function grab(doc,name){ const m=new RegExp('(?:const|let|var)\\s+'+name+'\\s*=\\s*').exec(doc); return m?grabAt(doc,m.index+m[0].length):null; }
+let docs=null; try{ docs=window.parent&&window.parent.MD_DOCS; }catch(e){}
+if(!docs){ $('tb').innerHTML='<div class="empty">No se han podido leer los datos del panel.</div>'; return; }
+const DS=grab(docs[docs.findIndex(d=>/(?:const|let|var)\s+DS\s*=\s*\{"meta"/.test(d))],'DS');
+let BR={}; { const k=docs.findIndex(d=>/(?:const|let|var)\s+RS\s*=/.test(d)); if(k>=0){ const m=/"brand"\s*:\s*\{/.exec(docs[k]); if(m) BR=grabAt(docs[k],m.index+m[0].length-1); } }
+const R={}; DS.restaurants.forEach(r=>R[r.code]=r);
+const marca=c=>BR[c]||BR[String(c)]||(/^\s*plk/i.test((R[c]||{}).name||'')?'PLK':/^\s*bk\b/i.test((R[c]||{}).name||'')?'BK':'');
+const byDate={}; DS.rows.forEach(r=>{ if(r.orders>0)(byDate[r.date]||(byDate[r.date]=[])).push(r); });
+const fechas=Object.keys(byDate).sort().reverse();
+const DW=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const fl=d=>{const x=new Date(d+'T12:00:00Z');return DW[x.getUTCDay()]+' '+d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4);};
+$('fF').innerHTML=fechas.map(d=>`<option value="${d}">${fl(d)}</option>`).join('');
+let st={f:fechas[0],m:'PLK',k:2,dir:-1};
+try{ const m=localStorage.getItem('md-perf-marca'); if(m) st.m=m; }catch(e){}
+
+const hms=s=>{ if(s==null||!isFinite(s)) return '—'; s=Math.round(s); return Math.floor(s/3600)+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const COLS=[
+  {h:'Restaurantes',cls:'n',v:r=>r.name,f:r=>r.name},
+  {h:'Código',v:r=>r.code,f:r=>r.code},
+  {h:'Promedio de Tiempo en reparto',v:r=>r.rep,f:r=>hms(r.rep),scale:true},
+  {h:'Pedidos',v:r=>r.o,f:r=>r.o},
+  {h:'Repartidores',v:r=>r.rd,f:r=>r.rd},
+  {h:'Pedidos / Repartidores',v:r=>r.ratio,f:r=>r.ratio==null?'—':Math.round(r.ratio)},
+  {h:'Pedidos > 45 min',v:r=>r.p,f:r=>r.p==null?'—':Math.round(r.p*100)+'%',scale:true}
+];
+function datos(){
+  const L=(byDate[st.f]||[]).filter(r=>st.m==='ALL'||marca(r.code)===st.m);
+  const rows=L.map(r=>{const rd=(r.riders||[]).length;return {code:r.code,name:(R[r.code]||{}).name||String(r.code),o:r.orders,l:r.late45,rs:r.repSum||0,rn:r.repN||0,
+    rep:r.repN?r.repSum/r.repN:null,rd,ratio:rd?r.orders/rd:null,p:r.orders?r.late45/r.orders:null};});
+  const c=COLS[st.k]; rows.sort((a,b)=>{const x=c.v(a),y=c.v(b); if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1; return (typeof x==='string'?x.localeCompare(y,'es'):x-y)*st.dir;});
+  const T={o:0,l:0,rs:0,rn:0,rd:0}; rows.forEach(r=>{T.o+=r.o;T.l+=r.l;T.rs+=r.rs;T.rn+=r.rn;T.rd+=r.rd;});
+  const tot={name:'Total general',code:'',o:T.o,rd:T.rd,rep:T.rn?T.rs/T.rn:null,ratio:T.rd?T.o/T.rd:null,p:T.o?T.l/T.o:null};
+  return {rows,tot};
+}
+// escala de 3 colores como Excel: mínimo verde · percentil 50 amarillo · máximo rojo
+const G=[99,190,123],Y=[255,235,132],Rr=[248,105,107];
+const mix=(a,b,t)=>a.map((x,i)=>Math.round(x+(b[i]-x)*t));
+function escala(vals){ const v=vals.filter(x=>x!=null).sort((a,b)=>a-b); if(!v.length) return ()=>null;
+  const mn=v[0],mx=v[v.length-1],q=(v.length-1)*.5,lo=Math.floor(q),md=v[lo]+(v[Math.ceil(q)]-v[lo])*(q-lo);
+  return x=>{ if(x==null) return null; let c; if(mx===mn) c=Y; else if(x<=md) c=mix(G,Y,md===mn?1:(x-mn)/(md-mn)); else c=mix(Y,Rr,mx===md?1:(x-md)/(mx-md)); return 'rgb('+c.join(',')+')'; }; }
+
+let ULT=null;
+function pinta(){
+  const D=datos(); ULT=D;
+  document.querySelectorAll('#fM button').forEach(b=>b.classList.toggle('on',b.dataset.v===st.m));
+  $('fF').value=st.f;
+  if(!D.rows.length){ $('tb').innerHTML='<div class="empty">Sin pedidos para esta fecha y marca.</div>'; return; }
+  const SC=COLS.map(c=>c.scale?escala(D.rows.map(c.v)):null);
+  let h='<table class="x"><thead><tr>'+COLS.map((c,i)=>`<th data-k="${i}">${esc(c.h)}${st.k===i?`<span class="ar">${st.dir<0?'▼':'▲'}</span>`:''}</th>`).join('')+'</tr></thead><tbody>';
+  h+=D.rows.map(r=>'<tr>'+COLS.map((c,i)=>{const bg=SC[i]&&SC[i](c.v(r));return `<td class="${c.cls||''}"${bg?` style="background:${bg}"`:''}>${esc(c.f(r))}</td>`;}).join('')+'</tr>').join('');
+  h+='<tr class="tot">'+COLS.map(c=>`<td class="${c.cls||''}">${esc(c.f(D.tot))}</td>`).join('')+'</tr></tbody></table>';
+  $('tb').innerHTML=h;
+  $('tb').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=+th.dataset.k; if(st.k===k) st.dir*=-1; else {st.k=k; st.dir=k<=1?1:-1;} pinta();});
+}
+$('fF').onchange=e=>{st.f=e.target.value;pinta();};
+$('fM').onclick=e=>{const b=e.target.closest('button'); if(!b) return; st.m=b.dataset.v; try{localStorage.setItem('md-perf-marca',st.m);}catch(_){} pinta();};
+
+// ---------- imagen de la tabla (mismo formato) para WhatsApp ----------
+function imagen(){
+  const D=ULT; if(!D||!D.rows.length) return null;
+  const S=2, F='Calibri, Carlito, "Segoe UI", Arial, sans-serif', rowH=26, headH=46, pad=12, titleH=30;
+  const SC=COLS.map(c=>c.scale?escala(D.rows.map(c.v)):null);
+  const cv=document.createElement('canvas'), g=cv.getContext('2d');
+  const all=D.rows.concat([D.tot]);
+  const W=COLS.map((c,i)=>{ g.font='700 15px '+F; let w=0;
+    const words=c.h.split(' '); const lines=wrap(g,c.h,i===0?200:120); lines.forEach(l=>w=Math.max(w,g.measureText(l).width));
+    all.forEach(r=>{ g.font=(r===D.tot?'700 ':'400 ')+'15px '+F; w=Math.max(w,g.measureText(String(c.f(r))).width); });
+    return Math.ceil(w)+(i===0?20:24); });
+  const tw=W.reduce((a,b)=>a+b,0), cw=tw+pad*2, ch=titleH+headH+rowH*all.length+pad*2;
+  cv.width=cw*S; cv.height=ch*S; g.scale(S,S); g.fillStyle='#fff'; g.fillRect(0,0,cw,ch);
+  g.fillStyle='#16302C'; g.font='700 14px '+F; g.textBaseline='middle'; g.textAlign='left';
+  g.fillText('Performance diario · '+fl(st.f)+(st.m==='ALL'?'':' · '+st.m),pad,pad+titleH/2-4);
+  let y=pad+titleH, x=pad;
+  COLS.forEach((c,i)=>{ g.fillStyle='#DDEBF7'; g.fillRect(x,y,W[i],headH); g.strokeStyle='#BFD3EA'; g.strokeRect(x+.5,y+.5,W[i],headH);
+    g.fillStyle='#000'; g.font='700 15px '+F; g.textAlign='center'; const L=wrap(g,c.h,W[i]-12);
+    L.forEach((l,k)=>g.fillText(l,x+W[i]/2,y+headH/2+(k-(L.length-1)/2)*17)); x+=W[i]; });
+  y+=headH;
+  all.forEach(r=>{ x=pad; const tot=r===D.tot;
+    COLS.forEach((c,i)=>{ const bg=tot?'#DDEBF7':(SC[i]&&SC[i](c.v(r)))||'#fff'; g.fillStyle=bg; g.fillRect(x,y,W[i],rowH);
+      g.strokeStyle='#D9D9D9'; g.strokeRect(x+.5,y+.5,W[i],rowH);
+      g.fillStyle='#000'; g.font=(tot?'700 ':'400 ')+'15px '+F; g.textAlign=i===0?'left':'center';
+      g.fillText(String(c.f(r)),i===0?x+6:x+W[i]/2,y+rowH/2+1); x+=W[i]; });
+    if(tot){ g.strokeStyle='#9BBBE0'; g.lineWidth=1.5; g.beginPath(); g.moveTo(pad,y+.5); g.lineTo(pad+tw,y+.5); g.stroke(); g.lineWidth=1; }
+    y+=rowH; });
+  return cv;
+}
+function wrap(g,t,max){ const w=t.split(' '), L=[]; let cur=''; w.forEach(p=>{ const s=cur?cur+' '+p:p; if(g.measureText(s).width>max&&cur){L.push(cur);cur=p;} else cur=s; }); if(cur) L.push(cur); return L; }
+const aviso=t=>{ $('msg').textContent=t; clearTimeout(aviso.t); aviso.t=setTimeout(()=>$('msg').textContent='',6000); };
+const nombre=()=>'Performance diario '+st.f+(st.m==='ALL'?'':' '+st.m)+'.png';
+function descarga(blob){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nombre(); document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800); }
+$('bCp').onclick=async()=>{ const cv=imagen(); if(!cv) return; const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+  try{ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); aviso('✓ Tabla copiada como imagen: pégala en el chat de WhatsApp (Ctrl+V / Cmd+V).'); }
+  catch(e){ const f=new File([blob],nombre(),{type:'image/png'});
+    try{ if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:'Performance diario'}); return; } }catch(_){ }
+    descarga(blob); aviso('Este navegador no permite copiar imágenes: se ha descargado el PNG para adjuntarlo en WhatsApp.'); } };
+$('bDl').onclick=async()=>{ const cv=imagen(); if(!cv) return; descarga(await new Promise(r=>cv.toBlob(r,'image/png'))); };
+pinta();
+})();
+</script>
+</body>
+</html>

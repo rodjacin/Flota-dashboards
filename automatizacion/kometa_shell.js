@@ -4,7 +4,7 @@
 function MDboot(DOCS){
   window.MD_DOCS=DOCS;
   const SECCIONES=[
-    {k:'general',n:'Visión general',t:['Evolución del negocio','Resumen','Live Operations','Grafana']},
+    {k:'general',n:'Visión general',t:['Evolución del negocio','Performance diario','Resumen','Live Operations','Grafana']},
     {k:'riders',n:'Repartidores',t:['Repartidores · SLA','Pedidos por rider · 15 min','Pedidos por repartidor','Entregados Ilocalizables','Agrupación de pedidos','Mapa']},
     {k:'rest',n:'Restaurantes',t:['Operativa restaurantes','Pedidos por restaurante','Nº pedidos/hora','Horas valle','MCD']},
     {k:'plan',n:'Planificación',t:['Proyección vs mes anterior','Simulador','Punto de Equilibrio','Festivos']},
@@ -44,7 +44,7 @@ function MDboot(DOCS){
   const esOscura=doc=>{const m=/--bg\s*:\s*#([0-9a-f]{6})/i.exec(doc);if(!m)return false;const n=parseInt(m[1],16);
     return (0.2126*(n>>16&255)+0.7152*(n>>8&255)+0.0722*(n&255))/255<0.35;};
   const tematiza=doc=>{
-    if(doc.startsWith('<!-- EVOLUCION_NEGOCIO -->')) return doc;
+    if(doc.startsWith('<!-- EVOLUCION_NEGOCIO -->')||doc.startsWith('<!-- PERFORMANCE_DIARIO -->')) return doc;
     let out=esOscura(doc)?doc.replace(RE_D,(_,h)=>'#'+DARK[h.toLowerCase()]).replace(/color-scheme\s*:\s*dark/g,'color-scheme:light')
       .replace(RE_RGB,(s,a,b,c)=>{const r=RGB[a+','+b+','+c];return r?'rgba('+r+',':s;})
       :doc.replace(RE_L,(_,h)=>'#'+LIGHT[h.toLowerCase()]);

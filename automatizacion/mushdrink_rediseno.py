@@ -118,13 +118,20 @@ def dump_docs(docs):
     return "[" + ",\n".join(json.dumps(x, ensure_ascii=False).replace("</", "<\\/") for x in docs) + "]"
 
 
+# Pestañas propias del rediseño: (marca al inicio del documento, nombre de la pestaña, plantilla)
+EXTRA = [(MARCA_EVO, TAB_EVO, 'plantilla_evolucion_negocio.html'),
+         ('<!-- PERFORMANCE_DIARIO -->', 'Performance diario', 'plantilla_performance_diario.html')]
+
+
 def add_evo(tabs, docs):
-    k = next((i for i, d in enumerate(docs) if d.startswith(MARCA_EVO)), None)
-    if k is None:
-        docs.append(evo_doc()); k = len(docs) - 1
-        tabs += f'<button class="tab" data-i="{k}">{TAB_EVO}</button>'
-    else:
-        docs[k] = evo_doc()
+    for marca, tab, plantilla in EXTRA:
+        html = open(os.path.join(HERE, plantilla), encoding='utf-8').read()
+        k = next((i for i, d in enumerate(docs) if d.startswith(marca)), None)
+        if k is None:
+            docs.append(html); k = len(docs) - 1
+            tabs += f'<button class="tab" data-i="{k}">{tab}</button>'
+        else:
+            docs[k] = html
     return tabs, docs
 
 
