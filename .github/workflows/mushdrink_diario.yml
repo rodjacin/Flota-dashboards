@@ -13,7 +13,7 @@ name: "MushDrink · día de ayer"
 
 on:
   schedule:
-    - cron: "0 6,7 * * *"     # 07:00 y 08:00 UTC; solo sigue el que cae a las 08:00 de Madrid (invierno y verano)
+    - cron: "23 7-11 * * *"
   workflow_dispatch:
     inputs:
       fecha:
@@ -68,7 +68,7 @@ jobs:
 
       - name: ¿Ya publicado hoy?
         id: dup
-        if: steps.chk.outputs.ok == '1' && github.event_name == 'schedule'
+        if: steps.chk.outputs.ok == '1' && github.event.inputs.fecha == ''
         working-directory: .datos
         run: |
           if git log -60 --format=%s | grep -q "MushDrink: día operativo ${{ steps.chk.outputs.fecha }}"; then
